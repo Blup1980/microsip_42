@@ -139,6 +139,7 @@ public:
 
 	void UsersDirectoryLoad();
 	void OnTimerContactBlink();
+	void OnTimerJoystickCheck();
 	afx_msg LRESULT onUsersDirectoryLoaded(WPARAM wParam,LPARAM lParam);
 	void SetupJumpList();
 	void RemoveJumpList();
@@ -164,6 +165,8 @@ protected:
 	CStatusBar m_bar;
 
 	CMMNotificationClient *mmNotificationClient;
+
+	bool joyStickCaptured;
 
 	unsigned char m_tabPrev;
 
