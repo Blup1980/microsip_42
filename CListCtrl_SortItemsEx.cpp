@@ -26,9 +26,9 @@ namespace {
 	int CALLBACK SortFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 	{
 		PARAMSORT& ps = *(PARAMSORT*)lParamSort;
-		if (ps.m_ColumnIndex == 1) {
-			CListCtrl *list= (CListCtrl*)((CmainDlg*)AfxGetMainWnd())->pageCalls->GetDlgItem(IDC_CALLS);
-			if (ps.m_hWnd==list->m_hWnd) {
+		if (ps.m_ColumnIndex == 1 && mainDlg && mainDlg->pageCalls) {
+			CListCtrl *list = (CListCtrl*)mainDlg->pageCalls->GetDlgItem(IDC_CALLS);
+			if (list && ps.m_hWnd==list->m_hWnd) {
 				LVITEM item;
 				item.iItem = lParam1;
 				item.iSubItem = 0;

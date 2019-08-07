@@ -38,7 +38,7 @@ Dialer::~Dialer(void)
 void Dialer::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_PHONE_VOICEMAIL, m_ButtonVoicemail);
+	DDX_Control(pDX, IDC_DIALER_VOICEMAIL, m_ButtonVoicemail);
 	DDX_Control(pDX, IDC_VOLUME_INPUT, m_SliderCtrlInput);
 	DDX_Control(pDX, IDC_VOLUME_OUTPUT, m_SliderCtrlOutput);
 	DDX_Control(pDX, IDC_KEY_1, m_ButtonDialer1);
@@ -193,7 +193,7 @@ BOOL Dialer::OnInitDialog()
 	AutoMove(IDC_VOLUME_INPUT, 0, 100, 100, 0);
 	AutoMove(IDC_VOLUME_OUTPUT, 0, 100, 100, 0);
 
-	AutoMove(IDC_PHONE_VOICEMAIL, 100, 100, 0, 0);
+	AutoMove(IDC_DIALER_VOICEMAIL, 100, 100, 0, 0);
 
 
 	DialedLoad();
@@ -215,6 +215,7 @@ BOOL Dialer::OnInitDialog()
 	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
 	combobox->SetWindowPos(NULL, 0, 0, combobox->GetDroppedWidth(), 400, SWP_NOZORDER | SWP_NOMOVE);
 	combobox->SetFont(&m_font_number);
+
 
 	GetDlgItem(IDC_KEY_1)->SetFont(&m_font);
 	GetDlgItem(IDC_KEY_2)->SetFont(&m_font);
@@ -240,6 +241,7 @@ BOOL Dialer::OnInitDialog()
 		m_ToolTip.AddTool(&m_ButtonDialerRedial, Translate(_T("Redial")));
 		m_ToolTip.AddTool(&m_ButtonDialerDelete, Translate(_T("Backspace")));
 		m_ToolTip.AddTool(&m_ButtonDialerClear, Translate(_T("Clear")));
+		m_ToolTip.AddTool(&m_ButtonVoicemail, Translate(_T("Voicemail Number")));
 		m_ToolTip.Activate(TRUE);
 	}
 
@@ -298,9 +300,9 @@ BEGIN_MESSAGE_MAP(Dialer, CBaseDialog)
 	ON_BN_CLICKED(IDOK, OnBnClickedOk)
 	ON_BN_CLICKED(IDCANCEL, OnBnClickedCancel)
 	ON_WM_SETCURSOR()
-	ON_BN_CLICKED(IDC_PHONE_DND, &Dialer::OnBnClickedDND)
-	ON_BN_CLICKED(IDC_PHONE_AA, &Dialer::OnBnClickedAA)
-	ON_BN_CLICKED(IDC_PHONE_VOICEMAIL, OnBnClickedVoicemail)
+	ON_BN_CLICKED(IDC_DIALER_DND, &Dialer::OnBnClickedDND)
+	ON_BN_CLICKED(IDC_DIALER_AA, &Dialer::OnBnClickedAA)
+	ON_BN_CLICKED(IDC_DIALER_VOICEMAIL, OnBnClickedVoicemail)
 	ON_BN_CLICKED(IDC_BUTTON_PLUS_INPUT, &Dialer::OnBnClickedPlusInput)
 	ON_BN_CLICKED(IDC_BUTTON_MINUS_INPUT, &Dialer::OnBnClickedMinusInput)
 	ON_BN_CLICKED(IDC_BUTTON_PLUS_OUTPUT, &Dialer::OnBnClickedPlusOutput)
@@ -361,9 +363,11 @@ void Dialer::RebuildButtons(bool init)
 {
 	m_ButtonVoicemail.ShowWindow(SW_SHOW);
 	if (IsChild(&m_ButtonDND)) {
+		m_ToolTip.DelTool(&m_ButtonDND);
 		m_ButtonDND.DestroyWindow();
 	}
 	if (IsChild(&m_ButtonAA)) {
+		m_ToolTip.DelTool(&m_ButtonAA);
 		m_ButtonAA.DestroyWindow();
 	}
 	bool addAA = accountSettings.autoAnswer == _T("button");
@@ -392,18 +396,20 @@ void Dialer::RebuildButtons(bool init)
 		rect.right -= stepPx;
 
 		if (addAA) {
-			m_ButtonAA.Create(Translate(_T("AA")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_AA);
+			m_ButtonAA.Create(Translate(_T("AA")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_DIALER_AA);
 			m_ButtonAA.SetFont(GetFont());
 			m_ButtonAA.SetCheck(accountSettings.AA ? BST_CHECKED : BST_UNCHECKED);
 			AutoMove(m_ButtonAA.m_hWnd, 100, 100, 0, 0);
+			m_ToolTip.AddTool(&m_ButtonAA, Translate(_T("Auto Answer")));
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
 		if (addDND) {
-			m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_DND);
+			m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_DIALER_DND);
 			m_ButtonDND.SetFont(GetFont());
 			m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
 			AutoMove(m_ButtonDND.m_hWnd, 100, 100, 0, 0);
+			m_ToolTip.AddTool(&m_ButtonDND, Translate(_T("Do Not Disturb")));
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
@@ -1141,7 +1147,7 @@ BOOL Dialer::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
 
 void Dialer::OnBnClickedDND()
 {
-	CButton *button = (CButton*)GetDlgItem(IDC_PHONE_DND);
+	CButton *button = (CButton*)GetDlgItem(IDC_DIALER_DND);
 	accountSettings.DND = button->GetCheck() == BST_CHECKED;
 	mainDlg->PublishStatus();
 	accountSettings.SettingsSave();
@@ -1149,7 +1155,7 @@ void Dialer::OnBnClickedDND()
 
 void Dialer::OnBnClickedAA()
 {
-	CButton *button = (CButton*)GetDlgItem(IDC_PHONE_AA);
+	CButton *button = (CButton*)GetDlgItem(IDC_DIALER_AA);
 	accountSettings.AA = button->GetCheck() == BST_CHECKED;
 	accountSettings.SettingsSave();
 	mainDlg->UpdateWindowText();

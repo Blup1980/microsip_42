@@ -44,6 +44,7 @@ public:
 	afx_msg void OnBnClickedOk();
 	afx_msg LRESULT OnUpdateSettings(WPARAM wParam,LPARAM lParam);
 	afx_msg void OnDeltaposSpinModify(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg int OnVKeyToItem(UINT, CListBox*, UINT);
 	afx_msg void OnDeltaposSpinOrder(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkSingleMode(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkRingingSound(NMHDR *pNMHDR, LRESULT *pResult);
@@ -55,6 +56,7 @@ public:
 	afx_msg void OnNMClickSyslinkAudioCodecs(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkVideo(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkPorts(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMClickSyslinkDnsSrv(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkStunServer(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkDTMFMethod(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkAutoAnswer(NMHDR *pNMHDR, LRESULT *pResult);

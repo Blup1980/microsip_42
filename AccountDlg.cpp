@@ -362,6 +362,10 @@ void AccountDlg::OnBnClickedOk()
 	accountSettings.accountId = accountId;
 	accountSettings.account = m_Account;
 	accountSettings.AccountLoad(accountSettings.accountId,&accountSettings.account);
+	if (!accountSettings.account.rememberPassword) {
+		accountSettings.account.username = m_Account.username;
+		accountSettings.account.password = m_Account.password;
+	}
 	accountSettings.SettingsSave();
 	mainDlg->pageDialer->RebuildButtons();
 	mainDlg->PJAccountAdd();

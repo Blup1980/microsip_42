@@ -194,6 +194,8 @@ BOOL SettingsDlg::OnInitDialog()
 	str.Format(_T("%d"), accountSettings.rtpPortMax);
 	GetDlgItem(IDC_SETTINGS_RTP_PORT_MAX)->SetWindowText(str);
 
+	((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV))->SetCheck(accountSettings.dnsSrv);
+
 	GetDlgItem(IDC_SETTINGS_STUN)->SetWindowText(accountSettings.stun);
 	((CButton*)GetDlgItem(IDC_SETTINGS_STUN_CHECKBOX))->SetCheck(accountSettings.enableSTUN);
 
@@ -245,9 +247,7 @@ BOOL SettingsDlg::OnInitDialog()
 	}
 
 	GetDlgItem(IDC_SETTINGS_DIRECTORY)->SetWindowText(accountSettings.usersDirectory);
-
 	((CButton*)GetDlgItem(IDC_SETTINGS_MEDIA_BUTTONS))->SetCheck(accountSettings.enableMediaButtons);
-
 	((CButton*)GetDlgItem(IDC_SETTINGS_LOCAL_DTMF))->SetCheck(accountSettings.localDTMF);
 	((CButton*)GetDlgItem(IDC_SETTINGS_SINGLE_MODE))->SetCheck(accountSettings.singleMode);
 	((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->SetCheck(accountSettings.enableLog);
@@ -305,6 +305,7 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_BN_CLICKED(IDCANCEL, &SettingsDlg::OnBnClickedCancel)
 	ON_BN_CLICKED(IDOK, &SettingsDlg::OnBnClickedOk)
 	ON_MESSAGE(UM_UPDATE_SETTINGS, &SettingsDlg::OnUpdateSettings)
+	ON_WM_VKEYTOITEM()
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SETTINGS_SPIN_MODIFY, &SettingsDlg::OnDeltaposSpinModify)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SETTINGS_SPIN_ORDER, &SettingsDlg::OnDeltaposSpinOrder)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_RINGING_SOUND, &SettingsDlg::OnNMClickSyslinkRingingSound)
@@ -314,6 +315,7 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_AUTO_ANSWER, &SettingsDlg::OnNMClickSyslinkAutoAnswer)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_DENY_INCOMING, &SettingsDlg::OnNMClickSyslinkDenyIncoming)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_DIRECTORY, &SettingsDlg::OnNMClickSyslinkDirectory)
+	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_DNS_SRV, &SettingsDlg::OnNMClickSyslinkDnsSrv)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_STUN_SERVER, &SettingsDlg::OnNMClickSyslinkStunServer)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_MEDIA_BUTTONS, &SettingsDlg::OnNMClickSyslinkMediaButtons)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_LOCAL_DTMF, &SettingsDlg::OnNMClickSyslinkLocalDTMF)
@@ -396,7 +398,7 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 			mainDlg->audioCodecList.GetPrev(pos);
 			CString key = mainDlg->audioCodecList.GetPrev(pos);
 			accountSettings.audioCodecs += key + _T(" ");
-			if (!hasStereo && key.Right(2) == _T("/2")) {
+			if (!hasStereo && key.Right(2) == _T("/2") && key.Left(4) != _T("opus")) {
 				hasStereo = true;
 			}
 		}
@@ -437,6 +439,8 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	GetDlgItem(IDC_SETTINGS_RTP_PORT_MAX)->GetWindowText(str);
 	accountSettings.rtpPortMax = _wtoi(str);
 
+	accountSettings.dnsSrv = ((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV))->GetCheck();
+
 	GetDlgItem(IDC_SETTINGS_STUN)->GetWindowText(accountSettings.stun);
 	accountSettings.stun.Trim();
 	accountSettings.enableSTUN = ((CButton*)GetDlgItem(IDC_SETTINGS_STUN_CHECKBOX))->GetCheck();
@@ -452,9 +456,7 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 
 	GetDlgItem(IDC_SETTINGS_DIRECTORY)->GetWindowText(accountSettings.usersDirectory);
 	accountSettings.usersDirectory.Trim();
-
 	accountSettings.enableMediaButtons = ((CButton*)GetDlgItem(IDC_SETTINGS_MEDIA_BUTTONS))->GetCheck();
-
 	accountSettings.localDTMF = ((CButton*)GetDlgItem(IDC_SETTINGS_LOCAL_DTMF))->GetCheck();
 	accountSettings.singleMode = ((CButton*)GetDlgItem(IDC_SETTINGS_SINGLE_MODE))->GetCheck();
 	accountSettings.enableLog = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->GetCheck();
@@ -520,6 +522,33 @@ void SettingsDlg::OnEnChangeRingingSound()
 void SettingsDlg::OnBnClickedDefault()
 {
 	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(_T(""));
+}
+
+int SettingsDlg::OnVKeyToItem(UINT nKey, CListBox* pListBox, UINT nIndex)
+{
+	CListBox *listbox = (CListBox*)GetDlgItem(IDC_SETTINGS_AUDIO_CODECS_ALL);
+	CListBox *listbox2 = (CListBox*)GetDlgItem(IDC_SETTINGS_AUDIO_CODECS);
+	if (pListBox == listbox && listbox->GetCurSel()!=-1) {
+		if (nKey == 32) {
+			//add
+			NMUPDOWN NMUpDown;
+			NMUpDown.iDelta = -1;
+			LRESULT lResult;
+			OnDeltaposSpinModify((NMHDR*)&NMUpDown, &lResult);
+			return -2;
+		}
+	}
+	if (pListBox == listbox2 && listbox2->GetCurSel() != -1) {
+		if (nKey == 46) {
+			//remove
+			NMUPDOWN NMUpDown;
+			NMUpDown.iDelta = 1;
+			LRESULT lResult;
+			OnDeltaposSpinModify((NMHDR*)&NMUpDown, &lResult);
+			return -2;
+		}
+	}
+	return -1;
 }
 
 void SettingsDlg::OnDeltaposSpinModify(NMHDR *pNMHDR, LRESULT *pResult)
@@ -626,6 +655,12 @@ void SettingsDlg::OnNMClickSyslinkDenyIncoming(NMHDR *pNMHDR, LRESULT *pResult)
 void SettingsDlg::OnNMClickSyslinkDirectory(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	OpenHelp(_T("directory"));
+	*pResult = 0;
+}
+
+void SettingsDlg::OnNMClickSyslinkDnsSrv(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	OpenHelp(_T("dnsSrv"));
 	*pResult = 0;
 }
 

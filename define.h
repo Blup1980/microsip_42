@@ -33,8 +33,10 @@
 #define IDD_CALLS_OFFSET_LISTVIEW IDD_CALLS_OFFSET_LISTVIEW2+2
 
 
-#define _GLOBAL_CODECS_ENABLED "opus/24000/1 PCMA/8000/1 PCMU/8000/1"
+#define _GLOBAL_CODECS_ENABLED "opus/48000/2 PCMA/8000/1 PCMU/8000/1"
 
+#define _GLOBAL_DENY_INCOMING_DEFAULT "button"
+#define _GLOBAL_AUTO_ANSWER_DEFAULT "button"
 #define _GLOBAL_MENU_WEBSITE "http://www.microsip.org/"
 #define _GLOBAL_MENU_HELP "http://www.microsip.org/help"
 #define _GLOBAL_HELP_WEBSITE "http://www.microsip.org/help"

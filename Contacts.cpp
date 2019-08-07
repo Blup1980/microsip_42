@@ -388,49 +388,52 @@ void Contacts::OnMenuDelete()
 	for (int i=0;i<count;i++) {
 		Contact *pContact = (Contact *) list->GetItemData(i);
 		if (contacts.Find(pContact->number)) {
-			ContactDelete(i,true);
+			ContactDelete(i);
 			count--;
 			i--;
 		}
 	}
-	contacts.RemoveAll();
 	ContactsSave();
 }
 
 void Contacts::OnMenuImportGoogle()
 {
-	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_NOCHANGEDIR, _T("CSV Files (*.csv)|*.csv|"));
+	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"),this);
 	if (dlgFile.DoModal() == IDOK) {
 		bool changed = false;
 		if (isFiltered()) {
 			filterReset();
 		}
-		CCSVFile CSVFile(dlgFile.GetPathName(), CCSVFile::modeRead);
-		CStringArray arr;
-		int nameIndex = -1, numberIndex = -1;
-		while (CSVFile.ReadData(arr)) {
-			if (nameIndex == -1) {
-				for (int i = 0; i < arr.GetCount(); i++) {
-					CString s = arr.GetAt(i);
-					if (nameIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Name"))==0) {
-						nameIndex = i;
+		CCSVFile CSVFile;
+		CSVFile.SetCodePage(CP_UTF8);
+		if (CSVFile.Open(dlgFile.GetPathName(), CCSVFile::modeRead | CFile::typeText | CFile::shareDenyWrite)) {
+			CStringArray arr;
+			int nameIndex = -1, numberIndex = -1;
+			while (CSVFile.ReadData(arr)) {
+				if (nameIndex == -1) {
+					for (int i = 0; i < arr.GetCount(); i++) {
+						CString s = arr.GetAt(i);
+						if (nameIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Name")) == 0) {
+							nameIndex = i;
+						}
+						if (numberIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Phone 1 - Value")) == 0) {
+							numberIndex = i;
+						}
 					}
-					if (numberIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Phone 1 - Value")) == 0) {
-						numberIndex = i;
+					if (nameIndex == -1 || numberIndex == -1) {
+						AfxMessageBox(_T("Unknown format"));
+						break;
 					}
 				}
-				if (nameIndex == -1 || numberIndex == -1) {
-					AfxMessageBox(_T("Unknown format"));
-					break;
+				else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex) {
+					CString number = arr.GetAt(numberIndex);
+					CString name = arr.GetAt(nameIndex);
+					if (!number.IsEmpty() && ContactAdd(number, name, 0, 0, FALSE, TRUE) && !changed) {
+						changed = true;
+					}
 				}
 			}
-			else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex) {
-				CString number = arr.GetAt(numberIndex);
-				CString name = arr.GetAt(nameIndex);
-				if (!number.IsEmpty() && ContactAdd(number, name, 0, 0, FALSE, TRUE) && !changed) {
-					changed = true;
-				}
-			}
+			CSVFile.Close();
 		}
 		if (changed) {
 			ContactsSave();
@@ -438,26 +441,14 @@ void Contacts::OnMenuImportGoogle()
 	}
 }
 
-void Contacts::ContactDelete(int i, bool notSave)
+void Contacts::ContactDelete(int i)
 {
+	int deleted = 0;
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	Contact *pContact = (Contact *) list->GetItemData(i);
 	PresenceUnsubsribeOne(pContact);
-	if (isFiltered()) {
-		filterReset();
-	}
-	int count = list->GetItemCount();
-	for (int i=0;i<count;i++) {
-		Contact *contact = (Contact *) list->GetItemData(i);
-		if (pContact->number == contact->number) {
-			list->DeleteItem(i);
-			break;
-		}
-	}
+	list->DeleteItem(i);
 	delete pContact;
-	if (!notSave) {
-		ContactsSave();
-	}
 }
 
 bool Contacts::ContactAdd(CString number, CString name, char presence, char directory, BOOL save, BOOL fromDirectory)
@@ -833,7 +824,7 @@ int Contacts::DeleteCanditates()
 	{
 		Contact *pContact = (Contact *) list->GetItemData(i);
 		if (pContact->candidate) {
-			ContactDelete(i, true);
+			ContactDelete(i);
 			count--;
 			i--;
 			deleted++;

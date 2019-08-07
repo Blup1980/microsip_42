@@ -80,7 +80,7 @@ void AddDlg::OnBnClickedOk()
 		name=name.Trim();
 		name=name.GetLength()?name:number;
 		if (listIndex != -1) {
-			mainDlg->pageContacts->ContactDelete(listIndex, true);
+			mainDlg->pageContacts->ContactDelete(listIndex);
 		}
 		presence = ((CButton*)GetDlgItem(IDC_PRESENCE))->GetCheck();
 		mainDlg->pageContacts->ContactAdd(number, name, presence, -1, TRUE);

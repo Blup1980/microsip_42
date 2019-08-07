@@ -293,12 +293,12 @@ void MessagesDlg::OnSize(UINT type, int w, int h)
 void MessagesDlg::OnCancel()
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (messagesContact->callId != -1) {
+	if (messagesContact && messagesContact->callId != -1) {
 		return;
 	}
 	OnGoToLastTab();
 	messagesContact = GetMessageContact();
-	if (messagesContact->callId != -1) {
+	if (messagesContact && messagesContact->callId != -1) {
 		return;
 	}
 	OnClose();
@@ -630,7 +630,7 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 void MessagesDlg::OnBnClickedCallEnd()
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (messagesContact->callId == -1)
+	if (messagesContact && messagesContact->callId == -1)
 	{
 		CallStart();
 	}
@@ -734,7 +734,7 @@ bool MessagesDlg::CallCheck()
 	if (!accountSettings.singleMode || !call_get_count_noincoming())
 	{
 		MessagesContact* messagesContact = GetMessageContact();
-		if (messagesContact->callId == -1)
+		if (!messagesContact || messagesContact->callId == -1)
 		{
 			return true;
 		}
@@ -1129,7 +1129,7 @@ void MessagesDlg::OnAttendedTransfer(UINT nID)
 	pjsua_call_id call_id = mii.dwItemData;
 
 	MessagesContact* messagesContact = GetMessageContact();
-	if (messagesContact->callId == -1) {
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
 	if (!pjsua_call_is_active(call_id)) {
@@ -1157,7 +1157,7 @@ void MessagesDlg::OnMerge(UINT nID)
 	pjsua_call_id call_id = mii.dwItemData;
 
 	MessagesContact* messagesContact = GetMessageContact();
-	if (messagesContact->callId == -1) {
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
 	if (!pjsua_call_is_active(call_id)) {
@@ -1203,6 +1203,9 @@ void MessagesDlg::OnSeparate()
 void MessagesDlg::OnDisconnect()
 {
 	MessagesContact* messagesContact = GetMessageContact();
+	if (!messagesContact || messagesContact->callId == -1) {
+		return;
+	}
 	msip_call_hangup_fast(messagesContact->callId);
 }
 

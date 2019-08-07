@@ -1,21 +1,11 @@
 #pragma once
 #include "afx.h"
+#include "StdioFileEx.h"
 
-class CCSVFile : public CStdioFile
+class CCSVFile : public CStdioFileEx
 {
 public:
-
-  enum Mode { modeRead, modeWrite };
-  CCSVFile(LPCTSTR lpszFilename, Mode mode = modeRead);
-  ~CCSVFile(void);
-
+  CCSVFile();
   bool ReadData(CStringArray &arr);
   void WriteData(CStringArray &arr);
-
-#ifdef _DEBUG
-
-  Mode m_nMode;
-
-#endif
-
 };

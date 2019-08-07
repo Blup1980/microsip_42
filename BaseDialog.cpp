@@ -19,6 +19,7 @@
 #include "stdafx.h"
 #include "BaseDialog.h"
 #include "resource.h"
+#include "global.h"
 
 CBaseDialog::CBaseDialog(UINT nIDTemplate, CWnd* pParent /*=NULL*/)
 : CDialog(nIDTemplate, pParent),

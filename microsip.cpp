@@ -28,8 +28,11 @@
 
 #include <afxinet.h>
 #include <Psapi.h>
+#include <Dbghelp.h>
+//#include "SDL.h"
 
 #pragma comment(lib, "Psapi")
+#pragma comment(lib, "Dbghelp")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -57,6 +60,55 @@ CmicrosipApp::CmicrosipApp()
 CmicrosipApp theApp;
 
 // CmicrosipApp initialization
+
+CStringA wineVersion() {
+	static const char * (CDECL *pwine_get_version)(void);
+	HMODULE hntdll = GetModuleHandle(_T("ntdll.dll"));
+	if (hntdll) {
+		pwine_get_version = (const char* (*)())(void *)GetProcAddress(hntdll, "wine_get_version");
+		if (pwine_get_version) {
+			return pwine_get_version();
+		}
+	}
+	return "n/a";
+}
+
+LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS *ExceptionInfo)
+{
+	CTime tm = CTime::GetCurrentTime();
+	CString filename;
+	CFile file;
+	// mini dump
+	filename.Format(_T("%sdump%s.dmp"), accountSettings.pathLocal, tm.Format(_T("%Y%m%d%H%M%S")));
+	if (file.Open(filename, CFile::modeCreate | CFile::modeReadWrite)) {
+		MINIDUMP_EXCEPTION_INFORMATION MinidumpExceptionInfo;
+		MinidumpExceptionInfo.ThreadId = GetCurrentThreadId();
+		MinidumpExceptionInfo.ExceptionPointers = ExceptionInfo;
+		MinidumpExceptionInfo.ClientPointers = FALSE;
+		if (MiniDumpWriteDump(
+			GetCurrentProcess(),
+			GetCurrentProcessId(),
+			file.m_hFile,
+			MiniDumpNormal,
+			//MINIDUMP_TYPE(MiniDumpWithIndirectlyReferencedMemory | MiniDumpScanMemory | MiniDumpWithFullMemory),
+			&MinidumpExceptionInfo,
+			NULL,
+			NULL
+		)) {
+		}
+		file.Close();
+	}
+	if (pj_ready && pjsua_var.state == PJSUA_STATE_RUNNING && tm.GetTime() - startTime.GetTime() > 10) {
+		// automatic restart after sip crash
+		ShellExecute(NULL, NULL, accountSettings.exeFile, NULL, NULL, SW_SHOWDEFAULT);
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+	else {
+		AfxMessageBox(_T("We are sorry but microsip crash happened.\r\nIf this problem is permanent and you know how to reproduce it, please contact us with details for fixing this error. Email: info@microsip.org"), MB_ICONERROR);
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+	return EXCEPTION_CONTINUE_SEARCH;
+}
 
 struct MsipEnumWindowsProcData {
 	HINSTANCE hInst;
@@ -95,6 +147,7 @@ BOOL CALLBACK MsipEnumWindowsProc(HWND hWnd, LPARAM lParam)
 
 BOOL CmicrosipApp::InitInstance()
 {
+	SetUnhandledExceptionFilter(ExceptionFilter);
 	MsipEnumWindowsProcData data;
 	data.hInst = AfxGetInstanceHandle();
 	HWND hWndRunning = NULL;

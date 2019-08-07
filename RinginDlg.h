@@ -22,8 +22,9 @@
 
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
+#include "BaseDialog.h"
 
-class RinginDlg: public CDialog
+class RinginDlg: public CBaseDialog
 {
 public:
 	RinginDlg(CWnd* pParent = NULL);	// standard constructor

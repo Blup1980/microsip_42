@@ -78,7 +78,6 @@ public:
 	bool m_startMinimized;
 	CPoint windowSize;
 	CButton m_ButtonMenu;
-
 	SettingsDlg* settingsDlg;
 	bool shortcutsEnabled;
 	bool shortcutsBottom;
@@ -147,7 +146,6 @@ public:
 	void RemoveJumpList();
 	void MainPopupMenu();
 	void SetPaneText2(CString str = _T(""));
-
 	void AccountSettingsPendingSave();
 	void UpdateSoundDevicesIds();
 	void PlayerStop();

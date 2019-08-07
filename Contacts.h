@@ -39,7 +39,7 @@ public:
 
 	bool ContactAdd(CString number, CString name, char presence, char directory, BOOL save = FALSE, BOOL fromDirectory = FALSE);
 
-	void ContactDelete(int i, bool notSave = false);
+	void ContactDelete(int i);
 	void ContactsSave();
 	void ContactsLoad();
 	void ContactsClear();

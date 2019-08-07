@@ -86,6 +86,7 @@ struct Account {
 };
 
 struct AccountSettings {
+
 	int accountId;
 	Account account;
 	bool singleMode;
@@ -109,6 +110,7 @@ struct AccountSettings {
 	int sourcePort;
 	int rtpPortMin;
 	int rtpPortMax;
+	bool dnsSrv;
 	CString stun;
 	bool enableSTUN;
 	int DTMFMethod;
@@ -194,6 +196,7 @@ struct AccountSettings {
 extern AccountSettings accountSettings;
 extern bool firstRun;
 extern bool pj_ready;
+extern CTime startTime;
 
 CString ShortcutEncode(Shortcut *pShortcut);
 void ShortcutDecode(CString str, Shortcut *pShortcut);

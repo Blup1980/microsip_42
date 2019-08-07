@@ -130,7 +130,9 @@ class CMMNotificationClient : public IMMNotificationClient
 		  DWORD dwNewState)
 	  {
 		  CWnd *pMainWnd = AfxGetApp()->m_pMainWnd;
-		  pMainWnd->PostMessage(WM_DEVICECHANGE,DBT_DEVNODES_CHANGED,1);
+		  if (pMainWnd) {
+			  ::PostMessage(pMainWnd->m_hWnd, WM_DEVICECHANGE, DBT_DEVNODES_CHANGED, 1);
+		  }
 		  return S_OK;
 	  }
 

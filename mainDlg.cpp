@@ -1401,7 +1401,7 @@ CmainDlg::CmainDlg(CWnd* pParent /*=NULL*/)
 	newMessages = false;
 	missed = false;
 
-	CString audioCodecsCaptions = _T("opus/24000/1;Opus 24 kHz;\
+	CString audioCodecsCaptions = _T("opus/48000/2;Opus 24 kHz;\
 PCMA/8000/1;G.711 A-law;\
 PCMU/8000/1;G.711 u-law;\
 G722/16000/1;G.722 16 kHz;\
@@ -1482,6 +1482,7 @@ int CmainDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
 BOOL CmainDlg::OnInitDialog()
 {
 	CBaseDialog::OnInitDialog();
+
 	if (lstrcmp(theApp.m_lpCmdLine, _T("/hidden")) == 0) {
 		accountSettings.hidden = TRUE;
 		theApp.m_lpCmdLine = NULL;
@@ -1659,7 +1660,7 @@ BOOL CmainDlg::OnInitDialog()
 	tabItem.lParam = (LPARAM)pageDialer;
 	tab->InsertItem(99, &tabItem);
 	pageDialer->SetWindowPos(NULL, 0, offset, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	AutoMove(pageDialer->m_hWnd, 0, 0, 100, 100);
+	AutoMove(pageDialer->m_hWnd, 40, 40, 20, 20);
 
 		CRect pageRect;
 		pageCalls = new Calls(this);
@@ -1702,6 +1703,7 @@ BOOL CmainDlg::OnInitDialog()
 
 void CmainDlg::OnCreated()
 {
+	SetPaneText2();
 	if (!m_startMinimized) {
 		ShowWindow(SW_SHOW);
 	}
@@ -2226,7 +2228,10 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 			pjmedia_aud_dev_refresh();
 			UpdateSoundDevicesIds();
 #ifdef _GLOBAL_VIDEO
-			pjmedia_vid_dev_refresh();
+			pjmedia_vid_subsys *vid_subsys = pjmedia_get_vid_subsys();
+			if (vid_subsys->init_count) {
+				pjmedia_vid_dev_refresh();
+			}
 #endif
 			if (snd_is_active) {
 				msip_set_sound_device(is_ring ? msip_audio_ring : msip_audio_output, true);
@@ -2383,6 +2388,14 @@ void CmainDlg::PJCreate()
 	else {
 		media_cfg.clock_rate = 44100;
 		media_cfg.channel_count = 2;
+	}
+
+	if (accountSettings.dnsSrv) {
+		ua_cfg.nameserver_count = 4;
+		ua_cfg.nameserver[0] = StrToPjStr(_T("8.8.8.8"));
+		ua_cfg.nameserver[1] = StrToPjStr(_T("8.8.4.4"));
+		ua_cfg.nameserver[2] = StrToPjStr(_T("2001:4860:4860::8888"));
+		ua_cfg.nameserver[3] = StrToPjStr(_T("2001:4860:4860::8844"));
 	}
 
 	// Initialize pjsua
@@ -2810,7 +2823,7 @@ void CmainDlg::PJAccountAdd()
 	acc_cfg.cred_info[0].realm = pj_str("*");
 	acc_cfg.cred_info[0].scheme = pj_str("Digest");
 	acc_cfg.cred_info[0].data_type = PJSIP_CRED_DATA_PLAIN_PASSWD;
-	acc_cfg.cred_info[0].data = StrToPjStr(accountSettings.account.password);
+	acc_cfg.cred_info[0].data = StrToPjStr(get_account_password());
 
 	CString proxy;
 	if (!accountSettings.account.proxy.IsEmpty()) {
@@ -2828,7 +2841,7 @@ void CmainDlg::PJAccountAdd()
 			host = accountSettings.portKnockerHost;
 		}
 		else {
-			host = RemovePort(accountSettings.account.server);
+			host = RemovePort(get_account_server());
 		}
 		if (!host.IsEmpty()) {
 			AfxSocketInit();
@@ -2869,12 +2882,12 @@ void CmainDlg::PJAccountAdd()
 	localURI += GetSIPURI(get_account_username());
 	acc_cfg.id = StrToPjStr(localURI);
 	//--
-	if (accountSettings.account.server.IsEmpty()) {
+	if (get_account_server().IsEmpty()) {
 		acc_cfg.register_on_acc_add = PJ_FALSE;
 	}
 	else {
 		CString regURI;
-		regURI.Format(_T("sip:%s"), accountSettings.account.server);
+		regURI.Format(_T("sip:%s"), get_account_server());
 		AddTransportSuffix(regURI);
 		acc_cfg.reg_uri = StrToPjStr(regURI);
 	}
@@ -3263,7 +3276,7 @@ void CmainDlg::DialNumberFromCommandLine(CString number) {
 	}
 	if (accountSettings.accountId > 0) {
 		if (pjsua_acc_is_valid(account) &&
-			(accountSettings.account.server.IsEmpty() ||
+			(get_account_server().IsEmpty() ||
 			(pjsua_acc_get_info(account, &info) == PJ_SUCCESS && info.status == 200)
 				)
 			) {
@@ -3696,7 +3709,6 @@ void CmainDlg::OnSysCommand(UINT nID, LPARAM lParam)
 
 BOOL CmainDlg::OnQueryEndSession()
 {
-	DestroyWindow();
 	return TRUE;
 }
 
@@ -3907,7 +3919,7 @@ void CmainDlg::UsersDirectoryLoad()
 	if (!accountSettings.usersDirectory.IsEmpty()) {
 		PJ_LOG(3, (THIS_FILE, "Users directory load"));
 		CString url;
-		url.Format(accountSettings.usersDirectory, accountSettings.account.username, accountSettings.account.password, accountSettings.account.server);
+		url.Format(accountSettings.usersDirectory, accountSettings.account.username, accountSettings.account.password, get_account_server());
 		url = msip_url_mask(url);
 		PJ_LOG(3, (THIS_FILE, "Begin UsersDirectoryLoad"));
 		URLGetAsync(url, m_hWnd, UM_USERS_DIRECTORY);
@@ -3936,7 +3948,8 @@ void CmainDlg::CheckUpdates()
 			DWORD dwStatusCode;
 			pFile->QueryInfoStatusCode(dwStatusCode);
 			if (dwStatusCode == 202) {
-				CString caption = Translate(_T("Update Available"));
+				CString caption;
+				caption.Format(_T("%s %s"), _T(_GLOBAL_NAME), Translate(_T("Update Available")));
 				CString message = Translate(_T("Do you want to update now?"));
 				CStringA body;
 				int i;

@@ -31,6 +31,7 @@ using namespace MFC;
 AccountSettings accountSettings;
 bool firstRun;
 bool pj_ready;
+CTime startTime;
 CArray<Shortcut, Shortcut> shortcuts;
 
 void AccountSettings::Init()
@@ -38,6 +39,7 @@ void AccountSettings::Init()
 	CString str;
 	LPTSTR ptr;
 	accountId = 0;
+	startTime = CTime::GetCurrentTime();
 	//--
 	ptr = exeFile.GetBuffer(MAX_PATH);
 	GetModuleFileName(NULL, ptr, MAX_PATH);
@@ -192,7 +194,7 @@ void AccountSettings::Init()
 	AA = _wtoi(str);
 	//--
 	ptr = autoAnswer.GetBuffer(255);
-	GetPrivateProfileString(section, _T("autoAnswer"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("autoAnswer"), _T(_GLOBAL_AUTO_ANSWER_DEFAULT), ptr, 256, iniFile);
 	autoAnswer.ReleaseBuffer();
 	//--
 	ptr = str.GetBuffer(255);
@@ -201,7 +203,7 @@ void AccountSettings::Init()
 	DND = _wtoi(str);
 	//--
 	ptr = denyIncoming.GetBuffer(255);
-	GetPrivateProfileString(section, _T("denyIncoming"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("denyIncoming"), _T(_GLOBAL_DENY_INCOMING_DEFAULT), ptr, 256, iniFile);
 	denyIncoming.ReleaseBuffer();
 	//--
 	ptr = userAgent.GetBuffer(255);
@@ -211,6 +213,11 @@ void AccountSettings::Init()
 	ptr = usersDirectory.GetBuffer(255);
 	GetPrivateProfileString(section, _T("usersDirectory"), NULL, ptr, 256, iniFile);
 	usersDirectory.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("dnsSrv"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	dnsSrv = _wtoi(str);
 
 	ptr = stun.GetBuffer(255);
 	GetPrivateProfileString(section, _T("STUN"), NULL, ptr, 256, iniFile);
@@ -765,6 +772,8 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("denyIncoming"), denyIncoming, iniFile);
 
 	WritePrivateProfileString(section, _T("usersDirectory"), usersDirectory, iniFile);
+
+	WritePrivateProfileString(section, _T("dnsSrv"), dnsSrv ? _T("1") : _T("0"), iniFile);
 
 	WritePrivateProfileString(section, _T("STUN"), stun, iniFile);
 

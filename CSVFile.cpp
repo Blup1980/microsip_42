@@ -2,28 +2,13 @@
 
 #include "CSVFile.h"
 
-
-CCSVFile::CCSVFile(LPCTSTR lpszFilename, Mode mode)
-	: CStdioFile(lpszFilename, (mode == modeRead) ?
-		CFile::modeRead | CFile::shareDenyWrite | CFile::typeText | CFile::typeUnicode
-		:
-		CFile::modeWrite | CFile::shareDenyWrite | CFile::modeCreate | CFile::typeText | CFile::typeUnicode)
-{
-
-#ifdef _DEBUG
-	m_nMode = mode;
-#endif
-}
-
-CCSVFile::~CCSVFile(void)
+CCSVFile::CCSVFile():
+	CStdioFileEx()
 {
 }
 
 bool CCSVFile::ReadData(CStringArray &arr)
 {
-	// Verify correct mode in debug build
-	ASSERT(m_nMode == modeRead);
-
 	ULONGLONG pos = GetPosition();
 
 	// Read next line
@@ -33,10 +18,6 @@ bool CCSVFile::ReadData(CStringArray &arr)
 	sLine.Trim();
 	LPCTSTR p = sLine;
 	
-	// Remove UTF-16 BOM
-	if (pos == 0 && *p == 65279) {
-		p++;
-	}
 	int nValue = 0;
 
 	// Parse values in this line
@@ -98,9 +79,6 @@ void CCSVFile::WriteData(CStringArray &arr)
 {
 	static TCHAR chQuote = '"';
 	static TCHAR chComma = ',';
-
-	// Verify correct mode in debug build
-	ASSERT(m_nMode == modeWrite);
 
 	// Loop through each string in array
 	for (int i = 0; i < arr.GetCount(); i++)

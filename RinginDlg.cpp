@@ -28,7 +28,7 @@
 using namespace MSIP;
 
 RinginDlg::RinginDlg(CWnd* pParent /*=NULL*/)
-	: CDialog(RinginDlg::IDD, pParent)
+	: CBaseDialog(RinginDlg::IDD, pParent)
 {
 	Create (IDD, pParent);
 }
@@ -59,7 +59,7 @@ BOOL CALLBACK MyInfoEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonit
 }
 
 BOOL RinginDlg::OnInitDialog() {
-	CDialog::OnInitDialog();
+	CBaseDialog::OnInitDialog();
 	
 	TranslateDialog(this->m_hWnd);
 
@@ -154,7 +154,7 @@ BOOL RinginDlg::OnInitDialog() {
 	return 0;
 }
 
-BEGIN_MESSAGE_MAP(RinginDlg, CDialog)
+BEGIN_MESSAGE_MAP(RinginDlg, CBaseDialog)
 	ON_WM_CREATE()
 	ON_WM_CLOSE()
 	ON_WM_TIMER()

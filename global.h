@@ -205,12 +205,15 @@ CString FormatNumber(CString number, CString *commands = NULL);
 bool IniSectionExists(CString section, CString iniFile);
 CString Bin2String(CByteArray *ca);
 void String2Bin(CString str, CByteArray *res);
+void CommandLineToShell(CString cmd, CString &command, CString &params);
 
 namespace MSIP {
 	void GetScreenRect(CRect *rect);
 }
 
 CString get_account_username();
+CString get_account_password();
+CString get_account_server();
 
 struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id);
 BOOL call_play_digit(pjsua_call_id call_id, const char *digits, int duration = 160);
@@ -243,6 +246,7 @@ typedef struct {
 	CStringA body;
 } URLGetAsyncData;
 void URLGetAsync(CString url, HWND hWnd=0, UINT message=0);
+URLGetAsyncData URLGetSync(CString url);
 
 CStringA urlencode(CStringA str);
 CStringA char2hex(char dec);

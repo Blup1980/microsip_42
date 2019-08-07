@@ -188,7 +188,7 @@ void CButtonDialer::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 		rt.left += iChange;
 		rt.right -= iChange;
 		rt.bottom -= iChange;
-		//!!dc.DrawFocusRect(rt);
+		dc.DrawFocusRect(rt);
 	}
 	dc.Detach();
 }

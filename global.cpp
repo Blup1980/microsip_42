@@ -791,7 +791,9 @@ static DWORD WINAPI URLGetAsyncThread( LPVOID lpParam )
 		}
 	}
 	if (data->message) {
-		PostMessage(data->hWnd,data->message,(WPARAM)data,0);
+		if (data->hWnd) {
+			PostMessage(data->hWnd, data->message, (WPARAM)data, 0);
+		}
 	} else {
 		delete data;
 	}
@@ -810,6 +812,16 @@ void URLGetAsync(CString url, HWND hWnd, UINT message)
 		data->url.Empty();
 		URLGetAsyncThread(data);
 	}
+}
+
+URLGetAsyncData URLGetSync(CString url)
+{
+	URLGetAsyncData data;
+	data.hWnd = 0;
+	data.message = 1;
+	data.url = url;
+	URLGetAsyncThread(&data);
+	return data;
 }
 
 CString Bin2String(CByteArray *ca)
@@ -836,9 +848,43 @@ void String2Bin(CString str, CByteArray *res)
 	}
 }
 
+void CommandLineToShell(CString cmd, CString &command, CString &params)
+{
+	cmd.Trim();
+	command.Empty();
+	params.Empty();
+	int nArgs;
+	LPWSTR *szArglist = CommandLineToArgvW(cmd, &nArgs);
+	if (NULL == szArglist) {
+		AfxMessageBox(_T("Wrong command: ") + cmd);
+	}
+	else for (int i = 0; i < nArgs; i++) {
+		if (!i) {
+			command = szArglist[i];
+		}
+		else {
+			params.AppendFormat(_T("%s "), szArglist[i]);
+		}
+	}
+	params.TrimRight();
+	LocalFree(szArglist);
+}
+
 CString get_account_username()
 {
 	CString res = accountSettings.account.username;
+	return res;
+}
+
+CString get_account_password()
+{
+	CString res = accountSettings.account.password;
+	return res;
+}
+
+CString get_account_server()
+{
+	CString res = accountSettings.account.server;
 	return res;
 }
 
@@ -846,12 +892,18 @@ CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc)
 {
 	//-- replace server
 	CString str;
-	if (acc == accountSettings.accountId && !accountSettings.account.server.IsEmpty()) {
-		str = accountSettings.account.server;
+	if (pjsua_acc_is_valid(acc) && !get_account_server().IsEmpty()) {
+		str = get_account_server();
 	} else {
 		str = _T("localhost");
 	}
 	url.Replace(_T("{server}"),str);
+	//--
+	CTime t = CTime::GetCurrentTime();
+	time_t time = t.GetTime();
+	str.Format(_T("%d"), time);
+	url.Replace(_T("{time}"), str);
+	//--
 	if (sipuri) {
 		//-- replace callerid
 		CString num = !sipuri->name.IsEmpty()?sipuri->name:sipuri->user;
@@ -1174,7 +1226,7 @@ CStringA msip_md5sum(CString *str)
 CString msip_url_mask(CString url)
 {
 	if (accountSettings.accountId) {
-		url.Replace(_T("{server}"),accountSettings.account.server);
+		url.Replace(_T("{server}"),get_account_server());
 		url.Replace(_T("{username}"),CString(urlencode(Utf8EncodeUcs2(accountSettings.account.username))));
 		url.Replace(_T("{password}"),CString(urlencode(Utf8EncodeUcs2(accountSettings.account.password))));
 		url.Replace(_T("{md5_password}"),CString(msip_md5sum(&accountSettings.account.password)));
