@@ -34,6 +34,17 @@ bool pj_ready;
 CTime startTime;
 CArray<Shortcut, Shortcut> shortcuts;
 
+static LONGLONG FileSize(const wchar_t* name)
+{
+	WIN32_FILE_ATTRIBUTE_DATA fad;
+	if (!GetFileAttributesEx(name, GetFileExInfoStandard, &fad))
+		return -1; // error condition, could call GetLastError to find out more
+	LARGE_INTEGER size;
+	size.HighPart = fad.nFileSizeHigh;
+	size.LowPart = fad.nFileSizeLow;
+	return size.QuadPart;
+}
+
 void AccountSettings::Init()
 {
 	bool isPortable = false;
@@ -56,7 +67,6 @@ void AccountSettings::Init()
 	pathLocal = _T("");
 	if (pathRoaming.IsEmpty()) {
 		CString contactsFile = _T("Contacts.xml");
-		CFileStatus rStatus;
 		CRegKey regKey;
 		CString pathInstaller;
 		CString rab;
@@ -143,9 +153,48 @@ void AccountSettings::Init()
 
 		iniFile = pathRoaming + iniFile;
 
-		firstRun = true;
-		if (CFile::GetStatus(iniFile, rStatus)) {
+		if (!::PathFileExists(iniFile) || FileSize(iniFile) == 0) {
+			firstRun = true;
+			// create UTF16-LE BOM(FFFE)
+			WORD wBOM = 0xFEFF;
+			CString pszSectionB = _T("[Settings]");
+			CFile file;
+			CFileException fileException;
+			if (file.Open(iniFile, CFile::modeCreate | CFile::modeReadWrite, &fileException)) {
+				file.Write(&wBOM, sizeof(wBOM));
+				file.Write(pszSectionB.GetBuffer(), pszSectionB.GetLength() * sizeof(wchar_t));
+				file.Close();
+			}
+		}
+		else {
 			firstRun = false;
+			CFile file;
+			CFileException fileException;
+			if (file.Open(iniFile, CFile::modeReadWrite, &fileException)) {
+				WORD wBOM;
+				if (sizeof(WORD) == file.Read(&wBOM, sizeof(WORD))) {
+					if (wBOM != 0xFEFF) {
+						// convert to UTF16-LE BOM
+						file.SeekToBegin();
+						CStringA data;
+						char buf[256];
+						int count;
+						while (true) {
+							count = file.Read(buf, sizeof(buf));
+							data.Append(buf, count);
+							if (count < sizeof(buf)) {
+								break;
+							}
+						}
+						file.SetLength(0);
+						wBOM = 0xFEFF;
+						file.Write(&wBOM, sizeof(wBOM));
+						CString res = AnsiToWideChar(data.GetBuffer());
+						file.Write(res.GetBuffer(), data.GetLength() * sizeof(wchar_t));
+					}
+				}
+				file.Close();
+			}
 		}
 	}
 	//--

@@ -20,6 +20,7 @@
 
 #include "define.h"
 #include "stdafx.h"
+#include <afxmt.h>
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
 
@@ -68,6 +69,7 @@ enum EUserWndMessages
 	UM_CLOSETAB,
 	UM_DBLCLICKTAB,
 	UM_QUERYTAB,
+	UM_UPDATE_CHECKER_LOADED,
 
 };
 
@@ -156,6 +158,7 @@ struct call_tonegen_data
 
 struct call_user_data
 {
+	CCriticalSection CS;
 	pjsua_call_id call_id;
 	call_tonegen_data *tonegen_data;
 	pjsua_recorder_id recorder_id;
@@ -203,6 +206,8 @@ CString Utf8DecodeUni(CStringA str);
 CStringA UnicodeToAnsi(CString str);
 CString AnsiToUnicode(CStringA str);
 CString AnsiToWideChar(char* str);
+char *WideCharToPjStr(CString str);
+CString PjStrToWideChar(char *str);
 CString XMLEntityDecode(CString str);
 CString XMLEntityEncode(CString str);
 void OpenURL(CString url);
@@ -287,3 +292,4 @@ CStringA msip_md5sum(CString *str);
 CString msip_url_mask(CString url);
 void msip_audio_input_set_volume(int val, bool mute = false);
 void msip_audio_conf_set_volume(int val, bool mute);
+pj_status_t msip_verify_sip_url(const char *url);

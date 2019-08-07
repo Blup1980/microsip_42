@@ -67,7 +67,7 @@ BOOL SettingsDlg::OnInitDialog()
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (aud_dev_info[i].input_count) {
-			CString audDevName = AnsiToWideChar(aud_dev_info[i].name);
+			CString audDevName = PjStrToWideChar(aud_dev_info[i].name);
 			combobox->AddString(audDevName);
 			if (!accountSettings.audioInputDevice.Compare(audDevName))
 			{
@@ -84,7 +84,7 @@ BOOL SettingsDlg::OnInitDialog()
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (aud_dev_info[i].output_count) {
-			CString audDevName = AnsiToWideChar(aud_dev_info[i].name);
+			CString audDevName = PjStrToWideChar(aud_dev_info[i].name);
 			combobox->AddString(audDevName);
 			combobox2->AddString(audDevName);
 			if (!accountSettings.audioOutputDevice.Compare(audDevName))
@@ -151,7 +151,7 @@ BOOL SettingsDlg::OnInitDialog()
 	{
 		if (vid_dev_info[i].fmt_cnt && (vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING || vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING_DECODING))
 		{
-			CString vidDevName = AnsiToWideChar(vid_dev_info[i].name);
+			CString vidDevName = PjStrToWideChar(vid_dev_info[i].name);
 			combobox->AddString(vidDevName);
 			if (!accountSettings.videoCaptureDevice.Compare(vidDevName))
 			{
@@ -548,8 +548,20 @@ void SettingsDlg::OnBnClickedDefault()
 void SettingsDlg::OnBnClickedRecordingBrowse()
 {
 	CString strOutFolder;
+	CString str;
 	CShellManager* pShellManager = ((CWinAppEx*)AfxGetApp())->GetShellManager();
-	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(strOutFolder);
+	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(str);
+	if (str.IsEmpty() || PathIsRelative(str)) {
+		TCHAR currentDir[MAX_PATH];
+		GetCurrentDirectory(MAX_PATH, currentDir);
+		strOutFolder = currentDir;
+		if (!str.IsEmpty()) {
+			strOutFolder.AppendFormat(_T("\\%s"), str);
+		}
+	}
+	else {
+		strOutFolder = str;
+	}
 	if (pShellManager->BrowseForFolder(strOutFolder,this, strOutFolder))
 	{
 		GetDlgItem(IDC_SETTINGS_RECORDING)->SetWindowText(strOutFolder);

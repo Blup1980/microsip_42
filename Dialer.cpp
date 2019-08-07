@@ -1221,12 +1221,14 @@ void Dialer::OnBnClickedRec()
 	if (messagesContact && messagesContact->callId != -1) {
 		call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(messagesContact->callId);
 		if (user_data) {
+			user_data->CS.Lock();
 			if (user_data->recorder_id == PJSUA_INVALID_ID) {
 				msip_call_recording_start(user_data);
 			}
 			else {
 				msip_call_recording_stop(user_data);
 			}
+			user_data->CS.Unlock();
 			mainDlg->messagesDlg->UpdateRecButton(user_data);
 		}
 	}

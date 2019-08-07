@@ -227,6 +227,7 @@ public:
 	afx_msg void OnMenuHelp();
 	afx_msg void OnMenuAddl();
 	afx_msg void CheckUpdates();
+	afx_msg LRESULT OnUpdateCheckerLoaded(WPARAM wParam, LPARAM lParam);
 #ifdef _GLOBAL_VIDEO
 	afx_msg void createPreviewWin();
 #endif

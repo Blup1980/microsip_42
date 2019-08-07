@@ -1,4 +1,4 @@
-﻿/* 
+﻿/*
  * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 
@@ -33,9 +33,9 @@ static DWORD __stdcall MEditStreamOutCallback(DWORD_PTR dwCookie, LPBYTE pbBuff,
 
 	CString *psBuffer = (CString *)dwCookie;
 
-	for (int i=0;i<cb;i++)
+	for (int i = 0; i < cb; i++)
 	{
-		sThisWrite.SetAt(i,*(pbBuff+i));
+		sThisWrite.SetAt(i, *(pbBuff + i));
 	}
 
 	*psBuffer += sThisWrite;
@@ -47,26 +47,26 @@ static DWORD __stdcall MEditStreamOutCallback(DWORD_PTR dwCookie, LPBYTE pbBuff,
 
 static DWORD __stdcall MEditStreamInCallback(DWORD_PTR dwCookie, LPBYTE pbBuff, LONG cb, LONG *pcb)
 {
-    CString *psBuffer = (CString*)dwCookie;
- 
-    if (cb > psBuffer->GetLength()) cb = psBuffer->GetLength();
- 
-    for (int i = 0; i < cb; i++)
-    {
-        *(pbBuff + i) = psBuffer->GetAt(i);
-    }
- 
-    *pcb = cb;
-    *psBuffer = psBuffer->Mid(cb);
- 
-    return 0;
+	CString *psBuffer = (CString*)dwCookie;
+
+	if (cb > psBuffer->GetLength()) cb = psBuffer->GetLength();
+
+	for (int i = 0; i < cb; i++)
+	{
+		*(pbBuff + i) = psBuffer->GetAt(i);
+	}
+
+	*pcb = cb;
+	*psBuffer = psBuffer->Mid(cb);
+
+	return 0;
 }
 
 MessagesDlg::MessagesDlg(CWnd* pParent /*=NULL*/)
-: CBaseDialog(MessagesDlg::IDD, pParent)
+	: CBaseDialog(MessagesDlg::IDD, pParent)
 {
 	this->m_hWnd = NULL;
-	Create (IDD, pParent);
+	Create(IDD, pParent);
 }
 
 MessagesDlg::~MessagesDlg(void)
@@ -76,7 +76,7 @@ MessagesDlg::~MessagesDlg(void)
 int MessagesDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 	if (langPack.rtl) {
-		ModifyStyleEx(0,WS_EX_LAYOUTRTL);
+		ModifyStyleEx(0, WS_EX_LAYOUTRTL);
 	}
 	return 0;
 }
@@ -91,22 +91,22 @@ BOOL MessagesDlg::OnInitDialog()
 {
 	CBaseDialog::OnInitDialog();
 
-	AutoMove(IDC_MESSAGES_TAB,0,0,100,0);
-	AutoMove(IDC_LAST_CALL,100,0,0,0);
-	AutoMove(IDC_CLOSE_ALL,100,0,0,0);
-	AutoMove(IDC_CONFERENCE,100,0,0,0);
-	AutoMove(IDC_TRANSFER,100,0,0,0);
-	AutoMove(IDC_HOLD,100,0,0,0);
-	AutoMove(IDC_END,100,0,0,0);
-	AutoMove(IDC_LIST,0,0,100,80);
-	AutoMove(IDC_MESSAGE,0,80,100,20);
+	AutoMove(IDC_MESSAGES_TAB, 0, 0, 100, 0);
+	AutoMove(IDC_LAST_CALL, 100, 0, 0, 0);
+	AutoMove(IDC_CLOSE_ALL, 100, 0, 0, 0);
+	AutoMove(IDC_CONFERENCE, 100, 0, 0, 0);
+	AutoMove(IDC_TRANSFER, 100, 0, 0, 0);
+	AutoMove(IDC_HOLD, 100, 0, 0, 0);
+	AutoMove(IDC_END, 100, 0, 0, 0);
+	AutoMove(IDC_LIST, 0, 0, 100, 80);
+	AutoMove(IDC_MESSAGE, 0, 80, 100, 20);
 	lastCall = NULL;
 	tab = &tabComponent;
-	
+
 	HICON m_hIcon = theApp.LoadIcon(IDR_MAINFRAME);
 	SetIcon(m_hIcon, FALSE);
 
-	imageList.Create(16,16,ILC_COLOR32 | ILC_MASK,7,1);
+	imageList.Create(16, 16, ILC_COLOR32 | ILC_MASK, 7, 1);
 
 	imageList.Add(LoadImageIcon(IDI_CALL_OUT));
 	imageList.Add(LoadImageIcon(IDI_CALL_IN));
@@ -122,7 +122,7 @@ BOOL MessagesDlg::OnInitDialog()
 
 	tab->SetImageList(&imageList);
 
-	
+
 	TranslateDialog(this->m_hWnd);
 
 #ifndef _GLOBAL_VIDEO
@@ -130,7 +130,7 @@ BOOL MessagesDlg::OnInitDialog()
 #endif
 
 	CRichEditCtrl* richEditList = (CRichEditCtrl*)GetDlgItem(IDC_LIST);
-    richEditList->SetEventMask(richEditList->GetEventMask() | ENM_MOUSEEVENTS);
+	richEditList->SetEventMask(richEditList->GetEventMask() | ENM_MOUSEEVENTS);
 	richEditList->SetUndoLimit(0);
 
 	CFont* font = this->GetFont();
@@ -147,11 +147,11 @@ BOOL MessagesDlg::OnInitDialog()
 	richEdit->SetEventMask(richEdit->GetEventMask() | ENM_KEYEVENTS);
 	richEdit->SetFont(&fontMessage);
 
-	para.cbSize=sizeof(PARAFORMAT2);
+	para.cbSize = sizeof(PARAFORMAT2);
 	para.dwMask = PFM_STARTINDENT | PFM_LINESPACING | PFM_SPACEBEFORE | PFM_SPACEAFTER;
-	para.dxStartIndent=100;
-	para.dySpaceBefore=100;
-	para.dySpaceAfter=0;
+	para.dxStartIndent = 100;
+	para.dySpaceBefore = 100;
+	para.dySpaceAfter = 0;
 	para.bLineSpacingRule = 5;
 	para.dyLineSpacing = 22;
 
@@ -159,7 +159,7 @@ BOOL MessagesDlg::OnInitDialog()
 	((CButton*)GetDlgItem(IDC_HOLD))->SetIcon(m_hIconHold);
 
 	MENUITEMINFO mii;
-	mii.cbSize = sizeof (MENUITEMINFO);
+	mii.cbSize = sizeof(MENUITEMINFO);
 	mii.fMask = MIIM_SUBMENU;
 
 	CMenu *tracker;
@@ -178,7 +178,7 @@ BOOL MessagesDlg::OnInitDialog()
 
 	menuMerge.CreatePopupMenu();
 	mii.hSubMenu = menuMerge.m_hMenu;
-	tracker->SetMenuItemInfo(ID_MERGE,&mii);
+	tracker->SetMenuItemInfo(ID_MERGE, &mii);
 
 	return TRUE;
 }
@@ -203,27 +203,27 @@ BEGIN_MESSAGE_MAP(MessagesDlg, CBaseDialog)
 	ON_WM_MOVE()
 	ON_WM_SIZE()
 	ON_WM_DESTROY()
-	ON_COMMAND(ID_CLOSEALLTABS,OnCloseAllTabs)
-	ON_COMMAND(ID_GOTOLASTTAB,OnGoToLastTab)
-	ON_COMMAND(ID_COPY,OnCopy)
-	ON_COMMAND(ID_SELECT_ALL,OnSelectAll)
-	ON_COMMAND_RANGE(ID_ATTENDED_TRANSFER_RANGE,ID_ATTENDED_TRANSFER_RANGE+99,OnAttendedTransfer)
-	ON_COMMAND_RANGE(ID_MERGE_RANGE,ID_MERGE_RANGE+99,OnMerge)
+	ON_COMMAND(ID_CLOSEALLTABS, OnCloseAllTabs)
+	ON_COMMAND(ID_GOTOLASTTAB, OnGoToLastTab)
+	ON_COMMAND(ID_COPY, OnCopy)
+	ON_COMMAND(ID_SELECT_ALL, OnSelectAll)
+	ON_COMMAND_RANGE(ID_ATTENDED_TRANSFER_RANGE, ID_ATTENDED_TRANSFER_RANGE + 99, OnAttendedTransfer)
+	ON_COMMAND_RANGE(ID_MERGE_RANGE, ID_MERGE_RANGE + 99, OnMerge)
 	ON_COMMAND(IDCANCEL, OnCancel)
 	ON_BN_CLICKED(IDOK, &MessagesDlg::OnBnClickedOk)
 	ON_NOTIFY(EN_MSGFILTER, IDC_MESSAGE, &MessagesDlg::OnEnMsgfilterMessage)
 	ON_NOTIFY(TCN_SELCHANGE, IDC_MESSAGES_TAB, &MessagesDlg::OnTcnSelchangeTab)
 	ON_NOTIFY(TCN_SELCHANGING, IDC_MESSAGES_TAB, &MessagesDlg::OnTcnSelchangingTab)
-	ON_MESSAGE(WM_CONTEXTMENU,OnContextMenu)
+	ON_MESSAGE(WM_CONTEXTMENU, OnContextMenu)
 	ON_MESSAGE(UM_CLOSETAB, &MessagesDlg::OnCloseTab)
 	ON_BN_CLICKED(IDC_CALL_END, &MessagesDlg::OnBnClickedCallEnd)
 	ON_BN_CLICKED(IDC_VIDEO_CALL, &MessagesDlg::OnBnClickedVideoCall)
 	ON_BN_CLICKED(IDC_TRANSFER, &MessagesDlg::OnBnClickedTransfer)
 	ON_BN_CLICKED(IDC_CONFERENCE, &MessagesDlg::OnBnClickedConference)
-	ON_COMMAND(ID_TRANSFER,OnTransfer)
-	ON_COMMAND(ID_CONFERENCE,OnConference)
-	ON_COMMAND(ID_SEPARATE,OnSeparate)
-	ON_COMMAND(ID_DISCONNECT,OnDisconnect)
+	ON_COMMAND(ID_TRANSFER, OnTransfer)
+	ON_COMMAND(ID_CONFERENCE, OnConference)
+	ON_COMMAND(ID_SEPARATE, OnSeparate)
+	ON_COMMAND(ID_DISCONNECT, OnDisconnect)
 	ON_BN_CLICKED(IDC_HOLD, &MessagesDlg::OnBnClickedHold)
 	ON_BN_CLICKED(IDC_END, &MessagesDlg::OnBnClickedEnd)
 	ON_BN_CLICKED(IDC_CLOSE_ALL, &MessagesDlg::OnBnClickedCloseAll)
@@ -239,35 +239,36 @@ void MessagesDlg::OnSysCommand(UINT nID, LPARAM lParam)
 	__super::OnSysCommand(nID, lParam);
 }
 
-LRESULT MessagesDlg::OnContextMenu(WPARAM wParam,LPARAM lParam)
+LRESULT MessagesDlg::OnContextMenu(WPARAM wParam, LPARAM lParam)
 {
-	int x = GET_X_LPARAM(lParam); 
-	int y = GET_Y_LPARAM(lParam); 
+	int x = GET_X_LPARAM(lParam);
+	int y = GET_Y_LPARAM(lParam);
 	POINT pt = { x, y };
 	RECT rc;
-	if (x!=-1 || y!=-1) {
+	if (x != -1 || y != -1) {
 		ScreenToClient(&pt);
-		GetClientRect(&rc); 
+		GetClientRect(&rc);
 		if (!PtInRect(&rc, pt)) {
 			x = y = -1;
-		} 
-	} else {
+		}
+	}
+	else {
 		::ClientToScreen((HWND)wParam, &pt);
-		x = 10+pt.x;
-		y = 10+pt.y;
+		x = 10 + pt.x;
+		y = 10 + pt.y;
 	}
-	if (x!=-1 || y!=-1) {
-			CMenu menu;
-			menu.LoadMenu(IDR_MENU_TABS);
-			CMenu* tracker = menu.GetSubMenu(0);
-			TranslateMenu(tracker->m_hMenu);
-			tracker->TrackPopupMenu( 0, x, y, this );
-			return TRUE;
+	if (x != -1 || y != -1) {
+		CMenu menu;
+		menu.LoadMenu(IDR_MENU_TABS);
+		CMenu* tracker = menu.GetSubMenu(0);
+		TranslateMenu(tracker->m_hMenu);
+		tracker->TrackPopupMenu(0, x, y, this);
+		return TRUE;
 	}
-	return DefWindowProc(WM_CONTEXTMENU,wParam,lParam);
+	return DefWindowProc(WM_CONTEXTMENU, wParam, lParam);
 }
 
-void MessagesDlg::OnClose() 
+void MessagesDlg::OnClose()
 {
 	call_hangup_all_noincoming();
 	ShowWindow(SW_HIDE);
@@ -322,7 +323,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	ParseSIPURI(number, &sipuri);
 
 	//-- incoming call
-	if (call_info && call_info->role==PJSIP_ROLE_UAS) {
+	if (call_info && call_info->role == PJSIP_ROLE_UAS) {
 		//-- fix wrong domain
 		if (accountSettings.accountId && account == call_info->acc_id) {
 			if (IsIP(RemovePort(sipuri.domain))) {
@@ -340,13 +341,13 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 
 	LONG exists = -1;
 	bool isNewCall = false;
-	for (int i=0; i < tab->GetItemCount(); i++)
+	for (int i = 0; i < tab->GetItemCount(); i++)
 	{
 		messagesContact = GetMessageContact(i);
 
 		CString compareNumber = messagesContact->number;
 		if (messagesContact->number == number || compareNumber == number) {
-			exists=i;
+			exists = i;
 			if (call_info)
 			{
 				if (messagesContact->callId != -1) {
@@ -356,7 +357,8 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 						}
 						return NULL;
 					}
-				} else {
+				}
+				else {
 					messagesContact->callId = call_info->id;
 					isNewCall = true;
 				}
@@ -383,12 +385,14 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	//--end name
 	CString tabName = name;
 	if (user_data) {
+		user_data->CS.Lock();
 		if (!user_data->diversion.IsEmpty()) {
 			tabName.Format(_T("%s -> %s"), user_data->diversion, tabName);
 		}
+		user_data->CS.Unlock();
 	}
 	tabName.Format(_T("   %s  "), tabName);
-	if (exists==-1) {
+	if (exists == -1) {
 		if (ifExists) {
 			return NULL;
 		}
@@ -399,14 +403,15 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		messagesContact->name = name;
 		TCITEM item;
 		item.mask = TCIF_PARAM | TCIF_TEXT;
-		item.pszText= tabName.GetBuffer();
-		item.cchTextMax=0;
+		item.pszText = tabName.GetBuffer();
+		item.cchTextMax = 0;
 		item.lParam = (LPARAM)messagesContact;
-		exists = tab->InsertItem(tab->GetItemCount(),&item);
+		exists = tab->InsertItem(tab->GetItemCount(), &item);
 		if (tab->GetCurSel() == exists) {
 			OnChangeTab(call_info, user_data);
 		}
-	} else {
+	}
+	else {
 		if (messagesContact->callId == -1) {
 			messagesContact->numberParameters = sipuri.parameters;
 		}
@@ -441,7 +446,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	}
 
 	if (!IsWindowVisible()) {
-		if (!notShowWindow) 
+		if (!notShowWindow)
 		{
 			if (!accountSettings.hidden) {
 				ShowWindow(SW_SHOW);
@@ -460,42 +465,43 @@ void MessagesDlg::OnChangeTab(pjsua_call_info *p_call_info, call_user_data *user
 	pjsua_call_info call_info;
 	if (messagesContact->callId != -1) {
 		if (!p_call_info) {
-			if (pjsua_var.state==PJSUA_STATE_RUNNING && pjsua_call_get_info(messagesContact->callId, &call_info) == PJ_SUCCESS) {
+			if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_call_get_info(messagesContact->callId, &call_info) == PJ_SUCCESS) {
 				p_call_info = &call_info;
 			}
 		}
 	}
 	if (messagesContact->hasNewMessages) {
 		messagesContact->hasNewMessages = false;
-		UpdateTabIcon(messagesContact,tab->GetCurSel(),p_call_info, user_data);
+		UpdateTabIcon(messagesContact, tab->GetCurSel(), p_call_info, user_data);
 	}
 	SetWindowText(messagesContact->name);
 
 	if (messagesContact->callId != -1) {
 		UpdateCallButton(TRUE, p_call_info);
 		if (accountSettings.singleMode
-			&& p_call_info && (p_call_info->role==PJSIP_ROLE_UAC ||
-				(p_call_info->role==PJSIP_ROLE_UAS &&
+			&& p_call_info && (p_call_info->role == PJSIP_ROLE_UAC ||
+			(p_call_info->role == PJSIP_ROLE_UAS &&
 				(p_call_info->state == PJSIP_INV_STATE_CONFIRMED
-				|| p_call_info->state == PJSIP_INV_STATE_CONNECTING)
+					|| p_call_info->state == PJSIP_INV_STATE_CONNECTING)
 				))
 			) {
 			SIPURI sipuri;
 			ParseSIPURI(messagesContact->number, &sipuri);
 			mainDlg->pageDialer->SetNumber(!sipuri.user.IsEmpty() && sipuri.domain == get_account_domain() ? sipuri.user : messagesContact->number, 1);
 		}
-	} else {
+	}
+	else {
 		UpdateCallButton();
 		if (accountSettings.singleMode) {
-			mainDlg->pageDialer->PostMessage(WM_COMMAND,MAKELPARAM(IDC_CLEAR,0),0);
+			mainDlg->pageDialer->PostMessage(WM_COMMAND, MAKELPARAM(IDC_CLEAR, 0), 0);
 		}
 	}
 
 	CRichEditCtrl* richEditList = (CRichEditCtrl*)GetDlgItem(IDC_LIST);
 	CString messages = messagesContact->messages;
 	EDITSTREAM es;
-	es.dwCookie = (DWORD_PTR) &messages;
-	es.pfnCallback = MEditStreamInCallback; 
+	es.dwCookie = (DWORD_PTR)&messages;
+	es.pfnCallback = MEditStreamInCallback;
 	richEditList->StreamIn(SF_RTF, es);
 	richEditList->PostMessage(WM_VSCROLL, SB_BOTTOM, 0);
 
@@ -518,7 +524,7 @@ void MessagesDlg::OnTcnSelchangingTab(NMHDR *pNMHDR, LRESULT *pResult)
 	CString str;
 	int len = richEdit->GetWindowTextLength();
 	LPTSTR ptr = str.GetBuffer(len);
-	richEdit->GetWindowText(ptr,len+1);
+	richEdit->GetWindowText(ptr, len + 1);
 	str.ReleaseBuffer();
 
 	MessagesContact* messagesContact = GetMessageContact();
@@ -526,9 +532,9 @@ void MessagesDlg::OnTcnSelchangingTab(NMHDR *pNMHDR, LRESULT *pResult)
 	*pResult = 0;
 }
 
-LRESULT  MessagesDlg::OnCloseTab(WPARAM wParam,LPARAM lParam)
+LRESULT  MessagesDlg::OnCloseTab(WPARAM wParam, LPARAM lParam)
 {
-	int i=wParam;
+	int i = wParam;
 	CloseTab(i);
 	return TRUE;
 }
@@ -552,8 +558,9 @@ BOOL MessagesDlg::CloseTab(int i, BOOL safe)
 		GetDlgItem(IDC_LIST)->SetWindowText(_T(""));
 		GetDlgItem(IDC_MESSAGE)->SetWindowText(_T(""));
 		OnClose();
-	} else  {
-		tab->SetCurSel( curSel < count ? curSel: count-1 );
+	}
+	else {
+		tab->SetCurSel(curSel < count ? curSel : count - 1);
 		OnChangeTab();
 	}
 	return TRUE;
@@ -563,9 +570,9 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 {
 	pjsua_acc_id acc_id;
 	pj_str_t pj_uri;
-	if (!SelectSIPAccount(number,acc_id,pj_uri)) {
+	if (!SelectSIPAccount(number, acc_id, pj_uri)) {
 		Account dummy;
-		*pStatus = accountSettings.AccountLoad(1,&dummy) ? PJSIP_EAUTHACCDISABLED : PJSIP_EAUTHACCNOTFOUND;
+		*pStatus = accountSettings.AccountLoad(1, &dummy) ? PJSIP_EAUTHACCDISABLED : PJSIP_EAUTHACCNOTFOUND;
 		return PJSUA_INVALID_ID;
 	}
 	if (accountSettings.singleMode) {
@@ -584,20 +591,20 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 	pjsua_call_setting call_setting;
 	pjsua_call_setting_default(&call_setting);
 	call_setting.flag = 0;
-	call_setting.vid_cnt=hasVideo ? 1 : 0;
+	call_setting.vid_cnt = hasVideo ? 1 : 0;
 
 	pjsua_msg_data msg_data;
 	pjsua_msg_data_init(&msg_data);
 
 	/* testing autoanswer
 	pjsip_generic_string_hdr subject;
-    pj_str_t hvalue, hname;
+	pj_str_t hvalue, hname;
 	//hname = pj_str("X-AUTOANSWER");
 	//hvalue = pj_str("TRUE");
 	hname = pj_str("Call-Info");
 	hvalue = pj_str("answer-after=5");
 	pjsip_generic_string_hdr_init2 (&subject, &hname, &hvalue);
-    pj_list_push_back(&msg_data.hdr_list, &subject);
+	pj_list_push_back(&msg_data.hdr_list, &subject);
 	//*/
 	pj_status_t status = pjsua_call_make_call(
 		acc_id,
@@ -616,22 +623,27 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 {
 	MessagesContact* messagesContact = GetMessageContact();
 	if (user_data) {
+		user_data->CS.Lock();
 		user_data->name = messagesContact->name;
+		user_data->CS.Unlock();
 	}
 	pj_status_t status = PJSIP_EINVALIDREQURI;
 	pjsua_call_id call_id = PJSUA_INVALID_ID;
 	CString numberWithParams = messagesContact->number + messagesContact->numberParameters;
 	call_id = CallMake(numberWithParams, hasVideo, &status, user_data);
-	if (call_id!=PJSUA_INVALID_ID) {
+	if (call_id != PJSUA_INVALID_ID) {
 		if (user_data) {
+			user_data->CS.Lock();
 			user_data->call_id = call_id;
+			user_data->CS.Unlock();
 		}
 		messagesContact->callId = call_id;
 		UpdateCallButton(TRUE);
-	} else {
+	}
+	else {
 		if (status != PJ_ERESOLVE) {
 			CString message = GetErrorMessage(status);
-			AddMessage(messagesContact,message);
+			AddMessage(messagesContact, message);
 			if (accountSettings.singleMode) {
 				AfxMessageBox(message);
 			}
@@ -657,7 +669,7 @@ void MessagesDlg::OnEndCall(pjsua_call_info *call_info)
 		{
 			lastCall = messagesContact;
 			messagesContact->callId = -1;
-			if (tab->GetCurSel()==i)
+			if (tab->GetCurSel() == i)
 			{
 				UpdateCallButton(FALSE, call_info);
 			}
@@ -668,10 +680,10 @@ void MessagesDlg::OnEndCall(pjsua_call_info *call_info)
 
 void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info)
 {
-	GetDlgItem(IDC_CALL_END)->ShowWindow(active? SW_HIDE : SW_SHOW);
-	GetDlgItem(IDC_END)->ShowWindow(!active? SW_HIDE : SW_SHOW);
+	GetDlgItem(IDC_CALL_END)->ShowWindow(active ? SW_HIDE : SW_SHOW);
+	GetDlgItem(IDC_END)->ShowWindow(!active ? SW_HIDE : SW_SHOW);
 #ifdef _GLOBAL_VIDEO
-	GetDlgItem(IDC_VIDEO_CALL)->ShowWindow(active? SW_HIDE : SW_SHOW);
+	GetDlgItem(IDC_VIDEO_CALL)->ShowWindow(active ? SW_HIDE : SW_SHOW);
 #endif
 	UpdateHoldButton(call_info);
 	UpdateRecButton();
@@ -679,7 +691,7 @@ void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info)
 		if (mainDlg->transferDlg) {
 			mainDlg->transferDlg->OnClose();
 		}
-		::SendMessage(m_hWnd,WM_CANCELMODE,0,0); 
+		::SendMessage(m_hWnd, WM_CANCELMODE, 0, 0);
 	}
 }
 
@@ -704,16 +716,16 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 		if (call_info->state == PJSIP_INV_STATE_EARLY ||
 			call_info->state == PJSIP_INV_STATE_CONNECTING ||
 			call_info->state == PJSIP_INV_STATE_CONFIRMED) {
-				hasActions = true;
-				if (call_info->state == PJSIP_INV_STATE_CONFIRMED) {
-					hasHold = true;
-					if (call_info->media_cnt>0) {
-						if (call_info->media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD
-							|| call_info->media_status == PJSUA_CALL_MEDIA_NONE) {
-								onHold = true;
-						}
+			hasActions = true;
+			if (call_info->state == PJSIP_INV_STATE_CONFIRMED) {
+				hasHold = true;
+				if (call_info->media_cnt > 0) {
+					if (call_info->media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD
+						|| call_info->media_status == PJSUA_CALL_MEDIA_NONE) {
+						onHold = true;
 					}
 				}
+			}
 		}
 	}
 	//--
@@ -721,7 +733,8 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 		buttonTransfer->ShowWindow(SW_SHOW);
 		buttonConference->ShowWindow(SW_SHOW);
 		buttonTransferDialer->EnableWindow(TRUE);
-	} else {
+	}
+	else {
 		buttonTransfer->ShowWindow(SW_HIDE);
 		buttonConference->ShowWindow(SW_HIDE);
 		buttonTransferDialer->EnableWindow(FALSE);
@@ -730,7 +743,8 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 	if (hasHold) {
 		buttonHold->ShowWindow(SW_SHOW);
 		buttonHoldDialer->EnableWindow(TRUE);
-	} else {
+	}
+	else {
 		buttonHold->ShowWindow(SW_HIDE);
 		buttonHoldDialer->EnableWindow(FALSE);
 	}
@@ -738,7 +752,8 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 	if (onHold) {
 		buttonHold->SetCheck(TRUE);
 		buttonHoldDialer->SetCheck(TRUE);
-	} else {
+	}
+	else {
 		buttonHold->SetCheck(FALSE);
 		buttonHoldDialer->SetCheck(FALSE);
 	}
@@ -754,8 +769,12 @@ void MessagesDlg::UpdateRecButton(call_user_data *user_data)
 			if (!user_data) {
 				user_data = (call_user_data *)pjsua_call_get_user_data(messagesContact->callId);
 			}
-			if (user_data && user_data->recorder_id != PJSUA_INVALID_ID) {
-				state = true;
+			if (user_data) {
+				user_data->CS.Lock();
+				if (user_data->recorder_id != PJSUA_INVALID_ID) {
+					state = true;
+				}
+				user_data->CS.Unlock();
 			}
 		}
 	}
@@ -771,7 +790,8 @@ bool MessagesDlg::CallCheck()
 		{
 			return true;
 		}
-	} else {
+	}
+	else {
 		mainDlg->GotoTab(0);
 	}
 	return false;
@@ -794,13 +814,14 @@ void MessagesDlg::AddMessage(MessagesContact* messagesContact, CString message, 
 	CTime tm = CTime::GetCurrentTime();
 
 	if (type == MSIP_MESSAGE_TYPE_SYSTEM) {
-		if ( messagesContact->lastSystemMessage == message && messagesContact->lastSystemMessageTime > tm.GetTime()-2) {
+		if (messagesContact->lastSystemMessage == message && messagesContact->lastSystemMessageTime > tm.GetTime() - 2) {
 			messagesContact->lastSystemMessageTime = tm;
 			return;
 		}
 		messagesContact->lastSystemMessage = message;
 		messagesContact->lastSystemMessageTime = tm;
-	} else if (!messagesContact->lastSystemMessage.IsEmpty()) {
+	}
+	else if (!messagesContact->lastSystemMessage.IsEmpty()) {
 		messagesContact->lastSystemMessage.Empty();
 	}
 
@@ -822,34 +843,35 @@ void MessagesDlg::AddMessage(MessagesContact* messagesContact, CString message, 
 
 		CString messages = messagesContact->messages;
 		EDITSTREAM es;
-		es.dwCookie = (DWORD_PTR) &messages;
-		es.pfnCallback = MEditStreamInCallback; 
+		es.dwCookie = (DWORD_PTR)&messages;
+		es.pfnCallback = MEditStreamInCallback;
 		richEdit.StreamIn(SF_RTF, es);
 
 		richEditList = &richEdit;
 	}
 
 	if (messagesContact->messages.IsEmpty()) {
-		richEditList->SetSel(0,-1);
+		richEditList->SetSel(0, -1);
 		richEditList->SetParaFormat(para);
 	}
 
 	COLORREF color;
 	CString name;
-	if (type==MSIP_MESSAGE_TYPE_LOCAL) {
-		color = RGB (0,0,0);
+	if (type == MSIP_MESSAGE_TYPE_LOCAL) {
+		color = RGB(0, 0, 0);
 		if (!accountSettings.account.displayName.IsEmpty()) {
 			name = accountSettings.account.displayName;
 		}
-	} else if (type==MSIP_MESSAGE_TYPE_REMOTE) {
-		color = RGB (21,101,206);
+	}
+	else if (type == MSIP_MESSAGE_TYPE_REMOTE) {
+		color = RGB(21, 101, 206);
 		name = messagesContact->name;
 		int pos = name.Find(_T(" ("));
-		if (pos==-1) {
+		if (pos == -1) {
 			pos = name.Find(_T("@"));
 		}
-		if (pos!=-1) {
-			name = name.Mid(0,pos);
+		if (pos != -1) {
+			name = name.Mid(0, pos);
 		}
 	}
 
@@ -861,13 +883,13 @@ void MessagesDlg::AddMessage(MessagesContact* messagesContact, CString message, 
 
 	nBegin = richEditList->GetTextLengthEx(GTL_NUMCHARS);
 	richEditList->SetSel(nBegin, nBegin);
-	str.Format(_T("[%s]  "),time);
-	richEditList->ReplaceSel( str );
+	str.Format(_T("[%s]  "), time);
+	richEditList->ReplaceSel(str);
 	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_SIZE;
-	cf.crTextColor = RGB (131,131,131);
+	cf.crTextColor = RGB(131, 131, 131);
 	cf.dwEffects = 0;
 	cf.yHeight = 160;
-	richEditList->SetSel(nBegin,-1);
+	richEditList->SetSel(nBegin, -1);
 	richEditList->SetSelectionCharFormat(cf);
 
 	if (type != MSIP_MESSAGE_TYPE_SYSTEM) {
@@ -876,30 +898,31 @@ void MessagesDlg::AddMessage(MessagesContact* messagesContact, CString message, 
 	if (name.GetLength()) {
 		nBegin = richEditList->GetTextLengthEx(GTL_NUMCHARS);
 		richEditList->SetSel(nBegin, nBegin);
-		richEditList->ReplaceSel( name + _T(": "));
+		richEditList->ReplaceSel(name + _T(": "));
 		cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_SIZE;
 		cf.crTextColor = color;
 		cf.dwEffects = CFE_BOLD;
-		richEditList->SetSel(nBegin,-1);
+		richEditList->SetSel(nBegin, -1);
 		richEditList->SetSelectionCharFormat(cf);
 	}
 
 	nBegin = richEditList->GetTextLengthEx(GTL_NUMCHARS);
 	richEditList->SetSel(nBegin, nBegin);
-	richEditList->ReplaceSel(message+_T("\r\n"));
+	richEditList->ReplaceSel(message + _T("\r\n"));
 	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_SIZE;
 
-	cf.crTextColor = type == MSIP_MESSAGE_TYPE_SYSTEM ? RGB (131, 131, 131) : color;
+	cf.crTextColor = type == MSIP_MESSAGE_TYPE_SYSTEM ? RGB(131, 131, 131) : color;
 	cf.dwEffects = 0;
 
-	richEditList->SetSel(nBegin,-1);
+	richEditList->SetSel(nBegin, -1);
 	richEditList->SetSelectionCharFormat(cf);
 
 	int selectedIndex = -1;
-	if (messagesContactSelected == messagesContact)	{
+	if (messagesContactSelected == messagesContact) {
 		richEditList->PostMessage(WM_VSCROLL, SB_BOTTOM, 0);
 		selectedIndex = tab->GetCurSel();
-	} else {
+	}
+	else {
 		if (type == MSIP_MESSAGE_TYPE_REMOTE) {
 			messagesContact->hasNewMessages = true;
 			UpdateTabIcon(messagesContact);
@@ -914,12 +937,12 @@ void MessagesDlg::AddMessage(MessagesContact* messagesContact, CString message, 
 		}
 		*/
 	}
-	str=_T("");
+	str = _T("");
 	EDITSTREAM es;
-	es.dwCookie = (DWORD_PTR) &str;
-	es.pfnCallback = MEditStreamOutCallback; 
+	es.dwCookie = (DWORD_PTR)&str;
+	es.pfnCallback = MEditStreamOutCallback;
 	richEditList->StreamOut(SF_RTF, es);
-	messagesContact->messages=str;
+	messagesContact->messages = str;
 }
 
 void MessagesDlg::OnEnMsgfilterMessage(NMHDR *pNMHDR, LRESULT *pResult)
@@ -927,26 +950,26 @@ void MessagesDlg::OnEnMsgfilterMessage(NMHDR *pNMHDR, LRESULT *pResult)
 	MSGFILTER *pMsgFilter = reinterpret_cast<MSGFILTER *>(pNMHDR);
 
 	if (pMsgFilter->msg == WM_CHAR) {
-		if ( pMsgFilter->wParam == VK_RETURN ) {
+		if (pMsgFilter->wParam == VK_RETURN) {
 			CRichEditCtrl* richEdit = (CRichEditCtrl*)GetDlgItem(IDC_MESSAGE);
 			CString message;
 			int len = richEdit->GetWindowTextLength();
 			LPTSTR ptr = message.GetBuffer(len);
-			richEdit->GetWindowText(ptr,len+1);
+			richEdit->GetWindowText(ptr, len + 1);
 			message.ReleaseBuffer();
 			message.Trim();
 			if (message.GetLength()) {
 				MessagesContact* messagesContact = GetMessageContact();
-				if (SendInstantMessage (messagesContact,message) ) {
+				if (SendInstantMessage(messagesContact, message)) {
 					richEdit->SetWindowText(_T(""));
 					GotoDlgCtrl(richEdit);
 					AddMessage(messagesContact, message, MSIP_MESSAGE_TYPE_LOCAL);
 					if (accountSettings.localDTMF) {
-						mainDlg->onPlayerPlay(MSIP_SOUND_MESSAGE_OUT,0);
+						mainDlg->onPlayerPlay(MSIP_SOUND_MESSAGE_OUT, 0);
 					}
 				}
 			}
-			*pResult= 1;
+			*pResult = 1;
 			return;
 		}
 	}
@@ -983,14 +1006,14 @@ BOOL MessagesDlg::SendInstantMessage(MessagesContact* messagesContact, CString m
 
 MessagesContact* MessagesDlg::GetMessageContact(int i)
 {
-	if (i ==-1) {
+	if (i == -1) {
 		i = tab->GetCurSel();
 	}
 	if (i != -1) {
 		TCITEM item;
 		item.mask = TCIF_PARAM;
 		tab->GetItem(i, &item);
-		return (MessagesContact*) item.lParam;
+		return (MessagesContact*)item.lParam;
 	}
 	return NULL;
 }
@@ -1033,14 +1056,18 @@ void MessagesDlg::Merge(pjsua_call_id call_id)
 		user_data = new call_user_data(messagesContact->callId);
 		pjsua_call_set_user_data(messagesContact->callId, user_data);
 	}
+	user_data->CS.Lock();
 	user_data->inConference = true;
+	user_data->CS.Unlock();
 
 	user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
 	if (!user_data) {
 		user_data = new call_user_data(messagesContact->callId);
 		pjsua_call_set_user_data(messagesContact->callId, user_data);
 	}
+	user_data->CS.Lock();
 	user_data->inConference = true;
+	user_data->CS.Unlock();
 
 	pjsua_call_info call_info;
 	if (pjsua_call_get_info(call_id, &call_info) != PJ_SUCCESS) {
@@ -1073,7 +1100,16 @@ void MessagesDlg::CallAction(int action, CString number)
 		call_user_data *user_data;
 		user_data = (call_user_data *)pjsua_call_get_user_data(messagesContactSelected->callId);
 		if (action == MSIP_ACTION_TRANSFER) {
-			if (!user_data || !user_data->inConference) {
+			bool xfer;
+			if (user_data) {
+				user_data->CS.Lock();
+				xfer = !user_data->inConference;
+				user_data->CS.Unlock();
+			}
+			else {
+				xfer = true;
+			}
+			if (xfer) {
 				pjsua_call_xfer(messagesContactSelected->callId, &pj_uri, NULL);
 			}
 		}
@@ -1087,8 +1123,9 @@ void MessagesDlg::CallAction(int action, CString number)
 					user_data = new call_user_data(messagesContactSelected->callId);
 					pjsua_call_set_user_data(messagesContactSelected->callId, user_data);
 				}
+				user_data->CS.Lock();
 				user_data->inConference = true;
-
+				user_data->CS.Unlock();
 				user_data = new call_user_data(PJSUA_INVALID_ID);
 				user_data->inConference = true;
 				mainDlg->messagesDlg->CallStart(false, user_data);
@@ -1100,15 +1137,16 @@ void MessagesDlg::CallAction(int action, CString number)
 void MessagesDlg::OnBnClickedHold()
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (!messagesContact || messagesContact->callId==-1) {
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
 	pjsua_call_info call_info;
-	pjsua_call_get_info(messagesContact->callId,&call_info);
+	pjsua_call_get_info(messagesContact->callId, &call_info);
 	if (call_info.state == PJSIP_INV_STATE_CONFIRMED) {
 		if (call_info.media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD || call_info.media_status == PJSUA_CALL_MEDIA_NONE) {
 			msip_call_unhold(&call_info);
-		} else {
+		}
+		else {
 			msip_call_hold(&call_info);
 		}
 	}
@@ -1127,7 +1165,7 @@ void MessagesDlg::OnBnClickedConference()
 void MessagesDlg::OnBnClickedActions(bool isConference)
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (!messagesContact || messagesContact->callId==-1) {
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
 	CMenu *tracker;
@@ -1141,10 +1179,17 @@ void MessagesDlg::OnBnClickedActions(bool isConference)
 	if (pjsua_call_get_info(messagesContact->callId, &call_info) != PJ_SUCCESS) {
 		return;
 	}
-	call_user_data *user_data = (call_user_data *) pjsua_call_get_user_data(messagesContact->callId);
-	bool inConference = user_data && user_data->inConference;
+	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(messagesContact->callId);
+	bool inConference = false;
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->inConference) {
+			inConference = true;
+		}
+		user_data->CS.Unlock();
+	}
 	//-- transfer
-	tracker->EnableMenuItem(ID_TRANSFER,!inConference?0:MF_GRAYED);
+	tracker->EnableMenuItem(ID_TRANSFER, !inConference ? 0 : MF_GRAYED);
 	//-- attended transfer & merge
 	while (menuAttendedTransfer.DeleteMenu(0, MF_BYPOSITION));
 	while (menuMerge.DeleteMenu(0, MF_BYPOSITION));
@@ -1153,43 +1198,50 @@ void MessagesDlg::OnBnClickedActions(bool isConference)
 	int pos = 0;
 	int posMerge = 0;
 	pjsua_call_id mergeConferenceAddedId = PJSUA_INVALID_ID;
-	if (pjsua_enum_calls ( call_ids, &calls_count)==PJ_SUCCESS)  {
+	if (pjsua_enum_calls(call_ids, &calls_count) == PJ_SUCCESS) {
 		for (unsigned i = 0; i < calls_count; ++i) {
 			if (call_ids[i] != messagesContact->callId) {
 				pjsua_call_info call_info_curr;
 				pjsua_call_get_info(call_ids[i], &call_info_curr);
-				call_user_data *user_data_curr = (call_user_data *) pjsua_call_get_user_data(call_ids[i]);
-				bool inConferenceCurr = user_data_curr && user_data_curr->inConference;
+				call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
+				bool inConferenceCurr = false;
+				if (user_data_curr) {
+					user_data_curr->CS.Lock();
+					if (user_data_curr->inConference) {
+						inConferenceCurr = true;
+					}
+					user_data_curr->CS.Unlock();
+				}
 				CString str;
 				//--attended transfer
 				if (call_info_curr.role == PJSIP_ROLE_UAS || call_info_curr.state == PJSIP_INV_STATE_CONFIRMED) {
-						SIPURI sipuri_curr;
-						ParseSIPURI(PjToStr(&call_info_curr.remote_info, TRUE), &sipuri_curr);
-						str = !sipuri_curr.name.IsEmpty()?sipuri_curr.name:(!sipuri_curr.user.IsEmpty()?sipuri_curr.user:(sipuri_curr.domain));
-						if (!inConference && !inConferenceCurr) {
-							menuAttendedTransfer.InsertMenu(pos, MF_BYPOSITION, ID_ATTENDED_TRANSFER_RANGE+pos, str);
-							MENUITEMINFO mii;
-							mii.cbSize = sizeof (MENUITEMINFO);
-							mii.fMask = MIIM_DATA;
-							mii.dwItemData = call_ids[i];
-							menuAttendedTransfer.SetMenuItemInfo(pos,&mii,TRUE);
-							pos++;
-						}
+					SIPURI sipuri_curr;
+					ParseSIPURI(PjToStr(&call_info_curr.remote_info, TRUE), &sipuri_curr);
+					str = !sipuri_curr.name.IsEmpty() ? sipuri_curr.name : (!sipuri_curr.user.IsEmpty() ? sipuri_curr.user : (sipuri_curr.domain));
+					if (!inConference && !inConferenceCurr) {
+						menuAttendedTransfer.InsertMenu(pos, MF_BYPOSITION, ID_ATTENDED_TRANSFER_RANGE + pos, str);
+						MENUITEMINFO mii;
+						mii.cbSize = sizeof(MENUITEMINFO);
+						mii.fMask = MIIM_DATA;
+						mii.dwItemData = call_ids[i];
+						menuAttendedTransfer.SetMenuItemInfo(pos, &mii, TRUE);
+						pos++;
+					}
 				}
 				//--merge
 				if (call_info.state == PJSIP_INV_STATE_CONFIRMED && call_info_curr.state == PJSIP_INV_STATE_CONFIRMED) {
 					if (!inConference || !inConferenceCurr) {
-						if (!inConferenceCurr || mergeConferenceAddedId==PJSUA_INVALID_ID) {
+						if (!inConferenceCurr || mergeConferenceAddedId == PJSUA_INVALID_ID) {
 							MENUITEMINFO mii;
-							mii.cbSize = sizeof (MENUITEMINFO);
+							mii.cbSize = sizeof(MENUITEMINFO);
 							mii.fMask = MIIM_DATA;
 							mii.dwItemData = call_ids[i];
 							if (inConferenceCurr) {
 								str = Translate(_T("Conference"));
 								mergeConferenceAddedId = call_ids[i];
 							}
-							menuMerge.InsertMenu(posMerge, MF_BYPOSITION, ID_MERGE_RANGE+posMerge, str);
-							menuMerge.SetMenuItemInfo(posMerge,&mii,TRUE);
+							menuMerge.InsertMenu(posMerge, MF_BYPOSITION, ID_MERGE_RANGE + posMerge, str);
+							menuMerge.SetMenuItemInfo(posMerge, &mii, TRUE);
 							posMerge++;
 						}
 					}
@@ -1198,27 +1250,27 @@ void MessagesDlg::OnBnClickedActions(bool isConference)
 			}
 		}
 	}
-	tracker->EnableMenuItem(ID_ATTENDED_TRANSFER,menuAttendedTransfer.GetMenuItemCount()?0:MF_GRAYED);
-	if (!inConference && mergeConferenceAddedId!=PJSUA_INVALID_ID && menuMerge.GetMenuItemCount()>1) {
+	tracker->EnableMenuItem(ID_ATTENDED_TRANSFER, menuAttendedTransfer.GetMenuItemCount() ? 0 : MF_GRAYED);
+	if (!inConference && mergeConferenceAddedId != PJSUA_INVALID_ID && menuMerge.GetMenuItemCount() > 1) {
 		// only 1 conference allowed, remove all regular calls
 		while (menuMerge.DeleteMenu(0, MF_BYPOSITION));
 		MENUITEMINFO mii;
-		mii.cbSize = sizeof (MENUITEMINFO);
+		mii.cbSize = sizeof(MENUITEMINFO);
 		mii.fMask = MIIM_DATA;
 		mii.dwItemData = mergeConferenceAddedId;
 		menuMerge.InsertMenu(0, MF_BYPOSITION, ID_MERGE_RANGE, Translate(_T("Conference")));
-		menuMerge.SetMenuItemInfo(0,&mii,TRUE);
+		menuMerge.SetMenuItemInfo(0, &mii, TRUE);
 	}
-	tracker->EnableMenuItem(ID_MERGE,menuMerge.GetMenuItemCount()?0:MF_GRAYED);
+	tracker->EnableMenuItem(ID_MERGE, menuMerge.GetMenuItemCount() ? 0 : MF_GRAYED);
 	//-- invite in conference
-	tracker->EnableMenuItem(ID_CONFERENCE,call_info.state==PJSIP_INV_STATE_CONFIRMED&&(inConference||mergeConferenceAddedId==PJSUA_INVALID_ID)?0:MF_GRAYED);
+	tracker->EnableMenuItem(ID_CONFERENCE, call_info.state == PJSIP_INV_STATE_CONFIRMED && (inConference || mergeConferenceAddedId == PJSUA_INVALID_ID) ? 0 : MF_GRAYED);
 	//-- separate & disconnect
-	tracker->EnableMenuItem(ID_SEPARATE,inConference?0:MF_GRAYED);
-	tracker->EnableMenuItem(ID_DISCONNECT,inConference?0:MF_GRAYED);
+	tracker->EnableMenuItem(ID_SEPARATE, inConference ? 0 : MF_GRAYED);
+	tracker->EnableMenuItem(ID_DISCONNECT, inConference ? 0 : MF_GRAYED);
 	//--
- 	CPoint point;
+	CPoint point;
 	GetCursorPos(&point);
-	tracker->TrackPopupMenu( 0, point.x, point.y, this );
+	tracker->TrackPopupMenu(0, point.x, point.y, this);
 }
 
 void MessagesDlg::OnTransfer()
@@ -1235,7 +1287,7 @@ void MessagesDlg::OnAttendedTransfer(UINT nID)
 {
 	int pos = nID - ID_ATTENDED_TRANSFER_RANGE;
 	MENUITEMINFO mii;
-	mii.cbSize = sizeof (MENUITEMINFO);
+	mii.cbSize = sizeof(MENUITEMINFO);
 	mii.fMask = MIIM_DATA;
 	menuAttendedTransfer.GetMenuItemInfo(pos, &mii, TRUE);
 	pjsua_call_id call_id = mii.dwItemData;
@@ -1247,7 +1299,7 @@ void MessagesDlg::OnAttendedTransfer(UINT nID)
 	if (!pjsua_call_is_active(call_id)) {
 		return;
 	}
-	pjsua_call_xfer_replaces(messagesContact->callId,call_id,0,0);
+	pjsua_call_xfer_replaces(messagesContact->callId, call_id, 0, 0);
 }
 
 void MessagesDlg::OnConference()
@@ -1274,7 +1326,7 @@ void MessagesDlg::OnMerge(UINT nID)
 void MessagesDlg::OnSeparate()
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (!messagesContact || messagesContact->callId==-1) {
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
 	pjsua_call_info call_info;
@@ -1297,7 +1349,7 @@ void MessagesDlg::OnDisconnect()
 void MessagesDlg::OnBnClickedEnd()
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (!messagesContact || messagesContact->callId==-1) {
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
 	msip_call_end(messagesContact->callId);
@@ -1307,9 +1359,10 @@ void MessagesDlg::OnCloseAllTabs()
 {
 	int i = 0;
 	while (i < tab->GetItemCount()) {
-		if (CloseTab(i,TRUE)) {
+		if (CloseTab(i, TRUE)) {
 			i = 0;
-		} else {
+		}
+		else {
 			i++;
 		}
 	}
@@ -1320,7 +1373,7 @@ void MessagesDlg::OnGoToLastTab()
 	int i = 0;
 	BOOL found = FALSE;
 	int lastCallIndex = -1;
-	while (i < tab->GetItemCount())	{
+	while (i < tab->GetItemCount()) {
 		MessagesContact* messagesContact = GetMessageContact(i);
 		if (messagesContact->callId != -1) {
 			found = TRUE;
@@ -1337,7 +1390,7 @@ void MessagesDlg::OnGoToLastTab()
 		}
 		i++;
 	}
-	if (!found && lastCallIndex!=-1) {
+	if (!found && lastCallIndex != -1) {
 		if (tab->GetCurSel() != lastCallIndex) {
 			LONG_PTR result;
 			OnTcnSelchangingTab(NULL, &result);
@@ -1355,7 +1408,7 @@ int MessagesDlg::GetCallDuration(pjsua_call_id *call_id)
 	while (i < tab->GetItemCount()) {
 		MessagesContact* messagesContact = GetMessageContact(i);
 		if (messagesContact->callId != -1) {
-			if (pjsua_var.state==PJSUA_STATE_RUNNING && pjsua_call_get_info(messagesContact->callId, &call_info)==PJ_SUCCESS) {
+			if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_call_get_info(messagesContact->callId, &call_info) == PJ_SUCCESS) {
 				if (call_info.state == PJSIP_INV_STATE_CONFIRMED) {
 					duration = call_info.connect_duration.sec;
 					*call_id = messagesContact->callId;
@@ -1376,7 +1429,7 @@ void MessagesDlg::OnCopy()
 void MessagesDlg::OnSelectAll()
 {
 	CRichEditCtrl* richEditList = (CRichEditCtrl*)GetDlgItem(IDC_LIST);
-	richEditList->SetSel(0,-1);
+	richEditList->SetSel(0, -1);
 }
 
 void MessagesDlg::OnBnClickedCloseAll()
@@ -1391,7 +1444,7 @@ void MessagesDlg::OnBnClickedLastCall()
 
 void MessagesDlg::UpdateTabIcon(MessagesContact* messagesContact, int tabIndex, pjsua_call_info *p_call_info, call_user_data *user_data)
 {
-	if (tabIndex==-1) {
+	if (tabIndex == -1) {
 		for (int i = 0; i < tab->GetItemCount(); i++) {
 			if (messagesContact == GetMessageContact(i)) {
 				tabIndex = i;
@@ -1399,63 +1452,83 @@ void MessagesDlg::UpdateTabIcon(MessagesContact* messagesContact, int tabIndex, 
 			}
 		}
 	}
-	if (tabIndex==-1) {
+	if (tabIndex == -1) {
 		return;
 	}
 	int icon = -1;
 	if (messagesContact->hasNewMessages) {
 		icon = MSIP_TAB_ICON_MESSAGE_IN;
-	} else if (p_call_info) {
+	}
+	else if (p_call_info) {
 		//-----------------
 		switch (p_call_info->state) {
-			case PJSIP_INV_STATE_NULL:
-			case PJSIP_INV_STATE_DISCONNECTED:
-				if (p_call_info->role == PJSIP_ROLE_UAS && !p_call_info->connect_duration.sec && !p_call_info->connect_duration.msec) {
-					icon = MSIP_TAB_ICON_CALL_MISS;
+		case PJSIP_INV_STATE_NULL:
+		case PJSIP_INV_STATE_DISCONNECTED:
+			if (p_call_info->role == PJSIP_ROLE_UAS && !p_call_info->connect_duration.sec && !p_call_info->connect_duration.msec) {
+				icon = MSIP_TAB_ICON_CALL_MISS;
+			}
+			break;
+		case PJSIP_INV_STATE_CONFIRMED:
+			if (p_call_info->media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD || p_call_info->media_status == PJSUA_CALL_MEDIA_NONE) {
+				icon = MSIP_TAB_ICON_ON_HOLD;
+			}
+			else {
+				if (!user_data) {
+					user_data = (call_user_data *)pjsua_call_get_user_data(p_call_info->id);
 				}
-				break;
-			case PJSIP_INV_STATE_CONFIRMED:
-				if (p_call_info->media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD || p_call_info->media_status == PJSUA_CALL_MEDIA_NONE) {
-					icon = MSIP_TAB_ICON_ON_HOLD;
-				} else {
-					if (!user_data) {
-						user_data = (call_user_data *) pjsua_call_get_user_data(p_call_info->id);
-					}
+				if (user_data) {
+					user_data->CS.Lock();
 					if (p_call_info->media_status == PJSUA_CALL_MEDIA_REMOTE_HOLD) {
 						if (user_data && user_data->inConference) {
 							icon = MSIP_TAB_ICON_ON_REMOTE_HOLD_CONFERENCE;
-						} else {
+						}
+						else {
 							icon = MSIP_TAB_ICON_ON_REMOTE_HOLD;
 						}
-					} else {
+					}
+					else {
 						if (user_data && user_data->inConference) {
 							if (user_data->srtp == MSIP_SRTP) {
 								icon = MSIP_TAB_ICON_CONFERENCE_SECURE;
-							} else {
+							}
+							else {
 								icon = MSIP_TAB_ICON_CONFERENCE;
 							}
-						} else {
+						}
+						else {
 							if (user_data && user_data->srtp == MSIP_SRTP) {
 								icon = MSIP_TAB_ICON_ACTIVE_SECURE;
-							} else {
+							}
+							else {
 								icon = MSIP_TAB_ICON_ACTIVE;
 							}
 						}
 					}
+					user_data->CS.Unlock();
 				}
-				break;
-			default:
-				if (p_call_info->role == PJSIP_ROLE_UAS) {
-					icon = MSIP_TAB_ICON_CALL_IN;
-				} else {
-					icon = MSIP_TAB_ICON_CALL_OUT;
+				else {
+					if (p_call_info->media_status == PJSUA_CALL_MEDIA_REMOTE_HOLD) {
+						icon = MSIP_TAB_ICON_ON_REMOTE_HOLD;
+					}
+					else {
+						icon = MSIP_TAB_ICON_ACTIVE;
+					}
 				}
-				break;
+			}
+			break;
+		default:
+			if (p_call_info->role == PJSIP_ROLE_UAS) {
+				icon = MSIP_TAB_ICON_CALL_IN;
+			}
+			else {
+				icon = MSIP_TAB_ICON_CALL_OUT;
+			}
+			break;
 		}
 		//-----------------
 	}
 	TCITEM item;
 	item.mask = TCIF_IMAGE;
 	item.iImage = icon;
-	tab->SetItem(tabIndex,&item);
+	tab->SetItem(tabIndex, &item);
 }

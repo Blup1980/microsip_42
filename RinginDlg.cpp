@@ -21,6 +21,7 @@
 #include "langpack.h"
 #include "mainDlg.h"
 #include "settings.h"
+#include "Markup.h"
 
 #include <vector>
 #include <algorithm>

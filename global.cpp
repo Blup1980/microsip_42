@@ -231,6 +231,23 @@ CString AnsiToWideChar(char* str)
 	return res;
 }
 
+char *WideCharToPjStr(CString str)
+{
+	int len = str.GetLength() * 4;
+	char *buf = (char *)malloc(len + 1);
+	pj_unicode_to_ansi(str.GetBuffer(), -1, buf, len + 1);
+	return buf;
+}
+
+CString PjStrToWideChar(char *str)
+{
+	CString res;
+	int len = strlen(str) * 2;
+	wchar_t *buf = res.GetBuffer(len);
+	pj_ansi_to_unicode(str, -1, buf, len + 1);
+	return res;
+}
+
 CString XMLEntityDecode(CString str)
 {
 	str.Replace(_T("&lt;"), _T("<"));
@@ -458,7 +475,9 @@ struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id)
 			user_data = new call_user_data(call_id);
 			pjsua_call_set_user_data(call_id, user_data);
 		}
+		user_data->CS.Lock();
 		user_data->tonegen_data = cd;
+		user_data->CS.Unlock();
 	}
 	return cd;
 }
@@ -492,23 +511,27 @@ void DTMFQueueTimerHandler(
 	pjsua_call_id call_id = (pjsua_call_id)idEvent;
 	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_call_is_active(call_id)) {
 		call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
-		if (user_data && !user_data->commands.IsEmpty()) {
-			CString dtmf;
-			int pos = user_data->commands.Find(',');
-			if (pos != -1) {
-				dtmf = user_data->commands.Mid(0, pos);
-				user_data->commands = user_data->commands.Mid(pos + 1);
-			}
-			else {
-				dtmf = user_data->commands;
-				user_data->commands.Empty();
-			}
-			if (!dtmf.IsEmpty()) {
-				msip_call_dial_dtmf(call_id, dtmf);
-			}
+		if (user_data) {
+			user_data->CS.Lock();
 			if (!user_data->commands.IsEmpty()) {
-				::SetTimer(hwnd, idEvent, 1000 + 200 * dtmf.GetLength(), (TIMERPROC)DTMFQueueTimerHandler);
+				CString dtmf;
+				int pos = user_data->commands.Find(',');
+				if (pos != -1) {
+					dtmf = user_data->commands.Mid(0, pos);
+					user_data->commands = user_data->commands.Mid(pos + 1);
+				}
+				else {
+					dtmf = user_data->commands;
+					user_data->commands.Empty();
+				}
+				if (!dtmf.IsEmpty()) {
+					msip_call_dial_dtmf(call_id, dtmf);
+				}
+				if (!user_data->commands.IsEmpty()) {
+					::SetTimer(hwnd, idEvent, 1000 + 200 * dtmf.GetLength(), (TIMERPROC)DTMFQueueTimerHandler);
+				}
 			}
+			user_data->CS.Unlock();
 		}
 	}
 }
@@ -596,11 +619,13 @@ BOOL call_play_digit(pjsua_call_id call_id, const char *digits, int duration)
 	call_user_data *user_data = NULL;
 	if (call_id != -1) {
 		user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
-		if (user_data && user_data->tonegen_data) {
-			cd = user_data->tonegen_data;
-		}
-		else {
-			cd = NULL;
+		cd = NULL;
+		if (user_data) {
+			user_data->CS.Lock();
+			if (user_data->tonegen_data) {
+				cd = user_data->tonegen_data;
+			}
+			user_data->CS.Unlock();
 		}
 	}
 	else {
@@ -658,16 +683,17 @@ void call_deinit_tonegen(pjsua_call_id call_id)
 		if (pjsua_var.state == PJSUA_STATE_RUNNING) {
 			user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
 		}
-		if (user_data && user_data->tonegen_data) {
-			cd = user_data->tonegen_data;
-			POSITION position = DTMFTonegens.Find(cd->tonegen);
-			if (position != NULL) {
-				DTMFTonegens.RemoveAt(position);
+		cd = NULL;
+		if (user_data) {
+			user_data->CS.Lock();
+			if (user_data->tonegen_data) {
+				cd = user_data->tonegen_data;
+				POSITION position = DTMFTonegens.Find(cd->tonegen);
+				if (position != NULL) {
+					DTMFTonegens.RemoveAt(position);
+				}
 			}
-
-		}
-		else {
-			cd = NULL;
+			user_data->CS.Unlock();
 		}
 	}
 	else {
@@ -684,7 +710,9 @@ void call_deinit_tonegen(pjsua_call_id call_id)
 
 	if (call_id != -1) {
 		if (user_data) {
+			user_data->CS.Lock();
 			user_data->tonegen_data = NULL;
+			user_data->CS.Unlock();
 		}
 	}
 	else {
@@ -1115,23 +1143,35 @@ void msip_call_end(pjsua_call_id call_id)
 		return;
 	}
 	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
-	if (user_data && user_data->inConference) {
-		pjsua_call_info call_info;
-		if (pjsua_call_get_info(call_id, &call_info) == PJ_SUCCESS && call_info.state == PJSIP_INV_STATE_CONFIRMED) {
-			pjsua_call_id call_ids[PJSUA_MAX_CALLS];
-			unsigned count = PJSUA_MAX_CALLS;
-			if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
-				for (unsigned i = 0; i < count; ++i) {
-					if (call_id == call_ids[i]) {
-						continue;
-					}
-					call_user_data *curr_user_data = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
-					if (curr_user_data && curr_user_data->inConference) {
-						msip_call_hangup_fast(call_ids[i]);
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->inConference) {
+			pjsua_call_info call_info;
+			if (pjsua_call_get_info(call_id, &call_info) == PJ_SUCCESS && call_info.state == PJSIP_INV_STATE_CONFIRMED) {
+				pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+				unsigned count = PJSUA_MAX_CALLS;
+				if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
+					for (unsigned i = 0; i < count; ++i) {
+						if (call_id == call_ids[i]) {
+							continue;
+						}
+						call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
+						bool inConferenceCurr = false;
+						if (user_data_curr) {
+							user_data_curr->CS.Lock();
+							if (user_data_curr->inConference) {
+								inConferenceCurr = true;
+							}
+							user_data_curr->CS.Unlock();
+						}
+						if (inConferenceCurr) {
+							msip_call_hangup_fast(call_ids[i]);
+						}
 					}
 				}
 			}
 		}
+		user_data->CS.Unlock();
 	}
 	msip_call_hangup_fast(call_id);
 }
@@ -1142,33 +1182,45 @@ void msip_conference_join(pjsua_call_info *call_info)
 		return;
 	}
 	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_info->id);
-	if (user_data && user_data->inConference) {
-		pjsua_call_id call_ids[PJSUA_MAX_CALLS];
-		unsigned count = PJSUA_MAX_CALLS;
-		if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
-			for (unsigned i = 0; i < count; ++i) {
-				if (call_info->id == call_ids[i]) {
-					continue;
-				}
-				if (!pjsua_call_has_media(call_ids[i])) {
-					continue;
-				}
-				call_user_data *curr_user_data = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
-				if (curr_user_data && curr_user_data->inConference) {
-					if (call_info->conf_slot != PJSUA_INVALID_ID) {
-						pjsua_conf_port_id conf_port_id = pjsua_call_get_conf_port(call_ids[i]);
-						if (conf_port_id != PJSUA_INVALID_ID) {
-							pjsua_conf_connect(call_info->conf_slot, conf_port_id);
-							pjsua_conf_connect(conf_port_id, call_info->conf_slot);
-						}
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->inConference) {
+			pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+			unsigned count = PJSUA_MAX_CALLS;
+			if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
+				for (unsigned i = 0; i < count; ++i) {
+					if (call_info->id == call_ids[i]) {
+						continue;
 					}
-					CWnd *hWnd = AfxGetApp()->m_pMainWnd;
-					if (hWnd) {
-						hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_ids[i], NULL);
+					if (!pjsua_call_has_media(call_ids[i])) {
+						continue;
+					}
+					call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
+					bool inConferenceCurr = false;
+					if (user_data_curr) {
+						user_data_curr->CS.Lock();
+						if (user_data_curr->inConference) {
+							inConferenceCurr = true;
+						}
+						user_data_curr->CS.Unlock();
+					}
+					if (inConferenceCurr) {
+						if (call_info->conf_slot != PJSUA_INVALID_ID) {
+							pjsua_conf_port_id conf_port_id = pjsua_call_get_conf_port(call_ids[i]);
+							if (conf_port_id != PJSUA_INVALID_ID) {
+								pjsua_conf_connect(call_info->conf_slot, conf_port_id);
+								pjsua_conf_connect(conf_port_id, call_info->conf_slot);
+							}
+						}
+						CWnd *hWnd = AfxGetApp()->m_pMainWnd;
+						if (hWnd) {
+							hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_ids[i], NULL);
+						}
 					}
 				}
 			}
 		}
+		user_data->CS.Unlock();
 	}
 }
 
@@ -1178,48 +1230,62 @@ void msip_conference_leave(pjsua_call_info *call_info, bool hold)
 		return;
 	}
 	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_info->id);
-	if (user_data && user_data->inConference) {
-		pjsua_call_id call_ids[PJSUA_MAX_CALLS];
-		unsigned count = PJSUA_MAX_CALLS;
-		if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
-			int qty = 0;
-			call_user_data *last_conf_user_data = NULL;
-			for (unsigned i = 0; i < count; ++i) {
-				if (call_info->id == call_ids[i]) {
-					continue;
-				}
-				call_user_data *curr_user_data = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
-				if (curr_user_data && curr_user_data->inConference) {
-					last_conf_user_data = curr_user_data;
-					qty++;
-					if (call_info->conf_slot != PJSUA_INVALID_ID) {
-						pjsua_conf_port_id conf_port_id = pjsua_call_get_conf_port(call_ids[i]);
-						if (conf_port_id != PJSUA_INVALID_ID) {
-							pjsua_conf_disconnect(call_info->conf_slot, conf_port_id);
-							pjsua_conf_disconnect(conf_port_id, call_info->conf_slot);
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->inConference) {
+			pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+			unsigned count = PJSUA_MAX_CALLS;
+			if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
+				int qty = 0;
+				call_user_data *last_conf_user_data = NULL;
+				for (unsigned i = 0; i < count; ++i) {
+					if (call_info->id == call_ids[i]) {
+						continue;
+					}
+					call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
+					bool inConferenceCurr = false;
+					if (user_data_curr) {
+						user_data_curr->CS.Lock();
+						if (user_data_curr->inConference) {
+							inConferenceCurr = true;
+						}
+						user_data_curr->CS.Unlock();
+					}
+					if (inConferenceCurr) {
+						last_conf_user_data = user_data_curr;
+						qty++;
+						if (call_info->conf_slot != PJSUA_INVALID_ID) {
+							pjsua_conf_port_id conf_port_id = pjsua_call_get_conf_port(call_ids[i]);
+							if (conf_port_id != PJSUA_INVALID_ID) {
+								pjsua_conf_disconnect(call_info->conf_slot, conf_port_id);
+								pjsua_conf_disconnect(conf_port_id, call_info->conf_slot);
+							}
+						}
+						if (!hold) {
+							CWnd *hWnd = AfxGetApp()->m_pMainWnd;
+							if (hWnd) {
+								hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_ids[i], NULL);
+							}
 						}
 					}
+				}
+				if (qty == 1) {
 					if (!hold) {
+						last_conf_user_data->CS.Lock();
+						last_conf_user_data->inConference = false;
+						last_conf_user_data->CS.Unlock();
 						CWnd *hWnd = AfxGetApp()->m_pMainWnd;
 						if (hWnd) {
-							hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_ids[i], NULL);
+							hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_info->id, NULL);
 						}
 					}
 				}
 			}
-			if (qty == 1) {
-				if (!hold) {
-					last_conf_user_data->inConference = false;
-					CWnd *hWnd = AfxGetApp()->m_pMainWnd;
-					if (hWnd) {
-						hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_info->id, NULL);
-					}
-				}
+			if (!hold) {
+				user_data->inConference = false;
 			}
 		}
-		if (!hold) {
-			user_data->inConference = false;
-		}
+		user_data->CS.Unlock();
 	}
 }
 
@@ -1229,25 +1295,37 @@ void msip_call_hold(pjsua_call_info *call_info)
 		return;
 	}
 	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_info->id);
-	if (user_data && user_data->inConference) {
-		pjsua_call_id call_ids[PJSUA_MAX_CALLS];
-		unsigned count = PJSUA_MAX_CALLS;
-		if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
-			for (unsigned i = 0; i < count; ++i) {
-				if (call_ids[i] != call_info->id) {
-					call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
-					if (user_data_curr && user_data_curr->inConference) {
-						pjsua_call_info call_info_curr;
-						pjsua_call_get_info(call_ids[i], &call_info_curr);
-						if (call_info_curr.state == PJSIP_INV_STATE_CONFIRMED) {
-							if (call_info_curr.media_status != PJSUA_CALL_MEDIA_LOCAL_HOLD && call_info_curr.media_status != PJSUA_CALL_MEDIA_NONE) {
-								pjsua_call_set_hold(call_info_curr.id, NULL);
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->inConference) {
+			pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+			unsigned count = PJSUA_MAX_CALLS;
+			if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
+				for (unsigned i = 0; i < count; ++i) {
+					if (call_ids[i] != call_info->id) {
+						call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
+						bool inConferenceCurr = false;
+						if (user_data_curr) {
+							user_data_curr->CS.Lock();
+							if (user_data_curr->inConference) {
+								inConferenceCurr = true;
+							}
+							user_data_curr->CS.Unlock();
+						}
+						if (inConferenceCurr) {
+							pjsua_call_info call_info_curr;
+							pjsua_call_get_info(call_ids[i], &call_info_curr);
+							if (call_info_curr.state == PJSIP_INV_STATE_CONFIRMED) {
+								if (call_info_curr.media_status != PJSUA_CALL_MEDIA_LOCAL_HOLD && call_info_curr.media_status != PJSUA_CALL_MEDIA_NONE) {
+									pjsua_call_set_hold(call_info_curr.id, NULL);
+								}
 							}
 						}
 					}
 				}
 			}
 		}
+		user_data->CS.Unlock();
 	}
 	if (call_info->state == PJSIP_INV_STATE_CONFIRMED) {
 		if (call_info->media_status != PJSUA_CALL_MEDIA_LOCAL_HOLD && call_info->media_status != PJSUA_CALL_MEDIA_NONE) {
@@ -1265,7 +1343,14 @@ void msip_call_unhold(pjsua_call_info *call_info)
 	if (call_info) {
 		user_data = (call_user_data *)pjsua_call_get_user_data(call_info->id);
 	}
-	bool inConference = user_data && user_data->inConference;
+	bool inConference = false;
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->inConference) {
+			inConference = true;
+		}
+		user_data->CS.Unlock();
+	}
 	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
 	unsigned count = PJSUA_MAX_CALLS;
 	if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
@@ -1275,7 +1360,14 @@ void msip_call_unhold(pjsua_call_info *call_info)
 				pjsua_call_get_info(call_ids[i], &call_info_curr);
 				if (call_info_curr.state == PJSIP_INV_STATE_CONFIRMED) {
 					call_user_data *user_data_curr = (call_user_data *)pjsua_call_get_user_data(call_ids[i]);
-					bool inConferenceCurr = user_data_curr && user_data_curr->inConference;
+					bool inConferenceCurr = false;
+					if (user_data_curr) {
+						user_data_curr->CS.Lock();
+						if (user_data_curr->inConference) {
+							inConferenceCurr = true;
+						}
+						user_data_curr->CS.Unlock();
+					}
 					if (inConference && inConferenceCurr) {
 						// unhold
 						if (call_info_curr.media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD || call_info_curr.media_status == PJSUA_CALL_MEDIA_NONE) {
@@ -1330,48 +1422,62 @@ void msip_call_busy(pjsua_call_id call_id)
 
 void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info)
 {
-	if (user_data && user_data->recorder_id == PJSUA_INVALID_ID) {
-		pjsua_call_info call_info_loc;
-		if (!call_info) {
-			if (pjsua_call_get_info(user_data->call_id, &call_info_loc) == PJ_SUCCESS) {
-				call_info = &call_info_loc;
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->recorder_id == PJSUA_INVALID_ID) {
+			pjsua_call_info call_info_loc;
+			if (!call_info) {
+				if (pjsua_call_get_info(user_data->call_id, &call_info_loc) == PJ_SUCCESS) {
+					call_info = &call_info_loc;
+				}
+			}
+			if (call_info && call_info->conf_slot) {
+				CString filename;
+				SIPURI remoteURI;
+				ParseSIPURI(PjToStr(&call_info->remote_info, TRUE), &remoteURI);
+				CTime tm = CTime::GetCurrentTime();
+				CString recordingPath = accountSettings.recordingPath;
+				if (!recordingPath.IsEmpty() && recordingPath.Right(1) != _T("\\")) {
+					recordingPath.Append(_T("\\"));
+				}
+				SIPURI localURI;
+				ParseSIPURI(PjToStr(&call_info->local_info, TRUE), &localURI);
+				filename.Format(_T("%s-%s-%s-%s"),
+					tm.Format(_T("%Y%m%d-%H%M%S")),
+					remoteURI.user,
+					call_info->role == PJSIP_ROLE_UAC ? _T("outgoing") : _T("incoming"),
+					accountSettings.accountId && !accountSettings.account.label.IsEmpty() ? accountSettings.account.label : localURI.user
+					);
+				CreateDirectory(recordingPath, NULL);
+				char spec[] = { '/','\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' ' };
+				for (int i = 0; i < sizeof(spec); i++) {
+					filename.Replace(spec[i], '_');
+				}
+				filename = recordingPath + filename + _T(".wav");
+				//--
+				char *buf = WideCharToPjStr(filename);
+				if (pjsua_recorder_create(&pj_str(buf), 0, NULL, -1, 0, &user_data->recorder_id) == PJ_SUCCESS) {
+					pjsua_conf_port_id rec_conf_port_id = pjsua_recorder_get_conf_port(user_data->recorder_id);
+					pjsua_conf_connect(call_info->conf_slot, rec_conf_port_id);
+					pjsua_conf_connect(0, rec_conf_port_id);
+				}
+				delete buf;
+				//--
 			}
 		}
-		if (call_info && call_info->conf_slot) {
-			CString filename;
-			SIPURI remoteURI;
-			ParseSIPURI(PjToStr(&call_info->remote_info, TRUE), &remoteURI);
-			CTime tm = CTime::GetCurrentTime();
-			CString recordingPath = accountSettings.recordingPath;
-			if (!recordingPath.IsEmpty() && recordingPath.Right(1) != _T("\\")) {
-				recordingPath.Append(_T("\\"));
-			}
-			filename.Format(_T("%s%s %s.wav"),
-				recordingPath,
-				tm.Format(_T("%Y-%m-%d_%H-%M-%S")),
-				remoteURI.user);
-			CreateDirectory(recordingPath, NULL);
-			//--
-			CStringA buf;
-			int len = filename.GetLength() + 1;
-			LPSTR pBuf = buf.GetBuffer(len);
-			WideCharToMultiByte(CP_ACP, 0, filename.GetBuffer(), -1, pBuf, len, NULL, NULL);
-			if (pjsua_recorder_create(&pj_str(pBuf), 0, NULL, -1, 0, &user_data->recorder_id) == PJ_SUCCESS) {
-				pjsua_conf_port_id rec_conf_port_id = pjsua_recorder_get_conf_port(user_data->recorder_id);
-				pjsua_conf_connect(call_info->conf_slot, rec_conf_port_id);
-				pjsua_conf_connect(0, rec_conf_port_id);
-			}
-			buf.ReleaseBuffer();
-			//--
-		}
+		user_data->CS.Unlock();
 	}
 }
 
 void msip_call_recording_stop(call_user_data *user_data)
 {
-	if (user_data && user_data->recorder_id != PJSUA_INVALID_ID) {
-		pjsua_recorder_destroy(user_data->recorder_id);
-		user_data->recorder_id = PJSUA_INVALID_ID;
+	if (user_data) {
+		user_data->CS.Lock();
+		if (user_data->recorder_id != PJSUA_INVALID_ID) {
+			pjsua_recorder_destroy(user_data->recorder_id);
+			user_data->recorder_id = PJSUA_INVALID_ID;
+		}
+		user_data->CS.Unlock();
 	}
 }
 
@@ -1493,4 +1599,9 @@ void msip_audio_input_set_volume(int val, bool mute)
 		}
 	}
 	pjsua_conf_adjust_rx_level(0, (float)val / 100);
+}
+
+pj_status_t msip_verify_sip_url(const char *url)
+{
+	return strlen(url) > 900 ? PJSIP_EURITOOLONG : pjsua_verify_sip_url(url);
 }
