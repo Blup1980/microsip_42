@@ -63,7 +63,8 @@ BOOL Contacts::OnInitDialog()
 	imageList->Add(theApp.LoadIcon(IDI_DEFAULT));
 
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
-	list->SetExtendedStyle(list->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
+	//list->SetExtendedStyle(list->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
+	list->SetExtendedStyle(list->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
 	list->SetImageList(imageList,LVSIL_SMALL);
 
 	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : 160);
@@ -183,7 +184,22 @@ void Contacts::DefaultItemAction(int i)
 			mainDlg->transferDlg->SetForegroundWindow();
 		}
 		else {
-			MessageDlgOpen(accountSettings.singleMode);
+			if (accountSettings.defaultAction.IsEmpty()) {
+				MessageDlgOpen(accountSettings.singleMode);
+			}
+			else {
+				if (accountSettings.defaultAction == _T("call")) {
+					OnMenuCall();
+				}
+#ifdef _GLOBAL_VIDEO
+				else if (accountSettings.defaultAction == _T("video")) {
+					OnMenuCallVideo();
+				}
+#endif
+				else {
+					OnMenuChat();
+				}
+			}
 		}
 	}
 }
@@ -299,6 +315,9 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 		exportMenu.AppendMenu(MF_STRING, ID_EXPORT_CSV, Translate(_T("CSV")));
 		tracker->AppendMenu(MF_POPUP, (UINT_PTR)exportMenu.m_hMenu, Translate(_T("Export")));
 		
+		if (tracker->GetMenuItemCount() == 3) {
+			tracker->RemoveMenu(0, MF_BYPOSITION);
+		}
 		tracker->TrackPopupMenu( 0, x, y, this );
 		return TRUE;
 	}

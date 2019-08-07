@@ -5,7 +5,7 @@
 
 #include <shlwapi.h>
 
-BEGIN_MESSAGE_MAP(CListCtrl_Sortable, CListCtrl)
+BEGIN_MESSAGE_MAP(CListCtrl_Sortable, CListCtrl_LabelTip)
 	ON_NOTIFY_REFLECT_EX(LVN_COLUMNCLICK, OnHeaderClick)	// Column Click
 END_MESSAGE_MAP()
 
@@ -117,7 +117,7 @@ void CListCtrl_Sortable::SetSortArrow(int colIndex, bool ascending)
 			{
 				hditem.fmt |= ascending ? HDF_SORTUP : HDF_SORTDOWN;
 			}
-			VERIFY( CListCtrl::GetHeaderCtrl()->SetItem( i, &hditem ) );
+			VERIFY( CListCtrl_LabelTip::GetHeaderCtrl()->SetItem( i, &hditem ) );
 		}
 #endif
 	}
@@ -137,14 +137,14 @@ void CListCtrl_Sortable::SetSortArrow(int colIndex, bool ascending)
 					hditem.hbm = NULL;
 				}
 				hditem.fmt &= ~(HDF_BITMAP|HDF_BITMAP_ON_RIGHT);
-				VERIFY( CListCtrl::GetHeaderCtrl()->SetItem( i, &hditem ) );
+				VERIFY( CListCtrl_LabelTip::GetHeaderCtrl()->SetItem( i, &hditem ) );
 			}
 			if (i == colIndex)
 			{
 				hditem.fmt |= HDF_BITMAP|HDF_BITMAP_ON_RIGHT;
 				hditem.hbm = (HBITMAP)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(bitmapID), IMAGE_BITMAP, 0,0, LR_LOADMAP3DCOLORS); 
 				VERIFY( hditem.hbm!=NULL );
-				VERIFY( CListCtrl::GetHeaderCtrl()->SetItem( i, &hditem ) );
+				VERIFY( CListCtrl_LabelTip::GetHeaderCtrl()->SetItem( i, &hditem ) );
 			}
 		}
 	}
@@ -152,7 +152,7 @@ void CListCtrl_Sortable::SetSortArrow(int colIndex, bool ascending)
 
 void CListCtrl_Sortable::PreSubclassWindow()
 {
-	CListCtrl::PreSubclassWindow();
+	CListCtrl_LabelTip::PreSubclassWindow();
 
 	// Focus retangle is not painted properly without double-buffering
 #if (_WIN32_WINNT >= 0x501)

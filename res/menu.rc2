@@ -61,7 +61,9 @@ BEGIN
     BEGIN
         MENUITEM "Invite to Conference",                ID_CONFERENCE
         MENUITEM "Merge",                     ID_MERGE
+        MENUITEM "Merge All",                     ID_MERGE_ALL
         MENUITEM "Separate",                  ID_SEPARATE
+        MENUITEM "Separate All",                     ID_SEPARATE_ALL
 		MENUITEM "Disconnect",                  ID_DISCONNECT
     END
 END

@@ -150,6 +150,9 @@ public:
 	int VideoCaptureDeviceId(CString name=_T(""));
 #endif
 
+	bool CommandCallAnswer();
+	bool CommandCallReject();
+
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 

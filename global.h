@@ -84,9 +84,15 @@ enum {MSIP_TRANSPORT_AUTO, MSIP_TRANSPORT_TCP, MSIP_TRANSPORT_TLS};
 enum {MSIP_CALL_OUT, MSIP_CALL_IN, MSIP_CALL_MISS};
 enum { MSIP_SOUND_CUSTOM, MSIP_SOUND_MESSAGE_IN, MSIP_SOUND_MESSAGE_OUT, MSIP_SOUND_HANGUP, MSIP_SOUND_RINGTONE, MSIP_SOUND_RINGIN2, MSIP_SOUND_RINGING };
 enum msip_srtp_type { MSIP_SRTP_DISABLED, MSIP_SRTP };
-enum msip_shortcut_type {
-	MSIP_SHORTCUT_CALL, MSIP_SHORTCUT_VIDEOCALL, MSIP_SHORTCUT_MESSAGE, MSIP_SHORTCUT_DTMF, MSIP_SHORTCUT_TRANSFER, MSIP_SHORTCUT_RUNBATCH, MSIP_SHORTCUT_CALL_URL, MSIP_SHORTCUT_POP_URL
-};
+
+#define MSIP_SHORTCUT_CALL _T("call")
+#define MSIP_SHORTCUT_VIDEOCALL _T("video")
+#define MSIP_SHORTCUT_MESSAGE _T("message")
+#define MSIP_SHORTCUT_DTMF _T("dtmf")
+#define MSIP_SHORTCUT_TRANSFER _T("transfer")
+#define MSIP_SHORTCUT_RUNBATCH _T("runBatch")
+#define MSIP_SHORTCUT_CALL_URL _T("callURL")
+#define MSIP_SHORTCUT_POP_URL _T("popURL")
 
 enum {
 	MSIP_CONTACT_ICON_UNKNOWN,
@@ -102,7 +108,7 @@ enum {
 struct Shortcut {
 	CString label;
 	CString number;
-	msip_shortcut_type type;
+	CString type;
 };
 
 struct player_eof_data
@@ -179,10 +185,12 @@ struct call_user_data
 	CString commands;
 	bool inConference;
 	bool autoAnswer;
+	bool hidden;
 	call_user_data(pjsua_call_id call_id): tonegen_data(NULL)
 		,recorder_id(PJSUA_INVALID_ID)
 		,inConference(false)
 		,autoAnswer(false)
+		,hidden(false)
 		,srtp(MSIP_SRTP_DISABLED)
 		{
 			this->call_id = call_id;

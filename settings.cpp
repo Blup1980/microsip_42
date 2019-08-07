@@ -265,6 +265,10 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("usersDirectory"), NULL, ptr, 256, iniFile);
 	usersDirectory.ReleaseBuffer();
 
+	ptr = defaultAction.GetBuffer(255);
+	GetPrivateProfileString(section, _T("defaultAction"), NULL, ptr, 256, iniFile);
+	defaultAction.ReleaseBuffer();
+
 	ptr = dnsSrvNs.GetBuffer(255);
 	GetPrivateProfileString(section, _T("dnsSrvNs"), NULL, ptr, 256, iniFile);
 	dnsSrvNs.ReleaseBuffer();
@@ -704,6 +708,10 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	GetPrivateProfileString(section, _T("displayName"), NULL, ptr, 256, iniFile);
 	account->displayName.ReleaseBuffer();
 
+	ptr = account->dialingPrefix.GetBuffer(255);
+	GetPrivateProfileString(section, _T("dialingPrefix"), NULL, ptr, 256, iniFile);
+	account->dialingPrefix.ReleaseBuffer();
+
 	ptr = account->voicemailNumber.GetBuffer(255);
 	GetPrivateProfileString(section, _T("voicemailNumber"), NULL, ptr, 256, iniFile);
 	account->voicemailNumber.ReleaseBuffer();
@@ -808,6 +816,8 @@ void AccountSettings::AccountSave(int id, Account *account)
 
 	WritePrivateProfileString(section, _T("displayName"), account->displayName, iniFile);
 
+	WritePrivateProfileString(section, _T("dialingPrefix"), account->dialingPrefix, iniFile);
+
 	WritePrivateProfileString(section, _T("voicemailNumber"), account->voicemailNumber, iniFile);
 
 	WritePrivateProfileString(section, _T("transport"), account->transport, iniFile);
@@ -859,6 +869,8 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("denyIncoming"), denyIncoming, iniFile);
 
 	WritePrivateProfileString(section, _T("usersDirectory"), usersDirectory, iniFile);
+
+	WritePrivateProfileString(section, _T("defaultAction"), defaultAction, iniFile);
 
 	WritePrivateProfileString(section, _T("dnsSrvNs"), dnsSrvNs, iniFile);
 	WritePrivateProfileString(section, _T("dnsSrv"), dnsSrv ? _T("1") : _T("0"), iniFile);
@@ -991,7 +1003,7 @@ void AccountSettings::SettingsSave()
 CString ShortcutEncode(Shortcut *pShortcut)
 {
 	CString data;
-	data.Format(_T("%s;%s;%d"), pShortcut->label, pShortcut->number, pShortcut->type);
+	data.Format(_T("%s;%s;%s"), pShortcut->label, pShortcut->number, pShortcut->type);
 	return data;
 }
 
@@ -1015,10 +1027,25 @@ void ShortcutDecode(CString str, Shortcut *pShortcut)
 			begin = end + 1;
 			end = str.Find(';', begin);
 			if (end != -1) {
-				pShortcut->type = (msip_shortcut_type)_wtoi(str.Mid(begin, end - begin));
+				pShortcut->type = str.Mid(begin, end - begin);
 			}
 			else {
-				pShortcut->type = (msip_shortcut_type)_wtoi(str.Mid(begin));
+				pShortcut->type = str.Mid(begin);
+			}
+			if (pShortcut->type == _T("0")) {
+				pShortcut->type = MSIP_SHORTCUT_CALL;
+			}
+			else if (pShortcut->type == _T("1")) {
+				pShortcut->type = MSIP_SHORTCUT_VIDEOCALL;
+			}
+			else if (pShortcut->type == _T("2")) {
+				pShortcut->type = MSIP_SHORTCUT_MESSAGE;
+			}
+			else if (pShortcut->type == _T("3")) {
+				pShortcut->type = MSIP_SHORTCUT_DTMF;
+			}
+			else if (pShortcut->type == _T("4")) {
+				pShortcut->type = MSIP_SHORTCUT_TRANSFER;
 			}
 		}
 	}

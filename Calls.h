@@ -53,6 +53,7 @@ public:
 	void OnCreated();
 
 private:
+	CToolTipCtrl m_ToolTip;
 	CImageList* imageList;
 	int lastDay;
 	int nextKey;
@@ -61,6 +62,7 @@ private:
 	CString CallEncode(Call *pCall);
 	void Insert(Call *pCall, int pos = 0);
 	void MessageDlgOpen(BOOL isCall = FALSE, BOOL hasVideo = FALSE);
+	void DefaultItemAction(int i);
 
 protected:
 	virtual BOOL OnInitDialog();

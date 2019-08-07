@@ -135,6 +135,9 @@
     <ClCompile Include="lib\StdioFileEx.cpp">
       <Filter>Source Files\lib</Filter>
     </ClCompile>
+    <ClCompile Include="lib\CListCtrl_ToolTip.cpp">
+      <Filter>Source Files\lib</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AccountDlg.h">

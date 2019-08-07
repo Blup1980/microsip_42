@@ -412,12 +412,31 @@ CString FormatNumber(CString number, CString *commands) {
 	pj_str_t pj_uri;
 	bool isLocal = SelectSIPAccount(number, acc_id, pj_uri) && acc_id == account_local;
 	if (!isLocal) {
+		bool addPrefix = false;
 		if (IsPSTNNnmber(number)) {
 			numberFormated.Remove('.');
 			numberFormated.Remove('-');
 			numberFormated.Remove('(');
 			numberFormated.Remove(')');
 			numberFormated.Remove(' ');
+			if (!accountSettings.account.dialingPrefix.IsEmpty()) {
+				if (accountSettings.account.dialingPrefix.Left(1) == _T("+") || accountSettings.account.dialingPrefix.Left(2) == _T("00")) {
+					if (numberFormated.Left(1) != _T("+") && numberFormated.Left(2) != _T("00")) {
+						addPrefix = true;
+					}
+				}
+				else {
+					addPrefix = true;
+				}
+			}
+		}
+		else {
+			if (!accountSettings.account.dialingPrefix.IsEmpty()) {
+				addPrefix = true;
+			}
+		}
+		if (addPrefix) {
+			numberFormated = accountSettings.account.dialingPrefix + numberFormated;
 		}
 	}
 	return GetSIPURI(numberFormated, true, isLocal);
@@ -856,7 +875,13 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 			CString strServer;
 			CString strObject;
 			INTERNET_PORT nPort;
-			if (AfxParseURL(data->url, dwServiceType, strServer, strObject, nPort)) {
+			CString strUsername;
+			CString strPassword;
+			if (AfxParseURLEx(data->url, dwServiceType, strServer, strObject, nPort, strUsername, strPassword)) {
+				if (strUsername.IsEmpty()) {
+					strUsername = data->username;
+					strPassword = data->password;
+				}
 				pHttp = session.GetHttpConnection(strServer, (dwServiceType == AFX_INET_SERVICE_HTTPS ? INTERNET_FLAG_SECURE : 0), nPort);
 				CString strHeaders;
 				CStringA strFormData;
@@ -873,7 +898,7 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 					INTERNET_FLAG_RELOAD |
 					INTERNET_FLAG_DONT_CACHE |
 					(dwServiceType == AFX_INET_SERVICE_HTTPS ? INTERNET_FLAG_SECURE : 0) |
-					(!data->username.IsEmpty() ? INTERNET_FLAG_KEEP_CONNECTION : 0)
+					(!strUsername.IsEmpty() ? INTERNET_FLAG_KEEP_CONNECTION : 0)
 				);
 				if (dwServiceType == AFX_INET_SERVICE_HTTPS) {
 					pFile->SetOption(INTERNET_OPTION_SECURITY_FLAGS,
@@ -883,9 +908,9 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 						SECURITY_FLAG_IGNORE_WRONG_USAGE
 					);
 				}
-				if (!data->username.IsEmpty()) {
-					pFile->SetOption(INTERNET_OPTION_USERNAME, data->username.GetBuffer(), data->username.GetLength());
-					pFile->SetOption(INTERNET_OPTION_PASSWORD, data->password.GetBuffer(), data->password.GetLength());
+				if (!strUsername.IsEmpty()) {
+					pFile->SetOption(INTERNET_OPTION_USERNAME, strUsername.GetBuffer(), strUsername.GetLength());
+					pFile->SetOption(INTERNET_OPTION_PASSWORD, strPassword.GetBuffer(), strPassword.GetLength());
 				}
 				pFile->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 10000);
 				if (pFile->SendRequest(strHeaders, (LPVOID)strFormData.GetBuffer(), strFormData.GetLength())) {

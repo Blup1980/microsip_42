@@ -210,6 +210,7 @@ BEGIN_MESSAGE_MAP(MessagesDlg, CBaseDialog)
 	ON_COMMAND(ID_SELECT_ALL, OnSelectAll)
 	ON_COMMAND_RANGE(ID_ATTENDED_TRANSFER_RANGE, ID_ATTENDED_TRANSFER_RANGE + 99, OnAttendedTransfer)
 	ON_COMMAND_RANGE(ID_MERGE_RANGE, ID_MERGE_RANGE + 99, OnMerge)
+	ON_COMMAND(ID_MERGE_ALL, OnMergeAll)
 	ON_COMMAND(IDCANCEL, OnCancel)
 	ON_BN_CLICKED(IDOK, &MessagesDlg::OnBnClickedOk)
 	ON_NOTIFY(EN_MSGFILTER, IDC_MESSAGE, &MessagesDlg::OnEnMsgfilterMessage)
@@ -224,6 +225,7 @@ BEGIN_MESSAGE_MAP(MessagesDlg, CBaseDialog)
 	ON_COMMAND(ID_TRANSFER, OnTransfer)
 	ON_COMMAND(ID_CONFERENCE, OnConference)
 	ON_COMMAND(ID_SEPARATE, OnSeparate)
+	ON_COMMAND(ID_SEPARATE_ALL, OnSeparateAll)
 	ON_COMMAND(ID_DISCONNECT, OnDisconnect)
 	ON_BN_CLICKED(IDC_HOLD, &MessagesDlg::OnBnClickedHold)
 	ON_BN_CLICKED(IDC_END, &MessagesDlg::OnBnClickedEnd)
@@ -346,9 +348,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	for (int i = 0; i < tab->GetItemCount(); i++)
 	{
 		messagesContact = GetMessageContact(i);
-
-		CString compareNumber = messagesContact->number;
-		if (messagesContact->number == number || compareNumber == number) {
+		if (messagesContact->number == number) {
 			exists = i;
 			if (call_info)
 			{
@@ -633,6 +633,8 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 	pjsua_call_id call_id = PJSUA_INVALID_ID;
 	CString numberWithParams = messagesContact->number + messagesContact->numberParameters;
 	call_id = CallMake(numberWithParams, hasVideo, &status, user_data);
+	accountSettings.lastCallNumber = numberWithParams;
+	accountSettings.lastCallHasVideo = hasVideo;
 	if (call_id != PJSUA_INVALID_ID) {
 		if (user_data) {
 			user_data->CS.Lock();
@@ -641,8 +643,6 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 		}
 		messagesContact->callId = call_id;
 		UpdateCallButton(TRUE);
-		mainDlg->pageDialer->MuteOutput(false);
-		mainDlg->pageDialer->MuteInput(false);
 	}
 	else {
 		if (status != PJ_ERESOLVE) {
@@ -685,10 +685,10 @@ void MessagesDlg::OnEndCall(pjsua_call_info *call_info)
 void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info, call_user_data *user_data)
 {
 	GetDlgItem(IDC_CALL_END)->ShowWindow(active ? SW_HIDE : SW_SHOW);
-	GetDlgItem(IDC_END)->ShowWindow(!active ? SW_HIDE : SW_SHOW);
 #ifdef _GLOBAL_VIDEO
 	GetDlgItem(IDC_VIDEO_CALL)->ShowWindow(active ? SW_HIDE : SW_SHOW);
 #endif
+	GetDlgItem(IDC_END)->ShowWindow(!active ? SW_HIDE : SW_SHOW);
 	UpdateHoldButton(call_info);
 	UpdateRecButton(user_data);
 	if (!active) {
@@ -1085,6 +1085,16 @@ void MessagesDlg::Merge(pjsua_call_id call_id)
 	msip_call_unhold(&call_info);
 }
 
+void MessagesDlg::Separate(pjsua_call_id call_id)
+{
+	pjsua_call_info call_info;
+	if (pjsua_call_get_info(call_id, &call_info) != PJ_SUCCESS) {
+		return;
+	}
+	msip_conference_leave(&call_info);
+	msip_call_unhold(&call_info);
+}
+
 void MessagesDlg::CallAction(int action, CString number)
 {
 	MessagesContact* messagesContactSelected = mainDlg->messagesDlg->GetMessageContact();
@@ -1270,10 +1280,12 @@ void MessagesDlg::OnBnClickedActions(bool isConference)
 		menuMerge.SetMenuItemInfo(0, &mii, TRUE);
 	}
 	tracker->EnableMenuItem(ID_MERGE, menuMerge.GetMenuItemCount() ? 0 : MF_GRAYED);
+	tracker->EnableMenuItem(ID_MERGE_ALL, menuMerge.GetMenuItemCount() ? 0 : MF_GRAYED);
 	//-- invite in conference
 	tracker->EnableMenuItem(ID_CONFERENCE, call_info.state == PJSIP_INV_STATE_CONFIRMED && (inConference || mergeConferenceAddedId == PJSUA_INVALID_ID) ? 0 : MF_GRAYED);
 	//-- separate & disconnect
 	tracker->EnableMenuItem(ID_SEPARATE, inConference ? 0 : MF_GRAYED);
+	tracker->EnableMenuItem(ID_SEPARATE_ALL, inConference ? 0 : MF_GRAYED);
 	tracker->EnableMenuItem(ID_DISCONNECT, inConference ? 0 : MF_GRAYED);
 	//--
 	CPoint point;
@@ -1331,18 +1343,53 @@ void MessagesDlg::OnMerge(UINT nID)
 	Merge(call_id);
 }
 
+void MessagesDlg::OnMergeAll()
+{
+	MessagesContact* messagesContact = GetMessageContact();
+	if (!messagesContact || messagesContact->callId == -1) {
+		return;
+	}
+	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+	unsigned calls_count = PJSUA_MAX_CALLS;
+	if (pjsua_enum_calls(call_ids, &calls_count) == PJ_SUCCESS) {
+		for (unsigned i = 0; i < calls_count; ++i) {
+			if (call_ids[i] != messagesContact->callId) {
+				Merge(call_ids[i]);
+			}
+		}
+	}
+}
+
 void MessagesDlg::OnSeparate()
 {
 	MessagesContact* messagesContact = GetMessageContact();
 	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
-	pjsua_call_info call_info;
-	if (pjsua_call_get_info(messagesContact->callId, &call_info) != PJ_SUCCESS) {
+	Separate(messagesContact->callId);
+}
+
+void MessagesDlg::OnSeparateAll()
+{
+	MessagesContact* messagesContact = GetMessageContact();
+	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
-	msip_conference_leave(&call_info);
-	msip_call_unhold(&call_info);
+	pjsua_call_info call_info;
+	pjsua_call_get_info(messagesContact->callId, &call_info);
+	msip_call_hold(&call_info);
+	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+	unsigned calls_count = PJSUA_MAX_CALLS;
+	if (pjsua_enum_calls(call_ids, &calls_count) == PJ_SUCCESS) {
+		for (unsigned i = 0; i < calls_count; ++i) {
+			if (call_ids[i] != messagesContact->callId) {
+				pjsua_call_info call_info;
+				if (pjsua_call_get_info(call_ids[i], &call_info) == PJ_SUCCESS) {
+					msip_conference_leave(&call_info);
+				}
+			}
+		}
+	}
 }
 
 void MessagesDlg::OnDisconnect()

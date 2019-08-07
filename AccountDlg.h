@@ -54,6 +54,7 @@ public:
 	afx_msg void OnNMClickSyslinkAuthID(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkPassword(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkName(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMClickSyslinkDialingPrefix(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkVoicemail(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkEncryption(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkTransport(NMHDR *pNMHDR, LRESULT *pResult);

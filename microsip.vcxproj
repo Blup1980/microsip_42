@@ -236,6 +236,7 @@
     <ClCompile Include="IconButton.cpp" />
     <ClCompile Include="jumplist.cpp" />
     <ClCompile Include="langpack.cpp" />
+    <ClCompile Include="lib\CListCtrl_ToolTip.cpp" />
     <ClCompile Include="lib\Crypto.cpp" />
     <ClCompile Include="lib\CSVFile.cpp" />
     <ClCompile Include="lib\jsoncpp\json_reader.cpp" />

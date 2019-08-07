@@ -130,6 +130,7 @@ BEGIN_MESSAGE_MAP(AccountDlg, CDialog)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_AUTHID, &AccountDlg::OnNMClickSyslinkAuthID)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_PASSWORD, &AccountDlg::OnNMClickSyslinkPassword)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_NAME, &AccountDlg::OnNMClickSyslinkName)
+	ON_NOTIFY(NM_CLICK, IDC_ACCOUNT_HELP_DIALING_PREFIX, &AccountDlg::OnNMClickSyslinkDialingPrefix)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_VOICEMAIL, &AccountDlg::OnNMClickSyslinkVoicemail)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_ENCRYPTION, &AccountDlg::OnNMClickSyslinkEncryption)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_TRANSPORT, &AccountDlg::OnNMClickSyslinkTransport)
@@ -196,6 +197,9 @@ void AccountDlg::Load(int id)
 
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_DISPLAYNAME);
 	edit->SetWindowText(m_Account.displayName);
+
+	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_DIALING_PREFIX);
+	edit->SetWindowText(m_Account.dialingPrefix);
 
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_VOICEMAIL);
 	edit->SetWindowText(m_Account.voicemailNumber);
@@ -285,6 +289,10 @@ void AccountDlg::OnBnClickedOk()
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_DISPLAYNAME);
 	edit->GetWindowText(str);
 	m_Account.displayName=str.Trim();
+
+	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_DIALING_PREFIX);
+	edit->GetWindowText(str);
+	m_Account.dialingPrefix=str.Trim();
 
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_VOICEMAIL);
 	edit->GetWindowText(str);
@@ -422,6 +430,12 @@ void AccountDlg::OnNMClickSyslinkPassword(NMHDR *pNMHDR, LRESULT *pResult)
 void AccountDlg::OnNMClickSyslinkName(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	OpenHelp(_T("name"));
+	*pResult = 0;
+}
+
+void AccountDlg::OnNMClickSyslinkDialingPrefix(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	OpenHelp(_T("dialingPrefix"));
 	*pResult = 0;
 }
 

@@ -22,6 +22,31 @@
 #include "settings.h"
 #include "langpack.h"
 
+static CString defaultActionItems[] = {
+	MSIP_SHORTCUT_CALL,
+#ifdef _GLOBAL_VIDEO
+	MSIP_SHORTCUT_VIDEOCALL,
+#endif
+	MSIP_SHORTCUT_MESSAGE,
+	MSIP_SHORTCUT_DTMF,
+	MSIP_SHORTCUT_TRANSFER,
+	MSIP_SHORTCUT_RUNBATCH,
+	MSIP_SHORTCUT_CALL_URL,
+	MSIP_SHORTCUT_POP_URL,
+};
+static CString defaultActionValues[] = {
+	_T("Call"),
+#ifdef _GLOBAL_VIDEO
+	_T("Video Call"),
+#endif
+	_T("Message"),
+	_T("DTMF"),
+	_T("Call Transfer"),
+	_T("Run Batch"),
+	_T("Call URL"),
+	_T("Pop URL"),
+};
+
 ShortcutsDlg::ShortcutsDlg(CWnd* pParent /*=NULL*/)
 : CDialog(ShortcutsDlg::IDD, pParent)
 {
@@ -51,38 +76,31 @@ BOOL ShortcutsDlg::OnInitDialog()
 
 	CComboBox *combobox;
 	for (int i=0; i<_GLOBAL_SHORTCUTS_QTY; i++) {
-		combobox= (CComboBox*)GetDlgItem(IDC_SHORTCUTS_COMBO_SHORTCUT1_TYPE+i*3);
-		combobox->AddString(Translate(_T("Call")));
-#ifdef _GLOBAL_VIDEO
-		combobox->AddString(Translate(_T("Video Call")));
-#endif
-		combobox->AddString(Translate(_T("Message")));
-		combobox->AddString(Translate(_T("DTMF")));		
-		combobox->AddString(Translate(_T("Call Transfer")));
-		CString str;
-		str = Translate(_T("Run Batch"));
-		str.Append(_T("*"));
-		combobox->AddString(str);
-		str = Translate(_T("Call URL"));
-		str.Append(_T("*"));
-		combobox->AddString(str);
-		str = Translate(_T("Pop URL"));
-		str.Append(_T("*"));
-		combobox->AddString(str);
-		combobox->SetCurSel(0);
-	}
-	
-	for (int i=0;(i<_GLOBAL_SHORTCUTS_QTY && i<shortcuts.GetCount());i++) {
-		Shortcut shortcut = shortcuts.GetAt(i);
-		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_LABEL+i*3)->SetWindowText(shortcut.label);
-		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_NUMBER+i*3)->SetWindowText(shortcut.number);
-		int n = shortcut.type;
-#ifndef _GLOBAL_VIDEO
-		if (n > 0) {
-			n--;
+		Shortcut shortcut;
+		if (i < shortcuts.GetCount()) {
+			shortcut = shortcuts.GetAt(i);
+			GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_LABEL + i * 3)->SetWindowText(shortcut.label);
+			GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_NUMBER + i * 3)->SetWindowText(shortcut.number);
 		}
-#endif
-		((CComboBox*)GetDlgItem(IDC_SHORTCUTS_COMBO_SHORTCUT1_TYPE+i*3))->SetCurSel(n);
+		combobox = (CComboBox*)GetDlgItem(IDC_SHORTCUTS_COMBO_SHORTCUT1_TYPE + i * 3);
+		int n = sizeof(defaultActionItems) / sizeof(defaultActionItems[0]);
+		bool found = false;
+		for (int j = 0; j < n; j++) {
+			CString str = defaultActionValues[j];
+			if (defaultActionItems[j] == _T("runBatch")
+				|| defaultActionItems[j] == _T("callURL")
+				|| defaultActionItems[j] == _T("popURL")) {
+				str.Append(_T("*"));
+			}
+			combobox->AddString(str);
+			if (shortcut.type == defaultActionItems[j]) {
+				combobox->SetCurSel(j);
+				found = true;
+			}
+		}
+		if (!found) {
+			combobox->SetCurSel(0);
+		}
 	}
 	return TRUE;
 }
@@ -128,12 +146,7 @@ void ShortcutsDlg::OnBnClickedOk()
 		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_NUMBER+i*3)->GetWindowText(shortcut.number);
 		int n = ((CComboBox*)GetDlgItem(IDC_SHORTCUTS_COMBO_SHORTCUT1_TYPE + i * 3))->GetCurSel();
 		if (n >=0 && !shortcut.label.IsEmpty() && !shortcut.number.IsEmpty()) {
-#ifndef _GLOBAL_VIDEO
-			if (n > 0) {
-				n++;
-			}
-#endif
-			shortcut.type = (msip_shortcut_type)n;
+			shortcut.type = defaultActionItems[n];
 			shortcuts.Add(shortcut);
 		}
 	}

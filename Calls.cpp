@@ -65,7 +65,8 @@ BOOL Calls::OnInitDialog()
 	imageList->Add(theApp.LoadIcon(IDI_CALL_MISS));
 	
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
-	list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
+	//list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
+	list->SetExtendedStyle(list->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
 	list->SetImageList(imageList, LVSIL_SMALL);
 
 	list->InsertColumn(MSIP_CALLS_COL_NAME, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.callsWidth0 > 0 ? accountSettings.callsWidth0 : 160);
@@ -75,6 +76,10 @@ BOOL Calls::OnInitDialog()
 	list->InsertColumn(MSIP_CALLS_COL_INFO, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.callsWidth4 > 0 ? accountSettings.callsWidth4 : 120);
 
 	CallsLoad();
+
+	if (m_ToolTip.Create(this)) {
+		m_ToolTip.AddTool(list, Translate(_T("test")));
+	}
 
 	return TRUE;
 }
@@ -163,7 +168,31 @@ void Calls::OnEndtrack(NMHDR* pNMHDR, LRESULT* pResult)
 
 void Calls::OnBnClickedOk()
 {
-	MessageDlgOpen(accountSettings.singleMode);
+	CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CALLS);
+	POSITION pos = list->GetFirstSelectedItemPosition();
+	if (pos) {
+		DefaultItemAction(list->GetNextSelectedItem(pos));
+	}
+}
+
+void Calls::DefaultItemAction(int i)
+{
+	if (accountSettings.defaultAction.IsEmpty()) {
+		MessageDlgOpen(accountSettings.singleMode);
+	}
+	else {
+		if (accountSettings.defaultAction == _T("call")) {
+			OnMenuCall();
+		}
+#ifdef _GLOBAL_VIDEO
+		else if (accountSettings.defaultAction == _T("video")) {
+			OnMenuCallVideo();
+		}
+#endif
+		else {
+			OnMenuChat();
+		}
+	}
 }
 
 void Calls::OnBnClickedCancel()
@@ -257,6 +286,9 @@ LRESULT Calls::OnContextMenu(WPARAM wParam,LPARAM lParam)
 				tracker->EnableMenuItem(ID_COPY, TRUE);
 				tracker->EnableMenuItem(ID_DELETE, TRUE);
 			}
+			if (tracker->GetMenuItemCount() == 3) {
+				tracker->RemoveMenu(0, MF_BYPOSITION);
+			}
 			tracker->TrackPopupMenu( 0, x, y, this );
 		}
 		return TRUE;
@@ -286,8 +318,8 @@ void Calls::MessageDlgOpen(BOOL isCall, BOOL hasVideo)
 void Calls::OnNMDblclkCalls(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
-	if (pNMItemActivate->iItem!=-1) {
-		MessageDlgOpen(accountSettings.singleMode);
+	if (pNMItemActivate->iItem != -1) {
+		DefaultItemAction(pNMItemActivate->iItem);
 	}
 	*pResult = 0;
 }

@@ -31,6 +31,7 @@ struct Account {
 	CString password;
 	bool rememberPassword;
 	CString displayName;
+	CString dialingPrefix;
 	CString voicemailNumber;
 	CString srtp;
 	CString transport;
@@ -50,6 +51,7 @@ struct Account {
 			&& authID == a.authID
 			&& password == a.password
 			&& displayName == a.displayName
+			&& dialingPrefix == a.dialingPrefix
 			&& voicemailNumber == a.voicemailNumber
 			&& srtp == a.srtp
 			&& transport == a.transport
@@ -76,6 +78,7 @@ struct Account {
 		authID = a.authID;
 		password = a.password;
 		displayName = a.displayName;
+		dialingPrefix = a.dialingPrefix;
 		voicemailNumber = a.voicemailNumber;
 		srtp = a.srtp;
 		transport = a.transport;
@@ -131,6 +134,7 @@ struct AccountSettings {
 	CString autoAnswer;
 	CString denyIncoming;
 	CString usersDirectory;
+	CString defaultAction;
 	bool enableMediaButtons;
 	bool localDTMF;
 	bool enableLocalAccount;

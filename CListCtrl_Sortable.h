@@ -1,8 +1,9 @@
 #pragma once
 
 #include "CListCtrl_DataModel.h"
+#include "CListCtrl_LabelTip.h"
 
-class CListCtrl_Sortable : public CListCtrl
+class CListCtrl_Sortable : public CListCtrl_LabelTip
 {
 	bool m_Ascending;
 	int  m_SortCol;

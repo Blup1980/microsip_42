@@ -278,6 +278,8 @@ BOOL Dialer::OnInitDialog()
 	m_hIconMessage = LoadImageIcon(IDI_MESSAGE);
 	((CButton*)GetDlgItem(IDC_MESSAGE))->SetIcon(m_hIconMessage);
 
+	UpdateCallButton();
+
 	return TRUE;
 }
 

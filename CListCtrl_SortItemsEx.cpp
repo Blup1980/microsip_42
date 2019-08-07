@@ -26,7 +26,7 @@ namespace {
 	int CALLBACK SortFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 	{
 		PARAMSORT& ps = *(PARAMSORT*)lParamSort;
-		if (ps.m_ColumnIndex == 1 && mainDlg && mainDlg->pageCalls) {
+		if (ps.m_ColumnIndex == 2 && mainDlg && mainDlg->pageCalls) {
 			CListCtrl *list = (CListCtrl*)mainDlg->pageCalls->GetDlgItem(IDC_CALLS);
 			if (list && ps.m_hWnd==list->m_hWnd) {
 				LVITEM item;
