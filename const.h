@@ -20,6 +20,5 @@
 #define _GLOBAL_VERSION "3.20.1"
 #define _GLOBAL_VERSION_COMMA 3,20,1,0
 #define _GLOBAL_KEY "*********"
-#define _GLOBAL_VIDEO 
 #define _GLOBAL_NAME "MicroSIP"
 #define _GLOBAL_COMPANY "www.microsip.org"
