@@ -99,7 +99,7 @@ struct AccountSettings {
 	int accountId;
 	Account account;
 	bool singleMode;
-	CString ringingSound;
+	CString ringtone;
 	CString audioRingDevice;
 	CString audioOutputDevice;
 	CString audioInputDevice;

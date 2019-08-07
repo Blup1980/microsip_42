@@ -60,6 +60,7 @@ public:
 	void OnChangeTab(pjsua_call_info *p_call_info = NULL, call_user_data *user_data = NULL);
 	void OnEndCall(pjsua_call_info *call_info);
 	bool CallCheck();
+	pjsua_call_id CurrentCallId();
 	void Call(BOOL hasVideo = FALSE, CString commands=_T(""));
 	pjsua_call_id CallMake(CString number, bool hasVideo = false, pj_status_t *pStatus = NULL, call_user_data *user_data = NULL);
 	void CallStart(bool hasVideo = false, call_user_data *user_data = NULL);
@@ -81,7 +82,7 @@ public:
 	HICON m_hIconHold;
 
 private:
-	void UpdateCallButton(BOOL active = FALSE, pjsua_call_info *call_info = NULL);
+	void UpdateCallButton(BOOL active = FALSE, pjsua_call_info *call_info = NULL, call_user_data *user_data = NULL);
 	BOOL CloseTab(int i, BOOL safe = FALSE);
 
 	CMenu menuTransfer;

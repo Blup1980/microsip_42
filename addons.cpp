@@ -18,5 +18,4 @@
 
 #include "stdafx.h"
 #include "mainDlg.h"
-#include "settings.h"
 

@@ -652,16 +652,22 @@ BOOL Dialer::PreTranslateMessage(MSG* pMsg)
 	}
 	else if (pMsg->message == WM_KEYDOWN) {
 		if (pMsg->wParam == VK_ESCAPE) {
-			if (!isEdit) {
-				GotoDlgCtrl(GetDlgItem(IDC_NUMBER));
+			if (accountSettings.singleMode && GetDlgItem(IDC_END)->IsWindowVisible()) {
+				OnBnClickedEnd();
 				catched = TRUE;
 			}
-			if (edit) {
-				CString str;
-				edit->GetWindowText(str);
-				if (!str.IsEmpty()) {
-					Clear();
+			else {
+				if (!isEdit) {
+					GotoDlgCtrl(GetDlgItem(IDC_NUMBER));
 					catched = TRUE;
+				}
+				if (edit) {
+					CString str;
+					edit->GetWindowText(str);
+					if (!str.IsEmpty()) {
+						Clear();
+						catched = TRUE;
+					}
 				}
 			}
 		}
@@ -1031,15 +1037,27 @@ void Dialer::OnMouseMove(UINT nFlags, CPoint pt)
 {
 }
 
+void Dialer::MuteOutput(bool state)
+{
+	CButton *button = (CButton*)GetDlgItem(IDC_BUTTON_MUTE_OUTPUT);
+	button->SetCheck(!state ? BST_CHECKED : BST_UNCHECKED);
+	OnBnClickedMuteOutput();
+}
+
+void Dialer::MuteInput(bool state)
+{
+	CButton *button = (CButton*)GetDlgItem(IDC_BUTTON_MUTE_INPUT);
+	button->SetCheck(!state ? BST_CHECKED : BST_UNCHECKED);
+	OnBnClickedMuteInput();
+}
+
 void Dialer::OnHScroll(UINT, UINT, CScrollBar* sender)
 {
 	if (pj_ready) {
 		int pos;
 		if (!sender || sender == (CScrollBar*)&m_SliderCtrlOutput) {
 			if (sender && muteOutput) {
-				CButton *button = (CButton*)GetDlgItem(IDC_BUTTON_MUTE_OUTPUT);
-				button->SetCheck(BST_UNCHECKED);
-				OnBnClickedMuteOutput();
+				MuteOutput(false);
 				return;
 			}
 			pos = m_SliderCtrlOutput.GetPos();
@@ -1050,9 +1068,7 @@ void Dialer::OnHScroll(UINT, UINT, CScrollBar* sender)
 		}
 		if (!sender || sender == (CScrollBar*)&m_SliderCtrlInput) {
 			if (sender && muteInput) {
-				CButton *button = (CButton*)GetDlgItem(IDC_BUTTON_MUTE_INPUT);
-				button->SetCheck(BST_UNCHECKED);
-				OnBnClickedMuteInput();
+				MuteInput(false);
 				return;
 			}
 			pos = m_SliderCtrlInput.GetPos();

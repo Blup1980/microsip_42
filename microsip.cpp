@@ -29,7 +29,6 @@
 #include <afxinet.h>
 #include <Psapi.h>
 #include <Dbghelp.h>
-//#include "SDL.h"
 
 #pragma comment(lib, "Psapi")
 #pragma comment(lib, "Dbghelp")

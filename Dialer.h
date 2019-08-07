@@ -158,6 +158,8 @@ public:
 	afx_msg void OnLButtonUp( UINT nFlags, CPoint pt );
 	afx_msg void OnMouseMove(UINT nFlags, CPoint pt );
 	afx_msg void OnHScroll( UINT, UINT, CScrollBar* );
+	void MuteOutput(bool state = true);
+	void MuteInput(bool state = true);
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	void SetRecBtnState(bool state);
 	afx_msg void OnTimer (UINT_PTR TimerVal);

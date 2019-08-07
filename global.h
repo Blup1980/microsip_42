@@ -66,6 +66,7 @@ enum EUserWndMessages
 	IDT_TIMER_HEADSET,
 	IDT_TIMER_VU_METER,
 	IDT_TIMER_AUTOANSWER,
+	IDT_TIMER_PROGRESS,
 	UM_CLOSETAB,
 	UM_DBLCLICKTAB,
 	UM_QUERYTAB,
@@ -83,7 +84,9 @@ enum {MSIP_TRANSPORT_AUTO, MSIP_TRANSPORT_TCP, MSIP_TRANSPORT_TLS};
 enum {MSIP_CALL_OUT, MSIP_CALL_IN, MSIP_CALL_MISS};
 enum { MSIP_SOUND_CUSTOM, MSIP_SOUND_MESSAGE_IN, MSIP_SOUND_MESSAGE_OUT, MSIP_SOUND_HANGUP, MSIP_SOUND_RINGTONE, MSIP_SOUND_RINGIN2, MSIP_SOUND_RINGING };
 enum msip_srtp_type { MSIP_SRTP_DISABLED, MSIP_SRTP };
-enum msip_shortcut_type { MSIP_SHORTCUT_CALL, MSIP_SHORTCUT_VIDEOCALL, MSIP_SHORTCUT_MESSAGE, MSIP_SHORTCUT_DTMF, MSIP_SHORTCUT_TRANSFER };
+enum msip_shortcut_type {
+	MSIP_SHORTCUT_CALL, MSIP_SHORTCUT_VIDEOCALL, MSIP_SHORTCUT_MESSAGE, MSIP_SHORTCUT_DTMF, MSIP_SHORTCUT_TRANSFER, MSIP_SHORTCUT_RUNBATCH, MSIP_SHORTCUT_CALL_URL, MSIP_SHORTCUT_POP_URL
+};
 
 enum {
 	MSIP_CONTACT_ICON_UNKNOWN,
@@ -100,6 +103,12 @@ struct Shortcut {
 	CString label;
 	CString number;
 	msip_shortcut_type type;
+};
+
+struct player_eof_data
+{
+	pj_pool_t          *pool;
+	pjsua_player_id player_id;
 };
 
 struct SIPURI {
@@ -206,6 +215,7 @@ CString Utf8DecodeUni(CStringA str);
 CStringA UnicodeToAnsi(CString str);
 CString AnsiToUnicode(CStringA str);
 CString AnsiToWideChar(char* str);
+CStringA StringToPjString(CString str);
 char *WideCharToPjStr(CString str);
 CString PjStrToWideChar(char *str);
 CString XMLEntityDecode(CString str);
@@ -221,7 +231,7 @@ bool IniSectionExists(CString section, CString iniFile);
 CString Bin2String(CByteArray *ca);
 void String2Bin(CString str, CByteArray *res);
 void CommandLineToShell(CString cmd, CString &command, CString &params);
-void RunCmd(CString cmdLine, CString addParams=_T(""));
+void RunCmd(CString cmdLine, CString addParams=_T(""), bool noWait = false);
 
 namespace MSIP {
 	void GetScreenRect(CRect *rect);
@@ -231,6 +241,7 @@ CString get_account_username();
 CString get_account_password();
 CString get_account_domain();
 CString get_account_server();
+CString get_account_proxy();
 
 struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id);
 BOOL call_play_digit(pjsua_call_id call_id, const char *digits, int duration = 160);
@@ -285,7 +296,7 @@ void msip_conference_leave(pjsua_call_info *call_info, bool hold = false);
 void msip_call_hold(pjsua_call_info *call_info);
 void msip_call_unhold(pjsua_call_info *call_info = NULL);
 void msip_call_answer(pjsua_call_id call_id = PJSUA_INVALID_ID);
-void msip_call_busy(pjsua_call_id call_id);
+void msip_call_busy(pjsua_call_id call_id, CString reason = _T(""));
 void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info = NULL);
 void msip_call_recording_stop(call_user_data *user_data); 
 CStringA msip_md5sum(CString *str);

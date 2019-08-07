@@ -27,6 +27,7 @@
 #include "langpack.h"
 
 enum {
+	MSIP_CALLS_COL_NAME,
 	MSIP_CALLS_COL_NUMBER,
 	MSIP_CALLS_COL_TIME,
 	MSIP_CALLS_COL_DURATION,
@@ -55,22 +56,24 @@ BOOL Calls::OnInitDialog()
 
 	nextKey = 0;
 	lastDay = 0;
-	
-	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
-
-	list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT );
 
 	imageList = new CImageList();
-	imageList->Create(16,16,ILC_COLOR32,3,3);
+	imageList->Create(16, 16, ILC_COLOR32, 3, 3);
 	imageList->SetBkColor(RGB(255, 255, 255));
 	imageList->Add(theApp.LoadIcon(IDI_CALL_OUT));
 	imageList->Add(theApp.LoadIcon(IDI_CALL_IN));
 	imageList->Add(theApp.LoadIcon(IDI_CALL_MISS));
-	list->SetImageList(imageList,LVSIL_SMALL);
-	list->InsertColumn(MSIP_CALLS_COL_NUMBER,Translate(_T("Number")),LVCFMT_LEFT, accountSettings.callsWidth0>0?accountSettings.callsWidth0:81);
-	list->InsertColumn(MSIP_CALLS_COL_TIME,Translate(_T("Time")),LVCFMT_LEFT, accountSettings.callsWidth1>0?accountSettings.callsWidth1:71);
-	list->InsertColumn(MSIP_CALLS_COL_DURATION,Translate(_T("Duration")),LVCFMT_LEFT, accountSettings.callsWidth2>0?accountSettings.callsWidth2:40);
-	list->InsertColumn(MSIP_CALLS_COL_INFO,Translate(_T("Info")),LVCFMT_LEFT, accountSettings.callsWidth3>0?accountSettings.callsWidth3:50);
+	
+	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
+	list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
+	list->SetImageList(imageList, LVSIL_SMALL);
+
+	list->InsertColumn(MSIP_CALLS_COL_NAME, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.callsWidth0 > 0 ? accountSettings.callsWidth0 : 160);
+	list->InsertColumn(MSIP_CALLS_COL_NUMBER, Translate(_T("Number")), LVCFMT_LEFT, accountSettings.callsWidth1 > 0 ? accountSettings.callsWidth1 : 100);
+	list->InsertColumn(MSIP_CALLS_COL_TIME, Translate(_T("Time")), LVCFMT_LEFT, accountSettings.callsWidth2 > 0 ? accountSettings.callsWidth2 : 135);
+	list->InsertColumn(MSIP_CALLS_COL_DURATION, Translate(_T("Duration")), LVCFMT_LEFT, accountSettings.callsWidth3 > 0 ? accountSettings.callsWidth3 : 70);
+	list->InsertColumn(MSIP_CALLS_COL_INFO, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.callsWidth4 > 0 ? accountSettings.callsWidth4 : 120);
+
 	CallsLoad();
 
 	return TRUE;
@@ -428,8 +431,8 @@ void Calls::Insert(Call *pCall, int pos)
 		return;
 	}
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
-	CString number = pCall->name;
-	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,pos,number,0,0,pCall->type,(LPARAM)pCall);
+	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,pos, pCall->name,0,0,pCall->type,(LPARAM)pCall);
+	list->SetItemText(i, MSIP_CALLS_COL_NUMBER, pCall->number);
 	list->SetItemText(i, MSIP_CALLS_COL_TIME,FormatTime(pCall->time));
 	list->SetItemText(i, MSIP_CALLS_COL_DURATION, GetDuration(pCall->duration));
 	list->SetItemText(i, MSIP_CALLS_COL_INFO, pCall->info);

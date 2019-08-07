@@ -54,7 +54,6 @@
 #include "Calls.h"
 #include "Preview.h"
 #include "Transfer.h"
-#include "addons.h"
 #include "StatusBar.h"
 
 // CmainDlg dialog
@@ -92,7 +91,7 @@ public:
 	pjsua_transport_id transport_udp;
 	pjsua_transport_id transport_tcp;
 	pjsua_transport_id transport_tls;
-	pjsua_player_id player_id;
+	player_eof_data *player_eof_data;
 
 	int iconStatusbar;
 	int widthAdd;
@@ -127,9 +126,11 @@ public:
 	bool MakeCall(CString number, bool hasVideo = false);
 	bool MessagesOpen(CString number);
 	void AutoAnswer(pjsua_call_id call_id);
+	pjsua_call_id CurrentCallId();
 	void ShortcutAction(Shortcut *shortcut);
 	void PlayerPlay(CString filename, bool noLoop = false, bool inCall = false);
 	BOOL CopyStringToClipboard( IN const CString & str );
+	void OnTimerProgress();
 	void OnTimerCall ();
 
 	void UsersDirectoryLoad();

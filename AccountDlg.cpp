@@ -58,7 +58,8 @@ BOOL AccountDlg::OnInitDialog()
 	CComboBox *combobox;
 
 	combobox= (CComboBox*)GetDlgItem(IDC_TRANSPORT);
-	combobox->AddString(Translate(_T("Auto")));
+	str.Format(_T("%s (UDP & TCP)"), Translate(_T("Auto")));
+	combobox->AddString(str);
 	combobox->AddString(_T("UDP"));
 	combobox->AddString(_T("TCP"));
 	combobox->AddString(_T("TLS"));
@@ -66,8 +67,10 @@ BOOL AccountDlg::OnInitDialog()
 
 	combobox= (CComboBox*)GetDlgItem(IDC_SRTP);
 	combobox->AddString(Translate(_T("Disabled")));
-	combobox->AddString(Translate(_T("Optional")));
-	combobox->AddString(Translate(_T("Mandatory")));
+	str.Format(_T("%s SRTP (RTP/AVP)"), Translate(_T("Optional")));
+	combobox->AddString(str);
+	str.Format(_T("%s SRTP (RTP/SAVP)"), Translate(_T("Mandatory")));
+	combobox->AddString(str);
 	combobox->SetCurSel(0);
 
 	((CButton*)GetDlgItem(IDC_ICE))->SetCheck(m_Account.ice);

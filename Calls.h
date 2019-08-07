@@ -35,6 +35,7 @@ public:
 
 	CListCtrl_SortItemsEx m_SortItemsExListCtrl;
 
+	int Get(CString id);
 	void Add(pj_str_t id, CString number, CString name, int type);
 	void SetDuration(pj_str_t id, int sec);
 	void SetInfo(pj_str_t id, CString str);
@@ -59,7 +60,6 @@ private:
 	void CallDecode(CString str, Call *pCall);
 	CString CallEncode(Call *pCall);
 	void Insert(Call *pCall, int pos = 0);
-	int Get(CString id);
 	void MessageDlgOpen(BOOL isCall = FALSE, BOOL hasVideo = FALSE);
 
 protected:

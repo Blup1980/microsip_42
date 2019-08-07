@@ -49,6 +49,7 @@ BOOL Contacts::OnInitDialog()
 	TranslateDialog(this->m_hWnd);
 
 	addDlg = new AddDlg(this);
+
 	imageList = new CImageList();
 	imageList->Create(16,16,ILC_COLOR32,3,3);
 	imageList->SetBkColor(RGB(255, 255, 255));
@@ -62,17 +63,13 @@ BOOL Contacts::OnInitDialog()
 	imageList->Add(theApp.LoadIcon(IDI_DEFAULT));
 
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+	list->SetExtendedStyle(list->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS);
 	list->SetImageList(imageList,LVSIL_SMALL);
 
-	CRect rect;
-	list->GetClientRect(rect);
+	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : 160);
+	list->InsertColumn(1, Translate(_T("Number")), LVCFMT_LEFT, accountSettings.contactsWidth1 > 0 ? accountSettings.contactsWidth1 : 100);
+	list->InsertColumn(2, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.contactsWidth2 > 0 ? accountSettings.contactsWidth2 : 120);
 
-	int defaultWidth = rect.Width() - GetSystemMetrics(SM_CXVSCROLL);
-	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : 0.48*defaultWidth);
-	list->InsertColumn(1, Translate(_T("Number")), LVCFMT_LEFT, accountSettings.contactsWidth1 > 0 ? accountSettings.contactsWidth1 : 0.37*defaultWidth);
-	list->InsertColumn(2, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.contactsWidth2 > 0 ? accountSettings.contactsWidth2 : 0.15*defaultWidth);
-	list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT );
-	
 	ContactsLoad();
 
 	return TRUE;
@@ -274,12 +271,11 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 #endif
 			tracker->EnableMenuItem(ID_CHAT, FALSE);
 			tracker->EnableMenuItem(ID_COPY, FALSE);
+			tracker->EnableMenuItem(ID_EDIT, FALSE);
 			if (!pContact->directory) {
-				tracker->EnableMenuItem(ID_EDIT, FALSE);
 				tracker->EnableMenuItem(ID_DELETE, FALSE);
 			}
 			else {
-				tracker->EnableMenuItem(ID_EDIT, TRUE);
 				tracker->EnableMenuItem(ID_DELETE, TRUE);
 			}
 		} else {
@@ -591,24 +587,26 @@ bool Contacts::ContactAdd(CString number, CString name, char presence, char dire
 			if (pContact->number == number) {
 				pContact->candidate = FALSE;
 				bool changed = false;
-				if (!name.IsEmpty() && name!=pContact->name) {
-					list->SetItemText(i,0,name);
-					pContact->name=name;
-					changed = true;
-				}
-				if (presence!=-1 && presence!=pContact->presence) {
-					pContact->presence=presence;
-					if (presence>0) {
-						PresenceSubsribeOne(pContact);
+				if (!fromDirectory || pContact->directory) {
+					if (!name.IsEmpty() && name != pContact->name) {
+						list->SetItemText(i, 0, name);
+						pContact->name = name;
+						changed = true;
 					}
-					changed = true;
-				}
-				if (!fromDirectory && directory!=-1 && directory!=pContact->directory) {
-					pContact->directory=directory;
-					changed = true;
-				}
-				if (save && changed) {
-					ContactsSave();
+					if (presence != -1 && presence != pContact->presence) {
+						pContact->presence = presence;
+						if (presence > 0) {
+							PresenceSubsribeOne(pContact);
+						}
+						changed = true;
+					}
+					if (!fromDirectory && directory != -1 && directory != pContact->directory) {
+						pContact->directory = directory;
+						changed = true;
+					}
+					if (save && changed) {
+						ContactsSave();
+					}
 				}
 				return changed;
 			}

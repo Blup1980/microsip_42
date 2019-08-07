@@ -430,7 +430,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		tab->SetItem(exists, &item);
 		//--
 		if (tab->GetCurSel() == exists && call_info) {
-			UpdateCallButton(messagesContact->callId != -1, call_info);
+			UpdateCallButton(messagesContact->callId != -1, call_info, user_data);
 		}
 	}
 	//--update tab icon
@@ -478,7 +478,7 @@ void MessagesDlg::OnChangeTab(pjsua_call_info *p_call_info, call_user_data *user
 	SetWindowText(messagesContact->name);
 
 	if (messagesContact->callId != -1) {
-		UpdateCallButton(TRUE, p_call_info);
+		UpdateCallButton(TRUE, p_call_info, user_data);
 		if (accountSettings.singleMode
 			&& p_call_info && (p_call_info->role == PJSIP_ROLE_UAC ||
 			(p_call_info->role == PJSIP_ROLE_UAS &&
@@ -640,6 +640,8 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 		}
 		messagesContact->callId = call_id;
 		UpdateCallButton(TRUE);
+		mainDlg->pageDialer->MuteOutput(false);
+		mainDlg->pageDialer->MuteInput(false);
 	}
 	else {
 		if (status != PJ_ERESOLVE) {
@@ -679,7 +681,7 @@ void MessagesDlg::OnEndCall(pjsua_call_info *call_info)
 	}
 }
 
-void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info)
+void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info, call_user_data *user_data)
 {
 	GetDlgItem(IDC_CALL_END)->ShowWindow(active ? SW_HIDE : SW_SHOW);
 	GetDlgItem(IDC_END)->ShowWindow(!active ? SW_HIDE : SW_SHOW);
@@ -687,7 +689,7 @@ void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info)
 	GetDlgItem(IDC_VIDEO_CALL)->ShowWindow(active ? SW_HIDE : SW_SHOW);
 #endif
 	UpdateHoldButton(call_info);
-	UpdateRecButton();
+	UpdateRecButton(user_data);
 	if (!active) {
 		if (mainDlg->transferDlg) {
 			mainDlg->transferDlg->OnClose();
@@ -1406,6 +1408,7 @@ int MessagesDlg::GetCallDuration(pjsua_call_id *call_id)
 	int duration = -1;
 	pjsua_call_info call_info;
 	int i = 0;
+	int count = 0;
 	while (i < tab->GetItemCount()) {
 		MessagesContact* messagesContact = GetMessageContact(i);
 		if (messagesContact->callId != -1) {
@@ -1413,10 +1416,15 @@ int MessagesDlg::GetCallDuration(pjsua_call_id *call_id)
 				if (call_info.state == PJSIP_INV_STATE_CONFIRMED) {
 					duration = call_info.connect_duration.sec;
 					*call_id = messagesContact->callId;
+					count++;
 				}
 			}
 		}
 		i++;
+	}
+	if (count > 1) {
+		*call_id = PJSUA_INVALID_ID;
+		duration = count;
 	}
 	return duration;
 }

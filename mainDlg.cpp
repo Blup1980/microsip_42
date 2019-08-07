@@ -16,6 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define THIS_FILENAME "mainDlg.cpp"
+
 #include "mainDlg.h"
 
 #include "microsip.h"
@@ -41,6 +43,8 @@
 #include <Wtsapi32.h>
 #include <afxsock.h>
 #include "atlrx.h"
+
+#include "addons.h"
 
 using namespace MSIP;
 
@@ -121,7 +125,7 @@ static void call_timeout_callback(pj_timer_heap_t *timer_heap,
 	PJ_UNUSED_ARG(timer_heap);
 
 	if (call_id == PJSUA_INVALID_ID) {
-		PJ_LOG(1, (THIS_FILE, "Invalid call ID in timer callback"));
+		PJ_LOG(1, (THIS_FILENAME, "Invalid call ID in timer callback"));
 		return;
 	}
 
@@ -131,7 +135,7 @@ static void call_timeout_callback(pj_timer_heap_t *timer_heap,
 	pj_list_push_back(&msg_data_.hdr_list, &warn);
 
 	/* Call duration has been exceeded; disconnect the call */
-	PJ_LOG(3, (THIS_FILE, "Duration (%d seconds) has been exceeded "
+	PJ_LOG(3, (THIS_FILENAME, "Duration (%d seconds) has been exceeded "
 		"for call %d, disconnecting the call",
 		accountSettings.autoHangUpTime, call_id));
 	entry->id = PJSUA_INVALID_ID;
@@ -327,17 +331,12 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 				str->SetString(Translate(_T("Cancel")));
 			}
 			else
-				if (call_info->last_status == 486 || call_info->last_status == 600 || call_info->last_status == 603) {
-					str->SetString(Translate(_T("Busy")));
-				}
-				else if (call_info->last_status == 404) {
-					str->SetString(Translate(_T("Not Found")));
+				if (call_info->acc_id && call_info->last_status >= 500 && call_info->last_status < 600) {
+					str->Format(_T("Server Failure: "));
+					str->AppendFormat(_T("%d %s"), call_info->last_status, Translate(rab.GetBuffer()));
 				}
 				else {
-					if (call_info->acc_id && call_info->last_status >= 500 && call_info->last_status < 600) {
-						str->Format(_T("Server Failure: "), rab);
-					}
-					str->AppendFormat(_T("%d %s"), call_info->last_status, Translate(rab.GetBuffer()));
+					str->SetString(rab);
 				}
 		}
 		break;
@@ -514,14 +513,20 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 	if (call_info->state == PJSIP_INV_STATE_DISCONNECTED) {
 		pageCalls->SetDuration(call_info->call_id, call_info->connect_duration.sec);
 		if (call_info->last_status != 200) {
+			CString number = sipuri.user;
+			CString name = pageContacts->GetNameByNumber(GetSIPURI(sipuri.user, true));
+			if (name.IsEmpty()) {
+				name = !sipuri.name.IsEmpty() ? sipuri.name : (!sipuri.user.IsEmpty() ? sipuri.user : sipuri.domain);
+			}
+			pageCalls->Add(call_info->call_id, number, name, MSIP_CALL_MISS);
 			pageCalls->SetInfo(call_info->call_id, *str);
 		}
 	}
 
 	if (accountSettings.singleMode) {
 		if (call_info->state == PJSIP_INV_STATE_DISCONNECTED) {
-			MessagesContact *messagesContactSelected = messagesDlg->GetMessageContact();
-			if (!messagesContactSelected || messagesContactSelected->callId == call_info->id || messagesContactSelected->callId == -1) {
+			pjsua_call_id current_call_id = CurrentCallId();
+			if (current_call_id == call_info->id || current_call_id == -1) {
 				pageDialer->Clear(false);
 				pageDialer->UpdateCallButton(FALSE, 0);
 			}
@@ -696,7 +701,7 @@ static void on_call_media_event(pjsua_call_id call_id,
 {
 	char event_name[5];
 
-	PJ_LOG(5, (THIS_FILE, "Event %s",
+	PJ_LOG(5, (THIS_FILENAME, "Event %s",
 		pjmedia_fourcc_name(event->type, event_name)));
 
 	//#if PJSUA_HAS_VIDEO
@@ -807,11 +812,13 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 		}
 
 		bool reject = false;
+		CString reason;
 		if (accountSettings.denyIncoming == _T("all")) {
 			reject = true;
 		}
 		else if (accountSettings.denyIncoming == _T("button")) {
 			reject = accountSettings.DND;
+			reason = _T("Do Not Disturb");
 		}
 		else if (accountSettings.denyIncoming == _T("user")) {
 			SIPURI sipuri_curr;
@@ -843,9 +850,11 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 				reject = true;
 			}
 		}
-
 		if (reject) {
-			msip_call_busy(call_info.id);
+			if (reason.IsEmpty()) {
+				reason = _T("Denied");
+			}
+			msip_call_busy(call_info.id, reason);
 			goto return_on_incoming_call;
 		}
 
@@ -912,7 +921,9 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 			}
 		}
 		BOOL playBeep = FALSE;
-		if (autoAnswer && calls_count <= 1) {
+		if (autoAnswer
+			&& calls_count <= 1
+			) {
 			mainDlg->AutoAnswer(call_id);
 		}
 		else {
@@ -936,11 +947,11 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 					playBeep = TRUE;
 				}
 				else {
-					if (!accountSettings.ringingSound.GetLength()) {
+					if (!accountSettings.ringtone.GetLength()) {
 						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_RINGTONE, 0);
 					}
 					else {
-						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_CUSTOM, (LPARAM)&accountSettings.ringingSound);
+						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_CUSTOM, (LPARAM)&accountSettings.ringtone);
 					}
 				}
 				//--
@@ -962,7 +973,7 @@ return_on_incoming_call:
 static void on_nat_detect(const pj_stun_nat_detect_result *res)
 {
 	if (res->status != PJ_SUCCESS) {
-		pjsua_perror(THIS_FILE, "NAT detection failed", res->status);
+		pjsua_perror(THIS_FILENAME, "NAT detection failed", res->status);
 	}
 	else {
 		if (res->nat_type == PJ_STUN_NAT_TYPE_SYMMETRIC) {
@@ -992,7 +1003,7 @@ static void on_nat_detect(const pj_stun_nat_detect_result *res)
 				mainDlg->BaloonPopup(_T("Symmetric NAT detected!"), message);
 			}
 		}
-		PJ_LOG(3, (THIS_FILE, "NAT detected as %s", res->nat_type_name));
+		PJ_LOG(3, (THIS_FILENAME, "NAT detected as %s", res->nat_type_name));
 	}
 }
 
@@ -1476,12 +1487,18 @@ END_MESSAGE_MAP()
 
 BOOL CmainDlg::PreTranslateMessage(MSG* pMsg)
 {
+	BOOL catched = FALSE;
 	if (accountSettings.enableMediaButtons) {
 		if (pMsg->message == WM_SHELLHOOKMESSAGE) {
 			onShellHookMessage(pMsg->wParam, pMsg->lParam);
 		}
 	}
-	return CBaseDialog::PreTranslateMessage(pMsg);
+	if (!catched) {
+		return CBaseDialog::PreTranslateMessage(pMsg);
+	}
+	else {
+		return TRUE;
+	}
 }
 
 // CmainDlg message handlers
@@ -1930,8 +1947,7 @@ void CmainDlg::OnMenuCustomRange(UINT nID)
 void CmainDlg::OnMenuSettings()
 {
 	if (!accountSettings.hidden) {
-		if (!settingsDlg)
-		{
+		if (!settingsDlg) {
 			settingsDlg = new SettingsDlg(this);
 		}
 		else {
@@ -2283,27 +2299,38 @@ LRESULT CmainDlg::OnAccount(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+void CmainDlg::OnTimerProgress()
+{
+}
+
 void CmainDlg::OnTimerCall()
 {
 	pjsua_call_id call_id;
 	int duration = messagesDlg->GetCallDuration(&call_id);
 	if (duration != -1) {
 		CString str;
-		str.Format(_T("%s %s"), Translate(_T("Connected")), GetDuration(duration, true));
-		call_user_data *user_data;
-		if (pjsua_var.state == PJSUA_STATE_RUNNING) {
-			user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
+		if (call_id != PJSUA_INVALID_ID) {
+			str.Format(_T("%s %s"), Translate(_T("Connected")), GetDuration(duration, true));
 		}
 		else {
-			user_data = NULL;
+			str.Format(_T("%s (%d)"), Translate(_T("Connected")), duration);
 		}
 		unsigned icon = IDI_ACTIVE;
-		if (user_data) {
-			user_data->CS.Lock();
-			if (user_data->srtp == MSIP_SRTP) {
-				icon = IDI_ACTIVE_SECURE;
+		if (call_id != PJSUA_INVALID_ID) {
+			call_user_data *user_data;
+			if (pjsua_var.state == PJSUA_STATE_RUNNING) {
+				user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
 			}
-			user_data->CS.Unlock();
+			else {
+				user_data = NULL;
+			}
+			if (user_data) {
+				user_data->CS.Lock();
+				if (user_data->srtp == MSIP_SRTP) {
+					icon = IDI_ACTIVE_SECURE;
+				}
+				user_data->CS.Unlock();
+			}
 		}
 		UpdateWindowText(str, icon);
 	}
@@ -2348,7 +2375,7 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 	else if (TimerVal == IDT_TIMER_SWITCH_DEVICES) {
 		KillTimer(IDT_TIMER_SWITCH_DEVICES);
 		if (pjsua_var.state == PJSUA_STATE_RUNNING) {
-			PJ_LOG(3, (THIS_FILE, "Execute refresh devices"));
+			PJ_LOG(3, (THIS_FILENAME, "Execute refresh devices"));
 			bool snd_is_active = pjsua_snd_is_active();
 			bool is_ring;
 			if (snd_is_active) {
@@ -2363,15 +2390,15 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 			}
 			pjmedia_aud_dev_refresh();
 			UpdateSoundDevicesIds();
+			if (snd_is_active) {
+				msip_set_sound_device(is_ring ? msip_audio_ring : msip_audio_output, true);
+			}
 #ifdef _GLOBAL_VIDEO
 			pjmedia_vid_subsys *vid_subsys = pjmedia_get_vid_subsys();
 			if (vid_subsys->init_count) {
 				pjmedia_vid_dev_refresh();
 			}
 #endif
-			if (snd_is_active) {
-				msip_set_sound_device(is_ring ? msip_audio_ring : msip_audio_output, true);
-			}
 		}
 	}
 	else if (TimerVal == IDT_TIMER_SAVE) {
@@ -2383,6 +2410,9 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 	}
 	else if (TimerVal == IDT_TIMER_CONTACTS_BLINK) {
 		OnTimerContactBlink();
+	}
+	else if (TimerVal == IDT_TIMER_PROGRESS) {
+		OnTimerProgress();
 	}
 	else if (TimerVal == IDT_TIMER_CALL) {
 		OnTimerCall();
@@ -2419,7 +2449,7 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 
 void CmainDlg::PJCreate()
 {
-	player_id = PJSUA_INVALID_ID;
+	player_eof_data = NULL;
 
 	pageContacts->isSubscribed = FALSE;
 	if (accountSettings.audioCodecs.IsEmpty())
@@ -2611,7 +2641,7 @@ void CmainDlg::PJCreate()
 	UpdateSoundDevicesIds();
 
 	//Set aud codecs prio
-	PJ_LOG(3, (THIS_FILE, "Set audio codecs"));
+	PJ_LOG(3, (THIS_FILENAME, "Set audio codecs"));
 	if (accountSettings.audioCodecs.GetLength())
 	{
 		// add unknown new codecs to the list
@@ -2672,7 +2702,7 @@ void CmainDlg::PJCreate()
 
 #ifdef _GLOBAL_VIDEO
 	//Set vid codecs prio
-	PJ_LOG(3, (THIS_FILE, "Set video codecs"));
+	PJ_LOG(3, (THIS_FILENAME, "Set video codecs"));
 	if (accountSettings.videoCodec.GetLength())
 	{
 		pj_str_t codec_id = StrToPjStr(accountSettings.videoCodec);
@@ -2680,11 +2710,11 @@ void CmainDlg::PJCreate()
 	}
 	int bitrate;
 	if (!accountSettings.videoH264) {
-		pjsua_vid_codec_set_priority(&pj_str("H264"), 0);
+		pjsua_vid_codec_set_priority(&pj_str("H264/99"), 0);
 	}
 	else
 	{
-		const pj_str_t codec_id = { "H264", 4 };
+		const pj_str_t codec_id = { "H264/99", 7 };
 		pjmedia_vid_codec_param param;
 		pjsua_vid_codec_get_param(&codec_id, &param);
 		if (accountSettings.videoBitrate) {
@@ -2713,12 +2743,12 @@ void CmainDlg::PJCreate()
 		pjsua_vid_codec_set_param(&codec_id, &param);
 	}
 	if (!accountSettings.videoH263) {
-		pjsua_vid_codec_set_priority(&pj_str("H263"), 0);
+		pjsua_vid_codec_set_priority(&pj_str("H263-1998/98"), 0);
 	}
 	else {
 		if (accountSettings.videoBitrate) {
 			bitrate = 1000 * accountSettings.videoBitrate;
-			const pj_str_t codec_id = { "H263", 4 };
+			const pj_str_t codec_id = { "H263-1998/98", 12 };
 			pjmedia_vid_codec_param param;
 			pjsua_vid_codec_get_param(&codec_id, &param);
 			param.enc_fmt.det.vid.avg_bps = bitrate;
@@ -2727,12 +2757,12 @@ void CmainDlg::PJCreate()
 		}
 	}
 	if (!accountSettings.videoVP8) {
-		pjsua_vid_codec_set_priority(&pj_str("VP8"), 0);
+		pjsua_vid_codec_set_priority(&pj_str("VP8/103"), 0);
 	}
 	else {
 		if (accountSettings.videoBitrate) {
 			bitrate = 1000 * accountSettings.videoBitrate;
-			const pj_str_t codec_id = { "VP8", 4 };
+			const pj_str_t codec_id = { "VP8/103", 7 };
 			pjmedia_vid_codec_param param;
 			pjsua_vid_codec_get_param(&codec_id, &param);
 			param.enc_fmt.det.vid.avg_bps = bitrate;
@@ -2743,7 +2773,7 @@ void CmainDlg::PJCreate()
 #endif
 
 	// Create transport
-	PJ_LOG(3, (THIS_FILE, "Create transport"));
+	PJ_LOG(3, (THIS_FILENAME, "Create transport"));
 	transport_udp_local = -1;
 	transport_udp = -1;
 	transport_tcp = -1;
@@ -2856,6 +2886,11 @@ void CmainDlg::PJDestroy()
 		}
 
 		PlayerStop();
+
+		if (player_eof_data) {
+			pj_pool_release(player_eof_data->pool);
+			player_eof_data = NULL;
+		}
 
 		if (accountSettings.accountId) {
 			PJAccountDelete();
@@ -2991,10 +3026,10 @@ void CmainDlg::PJAccountAdd()
 	acc_cfg.cred_info[0].data_type = PJSIP_CRED_DATA_PLAIN_PASSWD;
 	acc_cfg.cred_info[0].data = StrToPjStr(get_account_password());
 
-	CString proxy;
-	if (!accountSettings.account.proxy.IsEmpty()) {
+	CString proxy = get_account_proxy();
+	if (!proxy.IsEmpty()) {
 		acc_cfg.proxy_cnt = 1;
-		proxy.Format(_T("sip:%s"), accountSettings.account.proxy);
+		proxy.Format(_T("sip:%s"), proxy);
 		if (accountSettings.account.port > 0) {
 			proxy.AppendFormat(_T(":%d"), accountSettings.account.port);
 		}
@@ -3564,9 +3599,19 @@ void CmainDlg::AutoAnswer(pjsua_call_id call_id)
 	}
 }
 
+pjsua_call_id CmainDlg::CurrentCallId()
+{
+	MessagesContact* messagesContact = messagesDlg->GetMessageContact();
+	if (messagesContact) {
+		return messagesContact->callId;
+	}
+	return -1;
+}
+
 void CmainDlg::ShortcutAction(Shortcut *shortcut)
 {
-	MessagesContact* messagesContactSelected;
+	pjsua_call_id current_call_id;
+	CString params;
 	switch (shortcut->type) {
 	case MSIP_SHORTCUT_CALL:
 		mainDlg->MakeCall(shortcut->number);
@@ -3585,11 +3630,11 @@ void CmainDlg::ShortcutAction(Shortcut *shortcut)
 		mainDlg->pageDialer->DTMF(shortcut->number);
 		break;
 	case MSIP_SHORTCUT_TRANSFER:
-		messagesContactSelected = mainDlg->messagesDlg->GetMessageContact();
-		if (messagesContactSelected && messagesContactSelected->callId != -1) {
+		current_call_id = CurrentCallId();
+		if (current_call_id != -1) {
 			pj_str_t pj_uri = StrToPjStr(GetSIPURI(shortcut->number, true));
 			call_user_data *user_data;
-			user_data = (call_user_data *)pjsua_call_get_user_data(messagesContactSelected->callId);
+			user_data = (call_user_data *)pjsua_call_get_user_data(current_call_id);
 			bool xfer;
 			if (user_data) {
 				user_data->CS.Lock();
@@ -3600,9 +3645,16 @@ void CmainDlg::ShortcutAction(Shortcut *shortcut)
 				xfer = true;
 			}
 			if (xfer) {
-				pjsua_call_xfer(messagesContactSelected->callId, &pj_uri, NULL);
+				pjsua_call_xfer(current_call_id, &pj_uri, NULL);
 			}
 		}
+		break;
+	case MSIP_SHORTCUT_RUNBATCH:
+		AfxMessageBox(_T(_GLOBAL_BUSINESS_FEATURE));
+		break;
+	case MSIP_SHORTCUT_CALL_URL:
+	case MSIP_SHORTCUT_POP_URL:
+		AfxMessageBox(_T(_GLOBAL_BUSINESS_FEATURE));
 		break;
 	}
 }
@@ -3665,13 +3717,6 @@ LRESULT CmainDlg::onPlayerStop(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-
-struct pjsua_player_eof_data
-{
-	pj_pool_t          *pool;
-	pjsua_player_id player_id;
-};
-
 static PJ_DEF(pj_status_t) on_pjsua_wav_file_end_callback(pjmedia_port* media_port, void* args)
 {
 	mainDlg->PostMessage(UM_ON_PLAYER_STOP, 0, 0);
@@ -3681,17 +3726,20 @@ static PJ_DEF(pj_status_t) on_pjsua_wav_file_end_callback(pjmedia_port* media_po
 void CmainDlg::PlayerPlay(CString filename, bool noLoop, bool inCall)
 {
 	PlayerStop();
-	if (pjsua_var.state != PJSUA_STATE_NULL && !filename.IsEmpty()) {
+	if (!filename.IsEmpty()) {
 		pj_str_t file = StrToPjStr(filename);
-		if (pjsua_var.mconf && pjsua_player_create(&file, noLoop ? PJMEDIA_FILE_NO_LOOP : 0, &player_id) == PJ_SUCCESS) {
+		pjsua_player_id player_id;
+		if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_player_create(&file, noLoop ? PJMEDIA_FILE_NO_LOOP : 0, &player_id) == PJ_SUCCESS) {
 			pjmedia_port *player_media_port;
 			if (pjsua_player_get_port(player_id, &player_media_port) == PJ_SUCCESS) {
-				if (noLoop) {
+				if (!player_eof_data) {
 					pj_pool_t *pool = pjsua_pool_create("microsip_eof_data", 512, 512);
-					struct pjsua_player_eof_data *eof_data = PJ_POOL_ZALLOC_T(pool, struct pjsua_player_eof_data);
-					eof_data->pool = pool;
-					eof_data->player_id = player_id;
-					pjmedia_wav_player_set_eof_cb(player_media_port, eof_data, &on_pjsua_wav_file_end_callback);
+					player_eof_data = PJ_POOL_ZALLOC_T(pool, struct player_eof_data);
+					player_eof_data->pool = pool;
+				}
+				player_eof_data->player_id = player_id;
+				if (noLoop) {
+					pjmedia_wav_player_set_eof_cb(player_media_port, player_eof_data, &on_pjsua_wav_file_end_callback);
 				}
 				if (
 					(!tone_gen && pjsua_conf_get_active_ports() <= 2)
@@ -3708,15 +3756,14 @@ void CmainDlg::PlayerPlay(CString filename, bool noLoop, bool inCall)
 
 void CmainDlg::PlayerStop()
 {
-	if (player_id != PJSUA_INVALID_ID) {
+	if (player_eof_data && player_eof_data->player_id != PJSUA_INVALID_ID) {
 		if (pjsua_var.state != PJSUA_STATE_NULL) {
-			pjsua_conf_disconnect(pjsua_player_get_conf_port(player_id), 0);
-			if (pjsua_player_destroy(player_id) == PJ_SUCCESS) {
-				player_id = PJSUA_INVALID_ID;
-			}
+			pjsua_conf_disconnect(pjsua_player_get_conf_port(player_eof_data->player_id), 0);
+			pjsua_player_destroy(player_eof_data->player_id);
+			player_eof_data->player_id = PJSUA_INVALID_ID;
 		}
 		else {
-			player_id = PJSUA_INVALID_ID;
+			player_eof_data->player_id = PJSUA_INVALID_ID;
 		}
 	}
 }
@@ -3968,10 +4015,10 @@ BOOL CmainDlg::OnDeviceChange(UINT nEventType, DWORD_PTR dwData)
 	if (nEventType == DBT_DEVNODES_CHANGED) {
 		if (pj_ready) {
 			if (dwData == 1) {
-				PJ_LOG(3, (THIS_FILE, "OnDeviceStateChanged event, schedule refresh devices"));
+				PJ_LOG(3, (THIS_FILENAME, "OnDeviceStateChanged event, schedule refresh devices"));
 			}
 			else {
-				PJ_LOG(3, (THIS_FILE, "WM_DEVICECHANGE received, schedule refresh devices"));
+				PJ_LOG(3, (THIS_FILENAME, "WM_DEVICECHANGE received, schedule refresh devices"));
 			}
 			KillTimer(IDT_TIMER_SWITCH_DEVICES);
 			SetTimer(IDT_TIMER_SWITCH_DEVICES, 1500, NULL);
@@ -3984,7 +4031,7 @@ void CmainDlg::OnSessionChange(UINT nSessionState, UINT nId)
 {
 	if (nSessionState == WTS_REMOTE_CONNECT || nSessionState == WTS_CONSOLE_CONNECT) {
 		if (pj_ready) {
-			PJ_LOG(3, (THIS_FILE, "WM_WTSSESSION_CHANGE received, schedule refresh devices"));
+			PJ_LOG(3, (THIS_FILENAME, "WM_WTSSESSION_CHANGE received, schedule refresh devices"));
 			KillTimer(IDT_TIMER_SWITCH_DEVICES);
 			SetTimer(IDT_TIMER_SWITCH_DEVICES, 1500, NULL);
 		}
@@ -4042,7 +4089,7 @@ void CmainDlg::OnMenuAddl()
 
 LRESULT CmainDlg::onUsersDirectoryLoaded(WPARAM wParam, LPARAM lParam)
 {
-	PJ_LOG(3, (THIS_FILE, "Users directory loaded"));
+	PJ_LOG(3, (THIS_FILENAME, "Users directory loaded"));
 	URLGetAsyncData *response = (URLGetAsyncData *)wParam;
 	int expires = 0;
 	if (response->statusCode == 200 && !response->body.IsEmpty()) {
@@ -4177,7 +4224,7 @@ LRESULT CmainDlg::onUsersDirectoryLoaded(WPARAM wParam, LPARAM lParam)
 	}
 	SetTimer(IDT_TIMER_DIRECTORY, 1000 * expires, NULL);
 
-	PJ_LOG(3, (THIS_FILE, "End UsersDirectoryLoad"));
+	PJ_LOG(3, (THIS_FILENAME, "End UsersDirectoryLoad"));
 	delete response;
 	return 0;
 }
@@ -4186,11 +4233,11 @@ void CmainDlg::UsersDirectoryLoad()
 {
 	KillTimer(IDT_TIMER_DIRECTORY);
 	if (!accountSettings.usersDirectory.IsEmpty()) {
-		PJ_LOG(3, (THIS_FILE, "Users directory load"));
+		PJ_LOG(3, (THIS_FILENAME, "Users directory load"));
 		CString url;
 		url.Format(accountSettings.usersDirectory, accountSettings.account.username, accountSettings.account.password, get_account_server());
 		url = msip_url_mask(url);
-		PJ_LOG(3, (THIS_FILE, "Begin UsersDirectoryLoad"));
+		PJ_LOG(3, (THIS_FILENAME, "Begin UsersDirectoryLoad"));
 		URLGetAsync(url, m_hWnd, UM_USERS_DIRECTORY
 			, false
 		);

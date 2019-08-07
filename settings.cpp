@@ -291,10 +291,10 @@ void AccountSettings::Init()
 	str.ReleaseBuffer();
 	localDTMF = _wtoi(str);
 
-	ptr = ringingSound.GetBuffer(255);
+	ptr = ringtone.GetBuffer(255);
 	GetPrivateProfileString(section, _T("ringingSound"), NULL, ptr, 256, iniFile);
 
-	ringingSound.ReleaseBuffer();
+	ringtone.ReleaseBuffer();
 	ptr = audioRingDevice.GetBuffer(255);
 	GetPrivateProfileString(section, _T("audioRingDevice"), NULL, ptr, 256, iniFile);
 	audioRingDevice.ReleaseBuffer();
@@ -884,7 +884,7 @@ void AccountSettings::SettingsSave()
 
 	WritePrivateProfileString(section, _T("enableMediaButtons"), enableMediaButtons ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("localDTMF"), localDTMF ? _T("1") : _T("0"), iniFile);
-	WritePrivateProfileString(section, _T("ringingSound"), ringingSound, iniFile);
+	WritePrivateProfileString(section, _T("ringingSound"), ringtone, iniFile);
 	WritePrivateProfileString(section, _T("audioRingDevice"), _T("\"") + audioRingDevice + _T("\""), iniFile);
 	WritePrivateProfileString(section, _T("audioOutputDevice"), _T("\"") + audioOutputDevice + _T("\""), iniFile);
 	WritePrivateProfileString(section, _T("audioInputDevice"), _T("\"") + audioInputDevice + _T("\""), iniFile);

@@ -47,7 +47,7 @@ public:
 	afx_msg int OnVKeyToItem(UINT, CListBox*, UINT);
 	afx_msg void OnDeltaposSpinOrder(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkSingleMode(NMHDR *pNMHDR, LRESULT *pResult);
-	afx_msg void OnNMClickSyslinkRingingSound(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMClickSyslinkRingtone(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkMicAmplif(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkSwAdjust(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkVAD(NMHDR *pNMHDR, LRESULT *pResult);
@@ -73,7 +73,7 @@ public:
 	afx_msg void OnBnClickedPreview();
 #endif
 	afx_msg void OnBnClickedBrowse();
-	afx_msg void OnEnChangeRingingSound();
+	afx_msg void OnChangeRingtone();
 	afx_msg void OnBnClickedDefault();
 	afx_msg void OnBnClickedRecordingBrowse();
 	afx_msg void OnEnChangeRecording();

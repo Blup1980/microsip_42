@@ -54,7 +54,7 @@ BOOL SettingsDlg::OnInitDialog()
 
 	TranslateDialog(this->m_hWnd);
 
-	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(accountSettings.ringingSound);
+	GetDlgItem(IDC_SETTINGS_RINGTONE)->SetWindowText(accountSettings.ringtone);
 	GetDlgItem(IDC_SETTINGS_RECORDING)->SetWindowText(accountSettings.recordingPath);
 	((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->SetCheck(accountSettings.autoRecording);
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_MICROPHONE);
@@ -97,7 +97,6 @@ BOOL SettingsDlg::OnInitDialog()
 			}
 		}
 	}
-
 	((CButton*)GetDlgItem(IDC_SETTINGS_MIC_AMPLIF))->SetCheck(accountSettings.micAmplification);
 	((CButton*)GetDlgItem(IDC_SETTINGS_SW_ADJUST))->SetCheck(accountSettings.swLevelAdjustment);
 
@@ -311,7 +310,7 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_WM_VKEYTOITEM()
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SETTINGS_SPIN_MODIFY, &SettingsDlg::OnDeltaposSpinModify)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SETTINGS_SPIN_ORDER, &SettingsDlg::OnDeltaposSpinOrder)
-	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_RINGING_SOUND, &SettingsDlg::OnNMClickSyslinkRingingSound)
+	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_RINGTONE, &SettingsDlg::OnNMClickSyslinkRingtone)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_MIC_AMPLIF, &SettingsDlg::OnNMClickSyslinkMicAmplif)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_SW_ADJUST, &SettingsDlg::OnNMClickSyslinkSwAdjust)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_DTMF_METHOD, &SettingsDlg::OnNMClickSyslinkDTMFMethod)
@@ -338,7 +337,7 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_BN_CLICKED(IDC_SETTINGS_PREVIEW, &SettingsDlg::OnBnClickedPreview)
 #endif
 	ON_BN_CLICKED(IDC_SETTINGS_BROWSE, &SettingsDlg::OnBnClickedBrowse)
-	ON_EN_CHANGE(IDC_SETTINGS_RINGING_SOUND, &SettingsDlg::OnEnChangeRingingSound)
+	ON_EN_CHANGE(IDC_SETTINGS_RINGTONE, &SettingsDlg::OnChangeRingtone)
 	ON_BN_CLICKED(IDC_SETTINGS_DEFAULT, &SettingsDlg::OnBnClickedDefault)
 	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_BROWSE, &SettingsDlg::OnBnClickedRecordingBrowse)
 	ON_EN_CHANGE(IDC_SETTINGS_RECORDING, &SettingsDlg::OnEnChangeRecording)
@@ -370,7 +369,6 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 
 	CComboBox *combobox;
 	int i;
-
 	GetDlgItem(IDC_SETTINGS_MICROPHONE)->GetWindowText(accountSettings.audioInputDevice);
 	if (accountSettings.audioInputDevice == Translate(_T("Default")))
 	{
@@ -388,7 +386,6 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	{
 		accountSettings.audioRingDevice = _T("");
 	}
-
 	accountSettings.micAmplification = ((CButton*)GetDlgItem(IDC_SETTINGS_MIC_AMPLIF))->GetCheck();
 	accountSettings.swLevelAdjustment = ((CButton*)GetDlgItem(IDC_SETTINGS_SW_ADJUST))->GetCheck();
 
@@ -482,7 +479,7 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	accountSettings.enableLog = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->GetCheck();
 	accountSettings.bringToFrontOnIncoming = ((CButton*)GetDlgItem(IDC_SETTINGS_BRING_TO_FRONT))->GetCheck();
 	accountSettings.randomAnswerBox = ((CButton*)GetDlgItem(IDC_SETTINGS_ANSWER_BOX_RANDOM))->GetCheck();
-	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->GetWindowText(accountSettings.ringingSound);
+	GetDlgItem(IDC_SETTINGS_RINGTONE)->GetWindowText(accountSettings.ringtone);
 	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(accountSettings.recordingPath);
 	accountSettings.recordingPath.Trim();
 	accountSettings.autoRecording = ((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->GetCheck();
@@ -518,31 +515,32 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 
 void SettingsDlg::OnBnClickedBrowse()
 {
-	CFileDialog dlgFile(TRUE, _T("wav"), 0, OFN_NOCHANGEDIR, _T("WAV Files (*.wav)|*.wav|"));
+	CFileDialog dlgFile(TRUE, _T("wav"), 0, OFN_NOCHANGEDIR | OFN_HIDEREADONLY, _T("WAV Files (*.wav)|*.wav|"));
 	if (dlgFile.DoModal() == IDOK) {
 		CString cwd;
 		LPTSTR ptr = cwd.GetBuffer(MAX_PATH);
 		::GetCurrentDirectory(MAX_PATH, ptr);
 		cwd.ReleaseBuffer();
 		if (cwd.MakeLower() + _T("\\") + dlgFile.GetFileName().MakeLower() == dlgFile.GetPathName().MakeLower()) {
-			GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(dlgFile.GetFileName());
+			GetDlgItem(IDC_SETTINGS_RINGTONE)->SetWindowText(dlgFile.GetFileName());
 		}
 		else {
-			GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(dlgFile.GetPathName());
+			GetDlgItem(IDC_SETTINGS_RINGTONE)->SetWindowText(dlgFile.GetPathName());
 		}
 	}
 }
 
-void SettingsDlg::OnEnChangeRingingSound()
+void SettingsDlg::OnChangeRingtone()
 {
 	CString str;
-	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->GetWindowText(str);
+	GetDlgItem(IDC_SETTINGS_RINGTONE)->GetWindowText(str);
 	GetDlgItem(IDC_SETTINGS_DEFAULT)->EnableWindow(str.GetLength() > 0);
+
 }
 
 void SettingsDlg::OnBnClickedDefault()
 {
-	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(_T(""));
+	GetDlgItem(IDC_SETTINGS_RINGTONE)->SetWindowText(_T(""));
 }
 
 void SettingsDlg::OnBnClickedRecordingBrowse()
@@ -672,9 +670,9 @@ void SettingsDlg::OnDeltaposSpinOrder(NMHDR *pNMHDR, LRESULT *pResult)
 	*pResult = 0;
 }
 
-void SettingsDlg::OnNMClickSyslinkRingingSound(NMHDR *pNMHDR, LRESULT *pResult)
+void SettingsDlg::OnNMClickSyslinkRingtone(NMHDR *pNMHDR, LRESULT *pResult)
 {
-	OpenHelp(_T("ringingSound"));
+	OpenHelp(_T("ringtone"));
 	*pResult = 0;
 }
 

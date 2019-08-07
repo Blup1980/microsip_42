@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "stdafx.h"
@@ -22,8 +22,8 @@
 #include "global.h"
 
 CBaseDialog::CBaseDialog(UINT nIDTemplate, CWnd* pParent /*=NULL*/)
-: CDialog(nIDTemplate, pParent),
-m_szMinimum(0, 0)
+	: CDialog(nIDTemplate, pParent),
+	m_szMinimum(0, 0)
 {
 	mainWnd = NULL;
 }
@@ -43,11 +43,13 @@ BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 		mainWnd = (CBaseDialog *)AfxGetApp()->GetMainWnd();
 	}
 	if (pMsg->message == WM_SYSKEYDOWN) {
-		if (pMsg->wParam == VK_F10) {
+		if (pMsg->wParam == VK_F10 || pMsg->wParam == VK_MENU) {
 			if (mainWnd == this || mainWnd == this->GetParent()) {
 				CWnd *menuButton = mainWnd->GetDlgItem(IDC_MAIN_MENU);
 				if (mainWnd->GetFocus() == menuButton) {
-					mainWnd->TabFocusSet();
+					if (pMsg->wParam == VK_F10) {
+						mainWnd->TabFocusSet();
+					}
 				}
 				else {
 					menuButton->SetFocus();
@@ -59,45 +61,55 @@ BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 	else
 		if (pMsg->message == WM_KEYDOWN) {
 			int postCommand = 0;
-		if (GetAsyncKeyState(VK_CONTROL)) {
-			if (pMsg->wParam == VK_TAB) {
-				if (mainWnd == this || mainWnd == this->GetParent()) {
-					if (!GetAsyncKeyState(VK_SHIFT)) {
-						mainWnd->GotoTab(-1);
+			if (GetAsyncKeyState(VK_CONTROL)) {
+				if (pMsg->wParam == VK_TAB) {
+					if (mainWnd == this || mainWnd == this->GetParent()) {
+						if (!GetAsyncKeyState(VK_SHIFT)) {
+							mainWnd->GotoTab(-1);
+						}
+						else {
+							mainWnd->GotoTab(-2);
+						}
+						catched = TRUE;
 					}
-					else {
-						mainWnd->GotoTab(-2);
-					}
-					catched = TRUE;
+				}
+				if (pMsg->wParam == 'M') {
+					postCommand = ID_ACCOUNT_EDIT_RANGE;
+				}
+				//ctrl alt f11
+				if (pMsg->wParam == 'P') {
+					postCommand = ID_SETTINGS;
+				}
+				if (pMsg->wParam == 'S') {
+					postCommand = ID_SHORTCUTS;
+				}
+				if (pMsg->wParam == 'W') {
+					postCommand = ID_MENU_WEBSITE;
+				}
+				if (pMsg->wParam == 'Q') {
+					postCommand = ID_EXIT;
 				}
 			}
-			if (pMsg->wParam == 'M') {
-				postCommand = ID_ACCOUNT_EDIT_RANGE;
+			else {
+				if (pMsg->wParam == VK_ESCAPE) {
+					if (mainWnd == this || mainWnd == this->GetParent()) {
+						CWnd *menuButton = mainWnd->GetDlgItem(IDC_MAIN_MENU);
+						if (mainWnd->GetFocus() == menuButton) {
+							mainWnd->TabFocusSet();
+							catched = TRUE;
+						}
+					}
+				}
 			}
-			//ctrl alt f11
-			if (pMsg->wParam == 'P') {
-				postCommand = ID_SETTINGS;
-			}
-			if (pMsg->wParam == 'S') {
-				postCommand = ID_SHORTCUTS;
-			}
-			if (pMsg->wParam == 'W') {
-				postCommand = ID_MENU_WEBSITE;
-			}
-			if (pMsg->wParam == 'Q') {
-				postCommand = ID_EXIT;
+			if (mainWnd && postCommand) {
+				mainWnd->PostMessage(WM_COMMAND, postCommand, 0);
+				catched = TRUE;
 			}
 		}
-		else {
-		}
-		if (mainWnd && postCommand) {
-			mainWnd->PostMessage(WM_COMMAND, postCommand, 0);
-			catched = TRUE;
-		}
-	}
 	if (!catched) {
 		return CDialog::PreTranslateMessage(pMsg);
-	} else {
+	}
+	else {
 		return TRUE;
 	}
 }
@@ -137,7 +149,7 @@ void CBaseDialog::AutoMove(HWND hWnd, double dXMovePct, double dYMovePct, double
 void CBaseDialog::AutoUnmove(HWND hWnd)
 {
 	ASSERT(hWnd != NULL);
-	for (MovingChildren::iterator p = m_MovingChildren.begin();  p != m_MovingChildren.end();  ++p)
+	for (MovingChildren::iterator p = m_MovingChildren.begin(); p != m_MovingChildren.end(); ++p)
 	{
 		if (p->m_hWnd == hWnd)
 		{
@@ -167,7 +179,7 @@ BOOL CBaseDialog::OnInitDialog()
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
-void CBaseDialog::OnGetMinMaxInfo(MINMAXINFO FAR* lpMMI) 
+void CBaseDialog::OnGetMinMaxInfo(MINMAXINFO FAR* lpMMI)
 {
 	CDialog::OnGetMinMaxInfo(lpMMI);
 
@@ -177,14 +189,14 @@ void CBaseDialog::OnGetMinMaxInfo(MINMAXINFO FAR* lpMMI)
 		lpMMI->ptMinTrackSize.y = m_szMinimum.cy;
 }
 
-void CBaseDialog::OnSize(UINT nType, int cx, int cy) 
+void CBaseDialog::OnSize(UINT nType, int cx, int cy)
 {
 	CDialog::OnSize(nType, cx, cy);
 
 	int iXDelta = cx - m_szInitial.cx;
 	int iYDelta = cy - m_szInitial.cy;
 	HDWP hDefer = NULL;
-	for (MovingChildren::iterator p = m_MovingChildren.begin();  p != m_MovingChildren.end();  ++p)
+	for (MovingChildren::iterator p = m_MovingChildren.begin(); p != m_MovingChildren.end(); ++p)
 	{
 		if (p->m_hWnd != NULL)
 		{

@@ -45,6 +45,7 @@
 #define _GLOBAL_DENY_INCOMING_DEFAULT "button"
 #define _GLOBAL_AUTO_ANSWER_DEFAULT "button"
 
+#define _GLOBAL_BUSINESS_FEATURE "This feature can be added to a paid custom build."
 #define _GLOBAL_MENU_WEBSITE "http://www.microsip.org/"
 #define _GLOBAL_MENU_HELP "http://www.microsip.org/help"
 #define _GLOBAL_HELP_WEBSITE "http://www.microsip.org/help"
@@ -60,3 +61,6 @@
 
 #define _GLOBAL_SUBSCRIBE
 
+#ifndef LVS_EX_AUTOSIZECOLUMNS
+#define LVS_EX_AUTOSIZECOLUMNS 0x10000000
+#endif

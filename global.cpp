@@ -16,11 +16,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define THIS_FILENAME "global.cpp"
+
 #include "global.h"
 #include "settings.h"
 #include "utf.h"
 #include "langpack.h"
 #include <afxinet.h>
+#include "addons.h"
 
 #ifdef UNICODE
 #define CF_TEXT_T CF_UNICODETEXT
@@ -227,6 +230,16 @@ CString AnsiToWideChar(char* str)
 	int iNeeded = MultiByteToWideChar(CP_ACP, 0, str, -1, 0, 0);
 	wchar_t *wlocal = res.GetBuffer((iNeeded + 1) * sizeof(wchar_t));
 	MultiByteToWideChar(CP_ACP, 0, str, -1, wlocal, iNeeded);
+	res.ReleaseBuffer();
+	return res;
+}
+
+CStringA StringToPjString(CString str)
+{
+	CStringA res;
+	int len = str.GetLength() * 4;
+	char *buf = res.GetBuffer(len);
+	pj_unicode_to_ansi(str.GetBuffer(), -1, buf, len + 1);
 	res.ReleaseBuffer();
 	return res;
 }
@@ -567,6 +580,7 @@ void msip_set_sound_device(int outDev, bool forse) {
 	int in, out;
 	if (forse || pjsua_get_snd_dev(&in, &out) != PJ_SUCCESS || msip_audio_input != in || outDev != out) {
 		pjsua_set_snd_dev(msip_audio_input, outDev);
+
 	}
 }
 
@@ -987,7 +1001,7 @@ void CommandLineToShell(CString cmd, CString &command, CString &params)
 	LocalFree(szArglist);
 }
 
-void RunCmd(CString cmdLine, CString addParams)
+void RunCmd(CString cmdLine, CString addParams, bool noWait)
 {
 	CString command, params;
 	CommandLineToShell(cmdLine, command, params);
@@ -995,7 +1009,7 @@ void RunCmd(CString cmdLine, CString addParams)
 	params.TrimLeft();
 	SHELLEXECUTEINFO ShExecInfo = { 0 };
 	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
 	ShExecInfo.hwnd = NULL;
 	ShExecInfo.lpVerb = NULL;
 	ShExecInfo.lpFile = command;
@@ -1004,7 +1018,9 @@ void RunCmd(CString cmdLine, CString addParams)
 	ShExecInfo.nShow = SW_HIDE;
 	ShExecInfo.hInstApp = NULL;
 	ShellExecuteEx(&ShExecInfo);
-	DWORD res = WaitForSingleObject(ShExecInfo.hProcess, 10000);
+	if (!noWait) {
+		DWORD res = WaitForSingleObject(ShExecInfo.hProcess, 10000);
+	}
 	CloseHandle(ShExecInfo.hProcess);
 }
 
@@ -1032,6 +1048,12 @@ CString get_account_server()
 	return res;
 }
 
+CString get_account_proxy()
+{
+	CString res = accountSettings.account.proxy;
+	return res;
+}
+
 CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc)
 {
 	//-- replace server
@@ -1055,6 +1077,7 @@ CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc)
 		url.Replace(_T("{callerid}"), CString(urlencode(Utf8EncodeUcs2(num))));
 		//-- replace
 		url.Replace(_T("{user}"), CString(urlencode(Utf8EncodeUcs2(sipuri->user))));
+		url.Replace(_T("{number}"), CString(urlencode(Utf8EncodeUcs2(sipuri->user))));
 		url.Replace(_T("{domain}"), CString(urlencode(Utf8EncodeUcs2(sipuri->domain))));
 		url.Replace(_T("{name}"), CString(urlencode(Utf8EncodeUcs2(sipuri->name))));
 		//--
@@ -1076,7 +1099,7 @@ void msip_call_send_dtmf_info(pjsua_call_id current_call, pj_str_t digits)
 		return;
 	}
 	if (current_call == -1) {
-		PJ_LOG(3, (THIS_FILE, "No current call"));
+		PJ_LOG(3, (THIS_FILENAME, "No current call"));
 	}
 	else {
 		const pj_str_t SIP_INFO = pj_str("INFO");
@@ -1415,9 +1438,15 @@ void msip_call_answer(pjsua_call_id call_id)
 	}
 }
 
-void msip_call_busy(pjsua_call_id call_id)
+void msip_call_busy(pjsua_call_id call_id, CString reason)
 {
-	pjsua_call_hangup(call_id, 486, NULL, NULL);
+	if (!reason.IsEmpty()) {
+		pj_str_t pj_reason = StrToPjStr(reason);
+		pjsua_call_hangup(call_id, 486, &pj_reason, NULL);
+	}
+	else {
+		pjsua_call_hangup(call_id, 486, NULL, NULL);
+	}
 }
 
 void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info)

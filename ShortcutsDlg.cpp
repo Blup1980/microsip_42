@@ -59,6 +59,16 @@ BOOL ShortcutsDlg::OnInitDialog()
 		combobox->AddString(Translate(_T("Message")));
 		combobox->AddString(Translate(_T("DTMF")));		
 		combobox->AddString(Translate(_T("Call Transfer")));
+		CString str;
+		str = Translate(_T("Run Batch"));
+		str.Append(_T("*"));
+		combobox->AddString(str);
+		str = Translate(_T("Call URL"));
+		str.Append(_T("*"));
+		combobox->AddString(str);
+		str = Translate(_T("Pop URL"));
+		str.Append(_T("*"));
+		combobox->AddString(str);
 		combobox->SetCurSel(0);
 	}
 	
