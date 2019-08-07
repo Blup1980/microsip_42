@@ -95,7 +95,6 @@ BOOL CALLBACK MsipEnumWindowsProc(HWND hWnd, LPARAM lParam)
 
 BOOL CmicrosipApp::InitInstance()
 {
-
 	MsipEnumWindowsProcData data;
 	data.hInst = AfxGetInstanceHandle();
 	HWND hWndRunning = NULL;

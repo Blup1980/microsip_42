@@ -36,7 +36,6 @@ public:
 private:
 	int accountId;
 	Account m_Account;
-
 protected:
 	virtual BOOL OnInitDialog();
 	afx_msg void OnDestroy();
@@ -64,5 +63,4 @@ public:
 	afx_msg void OnNMClickSyslinkRewrite(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkSessionTimer(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkDisplayPasswod(NMHDR *pNMHDR, LRESULT *pResult);
-	afx_msg void OnNMClickSyslinkDelete(NMHDR *pNMHDR, LRESULT *pResult);
 };

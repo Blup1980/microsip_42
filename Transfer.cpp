@@ -111,10 +111,6 @@ void Transfer::SetAction(msip_action action)
 
 void Transfer::OnBnClickedOk()
 {
-	MessagesContact* messagesContactSelected = mainDlg->messagesDlg->GetMessageContact();
-	if (messagesContactSelected->callId==-1) {
-		return;
-	}
 	CString number;
 	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
 	int i = combobox->GetCurSel();
@@ -126,31 +122,7 @@ void Transfer::OnBnClickedOk()
 	}
 	if (!number.IsEmpty()) {
 		lastTransferNumber = number;
-		pj_str_t pj_uri = StrToPjStr ( GetSIPURI(number, true) );
-		call_user_data *user_data;
-		user_data = (call_user_data *) pjsua_call_get_user_data(messagesContactSelected->callId);
-		if (action == MSIP_ACTION_TRANSFER) {
-			if (!user_data || !user_data->inConference) {
-				pjsua_call_xfer(messagesContactSelected->callId, &pj_uri, NULL);
-			}
-		}
-		if (action == MSIP_ACTION_INVITE) {
-			MessagesContact *messagesContact = mainDlg->messagesDlg->AddTab(FormatNumber(number), _T(""), TRUE, NULL, NULL, TRUE);
-			if (messagesContact->callId == -1) {
-				pjsua_call_info call_info;
-				pjsua_call_get_info(messagesContactSelected->callId, &call_info);
-				msip_call_unhold(&call_info);
-				if (!user_data) {
-					user_data = new call_user_data(messagesContactSelected->callId);
-					pjsua_call_set_user_data(messagesContactSelected->callId,user_data);
-				}
-				user_data->inConference = true;
-
-				user_data = new call_user_data(PJSUA_INVALID_ID);
-				user_data->inConference = true;
-				mainDlg->messagesDlg->CallStart(false, user_data);
-			}
-		}
+		mainDlg->messagesDlg->CallAction(action, number);
 		OnClose();
 	}
 }

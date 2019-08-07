@@ -146,7 +146,7 @@ BOOL Dialer::OnInitDialog()
 
 	TranslateDialog(this->m_hWnd);
 
-	RebuildButtons();
+	RebuildButtons(true);
 
 	UpdateVoicemailButton(false);
 
@@ -198,12 +198,12 @@ BOOL Dialer::OnInitDialog()
 
 	DialedLoad();
 
-	LOGFONT lf;
-	font->GetLogFont(&lf);
-	StringCchCopy(lf.lfFaceName, LF_FACESIZE, _T("Franklin Gothic Medium"));
-	//--
 	CDC *pDC = GetDC();
 	int dpiY = GetDeviceCaps(pDC->m_hDC, LOGPIXELSY);
+	LOGFONT lf;
+	font->GetLogFont(&lf);
+	//--
+	m_font_call.CreateFontIndirect(&lf);
 	//--
 	lf.lfHeight = MulDiv(22, dpiY, 96);
 	m_font.CreateFontIndirect(&lf);
@@ -232,6 +232,9 @@ BOOL Dialer::OnInitDialog()
 	GetDlgItem(IDC_CLEAR)->SetFont(&m_font);
 	GetDlgItem(IDC_REDIAL)->SetFont(&m_font);
 	GetDlgItem(IDC_DELETE)->SetFont(&m_font);
+
+	GetDlgItem(IDC_CALL)->SetFont(&m_font_call);
+	GetDlgItem(IDC_END)->SetFont(&m_font_call);
 
 	if (m_ToolTip.Create(this)) {
 		m_ToolTip.AddTool(&m_ButtonDialerRedial, Translate(_T("Redial")));
@@ -354,51 +357,59 @@ void Dialer::UpdateVoicemailButton(bool hasMail)
 
 }
 
-void Dialer::RebuildButtons()
+void Dialer::RebuildButtons(bool init)
 {
+	m_ButtonVoicemail.ShowWindow(SW_SHOW);
 	if (IsChild(&m_ButtonDND)) {
 		m_ButtonDND.DestroyWindow();
 	}
 	if (IsChild(&m_ButtonAA)) {
 		m_ButtonAA.DestroyWindow();
 	}
+	bool addAA = accountSettings.autoAnswer == _T("button");
+	bool addDND = accountSettings.denyIncoming == _T("button");
+	if (addAA || addDND) {
+		CRect mainRect;
+		if (!init) {
+			mainDlg->GetWindowRect(mainRect);
+			mainDlg->SetWindowPos(NULL, 0, 0, mainDlg->windowSize.x, mainDlg->windowSize.y, SWP_NOZORDER | SWP_NOMOVE);
+		}
 
-	CRect rect;
-	m_ButtonVoicemail.GetWindowRect(&rect);
-	ScreenToClient(rect);
-	rect.top -= 1;
-	rect.bottom += 2;
-	rect.left -= 1;
-	rect.right += 2;
+		CRect rect;
+		m_ButtonVoicemail.GetWindowRect(&rect);
+		ScreenToClient(rect);
+		rect.top -= 1;
+		rect.bottom += 2;
+		rect.left -= 1;
+		rect.right += 2;
 
-	CRect mapRect;
-	mapRect.bottom = 5;
-	MapDialogRect(&mapRect);
-	int stepPx = mapRect.bottom + rect.Width();
+		CRect mapRect;
+		mapRect.bottom = 2;
+		MapDialogRect(&mapRect);
+		int stepPx = mapRect.bottom + rect.Width();
 
-	if (1 || accountSettings.accountId && !accountSettings.account.voicemailNumber.IsEmpty()) {
-		m_ButtonVoicemail.ShowWindow(SW_SHOW);
 		rect.left -= stepPx;
 		rect.right -= stepPx;
-	}
-	else {
-		m_ButtonVoicemail.ShowWindow(SW_HIDE);
-	}
-	if (accountSettings.autoAnswer == _T("button")) {
-		m_ButtonAA.Create(Translate(_T("AA")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_AA);
-		m_ButtonAA.SetFont(GetFont());
-		m_ButtonAA.SetCheck(accountSettings.AA ? BST_CHECKED : BST_UNCHECKED);
-		AutoMove(m_ButtonAA.m_hWnd, 100, 100, 0, 0);
-		rect.left -= stepPx;
-		rect.right -= stepPx;
-	}
-	if (accountSettings.denyIncoming == _T("button")) {
-		m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_DND);
-		m_ButtonDND.SetFont(GetFont());
-		m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
-		AutoMove(m_ButtonDND.m_hWnd, 100, 100, 0, 0);
-		rect.left -= stepPx;
-		rect.right -= stepPx;
+
+		if (addAA) {
+			m_ButtonAA.Create(Translate(_T("AA")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_AA);
+			m_ButtonAA.SetFont(GetFont());
+			m_ButtonAA.SetCheck(accountSettings.AA ? BST_CHECKED : BST_UNCHECKED);
+			AutoMove(m_ButtonAA.m_hWnd, 100, 100, 0, 0);
+			rect.left -= stepPx;
+			rect.right -= stepPx;
+		}
+		if (addDND) {
+			m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_DND);
+			m_ButtonDND.SetFont(GetFont());
+			m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
+			AutoMove(m_ButtonDND.m_hWnd, 100, 100, 0, 0);
+			rect.left -= stepPx;
+			rect.right -= stepPx;
+		}
+		if (!init) {
+			mainDlg->SetWindowPos(NULL, 0, 0, mainRect.Width(), mainRect.Height(), SWP_NOZORDER | SWP_NOMOVE);
+		}
 	}
 }
 
@@ -993,7 +1004,7 @@ void Dialer::OnHScroll(UINT, UINT, CScrollBar* sender)
 	}
 }
 
-void Dialer::OnBnClickedPlusInput()
+void Dialer::OnBnClickedMinusInput()
 {
 	int pos = m_SliderCtrlInput.GetPos();
 	if (pos > 0) {
@@ -1008,7 +1019,7 @@ void Dialer::OnBnClickedPlusInput()
 
 }
 
-void Dialer::OnBnClickedMinusInput()
+void Dialer::OnBnClickedPlusInput()
 {
 	int pos = m_SliderCtrlInput.GetPos();
 	if (pos < 100) {
@@ -1021,7 +1032,7 @@ void Dialer::OnBnClickedMinusInput()
 	}
 }
 
-void Dialer::OnBnClickedPlusOutput()
+void Dialer::OnBnClickedMinusOutput()
 {
 	int pos = m_SliderCtrlOutput.GetPos();
 	if (pos > 0) {
@@ -1034,7 +1045,7 @@ void Dialer::OnBnClickedPlusOutput()
 	}
 }
 
-void Dialer::OnBnClickedMinusOutput()
+void Dialer::OnBnClickedPlusOutput()
 {
 	int pos = m_SliderCtrlOutput.GetPos();
 	if (pos < 100) {
@@ -1051,30 +1062,32 @@ void Dialer::OnBnClickedMuteOutput()
 {
 	CButton *button = (CButton*)GetDlgItem(IDC_BUTTON_MUTE_OUTPUT);
 	if (button->GetCheck() == BST_CHECKED) {
-		button->SetIcon(m_hIconMutedOutput);
-		muteOutput = TRUE;
-		OnHScroll(0, 0, NULL);
-	}
-	else {
 		button->SetIcon(m_hIconMuteOutput);
 		muteOutput = FALSE;
 		OnHScroll(0, 0, NULL);
 	}
+	else {
+		button->SetIcon(m_hIconMutedOutput);
+		muteOutput = TRUE;
+		OnHScroll(0, 0, NULL);
+	}
+	button->SetCheck(!button->GetCheck());
 }
 
 void Dialer::OnBnClickedMuteInput()
 {
 	CButton *button = (CButton*)GetDlgItem(IDC_BUTTON_MUTE_INPUT);
 	if (button->GetCheck() == BST_CHECKED) {
-		button->SetIcon(m_hIconMutedInput);
-		muteInput = TRUE;
-		OnHScroll(0, 0, NULL);
-	}
-	else {
 		button->SetIcon(m_hIconMuteInput);
 		muteInput = FALSE;
 		OnHScroll(0, 0, NULL);
 	}
+	else {
+		button->SetIcon(m_hIconMutedInput);
+		muteInput = TRUE;
+		OnHScroll(0, 0, NULL);
+	}
+	button->SetCheck(!button->GetCheck());
 }
 
 void Dialer::TimerVuMeter()
@@ -1139,6 +1152,7 @@ void Dialer::OnBnClickedAA()
 	CButton *button = (CButton*)GetDlgItem(IDC_PHONE_AA);
 	accountSettings.AA = button->GetCheck() == BST_CHECKED;
 	accountSettings.SettingsSave();
+	mainDlg->UpdateWindowText();
 }
 
 void Dialer::OnBnClickedVoicemail()

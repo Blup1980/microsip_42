@@ -106,6 +106,7 @@ public:
 	int iconStatusbar;
 	int widthAdd;
 	int heightAdd;
+	bool missed;
 
 	CString callIdIncomingIgnore;
 	CList<int,int> toneCalls;
@@ -122,11 +123,13 @@ public:
 	void PJAccountDeleteLocal();
 	void PJAccountConfig(pjsua_acc_config *acc_cfg);
 
+	void CommandLine(CString params);
 	void TabFocusSet();
 	void UpdateWindowText(CString = CString(), int icon = IDI_DEFAULT, bool afterRegister = false);
 	void PublishStatus(bool online = true, bool init=false);
 	void BaloonPopup(CString title, CString message, DWORD flags = NIIF_WARNING);
-	void GotoTab(int i, CTabCtrl* tab = NULL);
+	bool GotoTabLParam(LPARAM lParam);
+	bool GotoTab(int i, CTabCtrl* tab = NULL);
 	void DialNumberFromCommandLine(CString number);
 	void DialNumber(CString params);
 	bool MakeCall(CString number, bool hasVideo = false);
@@ -162,6 +165,7 @@ protected:
 	HICON m_hIcon;
 	HICON iconSmall;
 	HICON iconInactive;
+	HICON iconMissed;
 	NOTIFYICONDATA tnd;
 	CStatusBar m_bar;
 

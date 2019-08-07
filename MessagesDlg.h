@@ -67,6 +67,7 @@ public:
 	BOOL SendInstantMessage(MessagesContact* messagesContact, CString message, CString number = _T(""));
 	void UpdateHoldButton(pjsua_call_info *call_info);	
 	void UpdateTabIcon(MessagesContact* messagesContact, int tabIndex=-1, pjsua_call_info *call_info=NULL, call_user_data *user_data = NULL);
+	void CallAction(int action, CString number);
 
 	CClosableTabCtrl* tab;
 	MessagesContact* lastCall;

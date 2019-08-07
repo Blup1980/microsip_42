@@ -55,6 +55,8 @@ IDI_CLOSE               ICON                    "res\\close.ico"
 IDI_CLOSE_2             ICON                    "res\\close2.ico"
 	IDI_INACTIVE            ICON                    "res\\inactive.ico"
 
+IDI_MISSED            ICON                    "res\\missed.ico"
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // Text
@@ -73,6 +75,7 @@ IDB_VMAIL_DOWN          BITMAP                  "res\\voicemail-down.bmp"
 IDB_VMAIL_GREY               BITMAP                  "res\\voicemail-grey.bmp"
 IDB_VMAIL_GREY_FOCUS         BITMAP                  "res\\voicemail-grey-focus.bmp"
 IDB_VMAIL_GREY_DOWN          BITMAP                  "res\\voicemail-grey-down.bmp"
+IDB_DELETE          BITMAP                  "res\\delete.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 

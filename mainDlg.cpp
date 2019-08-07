@@ -398,6 +398,10 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 				ShellExecute(NULL, NULL, accountSettings.cmdCallEnd, number, NULL, SW_HIDE);
 			}
 		}
+		if (call_info->role == PJSIP_ROLE_UAS && call_info->last_status == 487) {
+			//-- missed call
+			missed = true;
+		}
 	}
 
 	if (messagesContact) {
@@ -1394,7 +1398,8 @@ CmainDlg::CmainDlg(CWnd* pParent /*=NULL*/)
 	heightAdd = 0;
 
 	m_tabPrev = -1;
-	bool newMessages = false;
+	newMessages = false;
+	missed = false;
 
 	CString audioCodecsCaptions = _T("opus/24000/1;Opus 24 kHz;\
 PCMA/8000/1;G.711 A-law;\
@@ -1531,6 +1536,7 @@ BOOL CmainDlg::OnInitDialog()
 		tnd.uID = IDR_MAINFRAME;
 		tnd.uCallbackMessage = UM_NOTIFYICON;
 		tnd.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+		iconMissed = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDI_MISSED));
 		iconInactive = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDI_INACTIVE));
 		tnd.hIcon = iconInactive;
 		lstrcpyn(tnd.szTip, (LPCTSTR)str, sizeof(tnd.szTip));
@@ -1713,7 +1719,7 @@ void CmainDlg::OnCreated()
 		}
 	}
 	if (lstrlen(theApp.m_lpCmdLine)) {
-		DialNumberFromCommandLine(theApp.m_lpCmdLine);
+		CommandLine(theApp.m_lpCmdLine);
 		theApp.m_lpCmdLine = NULL;
 	}
 	PJAccountAdd();
@@ -1854,6 +1860,11 @@ LRESULT CmainDlg::onTrayNotify(WPARAM wParam, LPARAM lParam)
 					ShowWindow(SW_SHOW);
 				}
 				SetForegroundWindow();
+				if (missed) {
+					GotoTabLParam((LPARAM)pageCalls);
+					missed = false;
+					UpdateWindowText();
+				}
 				// -- show ringing dialogs
 				int count = ringinDlgs.GetCount();
 				for (int i = 0; i < count; i++) {
@@ -2375,7 +2386,7 @@ void CmainDlg::PJCreate()
 	}
 
 	// Initialize pjsua
-	if (accountSettings.enableLog || accountSettings.crashReport) {
+	if (accountSettings.enableLog) {
 		pjsua_logging_config log_cfg;
 		pjsua_logging_config_default(&log_cfg);
 		//--
@@ -2386,6 +2397,7 @@ void CmainDlg::PJCreate()
 		log_cfg.log_filename = pj_str(pBuf);
 		log_cfg.decor |= PJ_LOG_HAS_CR;
 		accountSettings.logFile = pBuf;
+		buf.ReleaseBuffer();
 		//--
 		status = pjsua_init(&ua_cfg, &log_cfg, &media_cfg);
 	}
@@ -2943,11 +2955,15 @@ void CmainDlg::OnTcnSelchangeTab(NMHDR *pNMHDR, LRESULT *pResult)
 			accountSettings.activeTab = nTab;
 			AccountSettingsPendingSave();
 		}
+		if (pWnd == pageCalls && missed) {
+			missed = false;
+			UpdateWindowText();
+		}
 	}
 	else {
 	}
 	*pResult = 0;
-		}
+}
 
 void CmainDlg::OnTcnSelchangingTab(NMHDR *pNMHDR, LRESULT *pResult)
 {
@@ -2988,23 +3004,26 @@ void CmainDlg::UpdateWindowText(CString text, int icon, bool afterRegister)
 			if (str != _T("Default status message")) {
 				if (!info.has_registration || str == _T("OK"))
 				{
-					if (m_PresenceStatus == PJRPID_ACTIVITY_AWAY) {
-						icon = IDI_AWAY;
-						str = Translate(_T("Away"));
-					}
-					else if (m_PresenceStatus == PJRPID_ACTIVITY_BUSY) {
+					if (m_PresenceStatus == PJRPID_ACTIVITY_BUSY) {
 						icon = IDI_BUSY;
 						str = Translate(_T("Do Not Disturb"));
-					}
-					else {
-						if (info.has_registration && transport == MSIP_TRANSPORT_TLS) {
-							icon = IDI_SECURE;
-							//str = Translate(_T("Security"));
+					} else {
+						if (m_PresenceStatus == PJRPID_ACTIVITY_AWAY) {
+							icon = IDI_AWAY;
+							str = Translate(_T("Away"));
 						}
 						else {
-							icon = IDI_ONLINE;
+							if (info.has_registration && transport == MSIP_TRANSPORT_TLS) {
+								icon = IDI_SECURE;
+							}
+							else {
+								icon = IDI_ONLINE;
+							}
+							str = Translate(_T("Online"));
 						}
-						str = Translate(_T("Online"));
+						if (accountSettings.autoAnswer == _T("button") && accountSettings.AA) {
+							str.AppendFormat(_T(" (%s)"), Translate(_T("Auto Answer")));
+						}
 					}
 					if (!info.has_registration) {
 						str.AppendFormat(_T(" (%s)"), Translate(_T("outgoing")));
@@ -3061,11 +3080,22 @@ void CmainDlg::UpdateWindowText(CString text, int icon, bool afterRegister)
 		m_bar.GetStatusBarCtrl().SetIcon(0, hIcon);
 		iconStatusbar = icon;
 
+		//--
 		tnd.uFlags = tnd.uFlags & ~NIF_INFO;
 		if ((pjsua_var.state == PJSUA_STATE_RUNNING && !pjsua_acc_is_valid(account) && MACRO_ENABLE_LOCAL_ACCOUNT) || (icon != IDI_DEFAULT && icon != IDI_OFFLINE)) {
-			if (tnd.hIcon != iconSmall) {
-				tnd.hIcon = iconSmall;
-				Shell_NotifyIcon(NIM_MODIFY, &tnd);
+			if (missed) {
+				if (tnd.hIcon != iconMissed) {
+					tnd.uFlags = tnd.uFlags & ~NIF_INFO;
+					tnd.hIcon = iconMissed;
+					Shell_NotifyIcon(NIM_MODIFY, &tnd);
+				}
+			}
+			else {
+
+				if (tnd.hIcon != iconSmall) {
+					tnd.hIcon = iconSmall;
+					Shell_NotifyIcon(NIM_MODIFY, &tnd);
+				}
 			}
 		}
 		else {
@@ -3074,6 +3104,7 @@ void CmainDlg::UpdateWindowText(CString text, int icon, bool afterRegister)
 				Shell_NotifyIcon(NIM_MODIFY, &tnd);
 			}
 		}
+		//--
 	}
 	if (showAccountDlg) {
 		PostMessage(UM_ON_ACCOUNT, 1);
@@ -3128,24 +3159,83 @@ LRESULT CmainDlg::onCopyData(WPARAM wParam, LPARAM lParam)
 		COPYDATASTRUCT *s = (COPYDATASTRUCT*)lParam;
 		if (s && s->dwData == 1) {
 			CString params = (LPCTSTR)s->lpData;
-			params.Trim();
-			if (!params.IsEmpty()) {
-				if (params == _T("/answer")) {
-					msip_call_answer();
-				}
-				else if (params == _T("/hangupall")) {
-					call_hangup_all_noincoming();
-				}
-				else {
-					DialNumberFromCommandLine(params);
-				}
-			}
+			CommandLine(params);
 		}
 	}
 	return 0;
 }
 
-void CmainDlg::GotoTab(int i, CTabCtrl* tab) {
+void CmainDlg::CommandLine(CString params) {
+	params.Trim();
+	if (!params.IsEmpty()) {
+		int pos = params.Find(_T("msip:"));
+		if (pos == 0) {
+			CString cmd = params.Mid(5);
+			if (cmd == _T("minimize")) {
+				ShowWindow(SW_HIDE);
+			}
+			else if (cmd == _T("answer")) {
+				msip_call_answer();
+			}
+			else if (cmd == _T("hangupall")) {
+				call_hangup_all_noincoming();
+			}
+			else if (cmd == _T("hold")) {
+				messagesDlg->OnBnClickedHold();
+			}
+			else if (cmd.Find(_T("transfer_")) == 0) {
+				messagesDlg->CallAction(MSIP_ACTION_TRANSFER, cmd.Mid(9));
+			}
+			else if (cmd == _T("micmute")) {
+				pageDialer->OnBnClickedMuteInput();
+			}
+			else if (cmd == _T("speakmute")) {
+				pageDialer->OnBnClickedMuteOutput();
+			}
+			else if (cmd == _T("micup")) {
+				pageDialer->OnBnClickedPlusInput();
+			}
+			else if (cmd == _T("micdown")) {
+				pageDialer->OnBnClickedMinusInput();
+			}
+			else if (cmd == _T("speakup")) {
+				pageDialer->OnBnClickedPlusOutput();
+			}
+			else if (cmd == _T("speakdown")) {
+				pageDialer->OnBnClickedMinusOutput();
+			}
+			else if (!cmd.IsEmpty()) {
+				DialNumberFromCommandLine(cmd);
+			}
+		}
+		else {
+			if (params == _T("/answer")) {
+				msip_call_answer();
+			}
+			else if (params == _T("/hangupall")) {
+				call_hangup_all_noincoming();
+			}
+			else {
+				DialNumberFromCommandLine(params);
+			}
+		}
+	}
+}
+
+bool CmainDlg::GotoTabLParam(LPARAM lParam) {
+	CTabCtrl* tab = (CTabCtrl*)GetDlgItem(IDC_MAIN_TAB);
+	for (int i = 0; i < tab->GetItemCount(); i++) {
+		TC_ITEM tci;
+		tci.mask = TCIF_PARAM;
+		tab->GetItem(i, &tci);
+		if (tci.lParam == lParam) {
+			return GotoTab(i, tab);
+		}
+	}
+	return false;
+}
+
+bool CmainDlg::GotoTab(int i, CTabCtrl* tab) {
 	if (!tab) {
 		tab = (CTabCtrl*)GetDlgItem(IDC_MAIN_TAB);
 	}
@@ -3155,7 +3245,9 @@ void CmainDlg::GotoTab(int i, CTabCtrl* tab) {
 		OnTcnSelchangingTab(NULL, &pResult);
 		tab->SetCurSel(i);
 		OnTcnSelchangeTab(NULL, &pResult);
+		return true;
 	}
+	return false;
 }
 
 

@@ -49,13 +49,7 @@ BOOL AccountDlg::OnInitDialog()
 
 	TranslateDialog(this->m_hWnd);
 
-	GetDlgItem(IDC_SYSLINK_DELETE)->ShowWindow(SW_HIDE);
-
 	CString str;
-
-	str.Format(_T("<a>%s</a>"),Translate(_T("Remove Account")));
-
-	GetDlgItem(IDC_SYSLINK_DELETE)->SetWindowText(str);
 
 	str.Format(_T("<a>%s</a>"),Translate(_T("display password")));
 	GetDlgItem(IDC_SYSLINK_DISPLAY_PASSWORD)->SetWindowText(str);
@@ -142,8 +136,7 @@ BEGIN_MESSAGE_MAP(AccountDlg, CDialog)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_SESSION_TIMER, &AccountDlg::OnNMClickSyslinkSessionTimer)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_DISPLAY_PASSWORD, &AccountDlg::OnNMClickSyslinkDisplayPasswod)
 	ON_NOTIFY(NM_RETURN, IDC_SYSLINK_DISPLAY_PASSWORD, &AccountDlg::OnNMClickSyslinkDisplayPasswod)
-	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_DELETE, &AccountDlg::OnNMClickSyslinkDelete)
-	ON_NOTIFY(NM_RETURN, IDC_SYSLINK_DELETE, &AccountDlg::OnNMClickSyslinkDelete)
+	ON_BN_CLICKED(IDC_ACCOUNT_REMOVE, &AccountDlg::OnBnClickedDelete)
 	
 END_MESSAGE_MAP()
 
@@ -238,9 +231,9 @@ int i;
 	((CButton*)GetDlgItem(IDC_REWRITE))->SetCheck(m_Account.allowRewrite);
 	((CButton*)GetDlgItem(IDC_SESSION_TIMER))->SetCheck(m_Account.disableSessionTimer);
 	if (accountId>0 && !m_Account.username.IsEmpty()) {
-		GetDlgItem(IDC_SYSLINK_DELETE)->ShowWindow(SW_SHOW);
+		GetDlgItem(IDC_ACCOUNT_REMOVE)->ShowWindow(SW_SHOW);
 	} else {
-		GetDlgItem(IDC_SYSLINK_DELETE)->ShowWindow(SW_HIDE);
+		GetDlgItem(IDC_ACCOUNT_REMOVE)->ShowWindow(SW_HIDE);
 	}
 }
 
@@ -477,7 +470,7 @@ void AccountDlg::OnNMClickSyslinkDisplayPasswod(NMHDR *pNMHDR, LRESULT *pResult)
 	*pResult = 0;
 }
 
-void AccountDlg::OnNMClickSyslinkDelete(NMHDR *pNMHDR, LRESULT *pResult)
+void AccountDlg::OnBnClickedDelete()
 {
 	if (accountId>0 && AfxMessageBox(Translate(_T("Are you sure you want to remove?")), MB_YESNO)==IDYES) {
 		this->ShowWindow(SW_HIDE);
@@ -511,6 +504,5 @@ void AccountDlg::OnNMClickSyslinkDelete(NMHDR *pNMHDR, LRESULT *pResult)
 		}
 		OnClose();
 	}
-	*pResult = 0;
 }
 

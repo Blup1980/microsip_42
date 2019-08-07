@@ -35,6 +35,7 @@ class Dialer :
 	CFont m_font;
 	CFont m_font_number;
 	CFont m_font_balance;
+	CFont m_font_call;
 
 	CButton m_ButtonDND;
 	CButton m_ButtonAA;
@@ -82,7 +83,6 @@ public:
 	enum { IDD = IDD_DIALER };
 
 	void UpdateVoicemailButton(bool hasMail);
-	void RebuildButtons();
 	void DTMF(CString digits);
 	void Input(CString digits, BOOL disableDTMF = FALSE);
 	void DialedClear();
@@ -158,4 +158,5 @@ public:
 	CList<CButton*> shortcutButtons;
 	void RebuildShortcuts(bool init = false);
 	afx_msg void OnBnClickedShortcut(UINT nID);
+	void RebuildButtons(bool init = false);
 };
