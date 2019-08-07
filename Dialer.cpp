@@ -267,6 +267,7 @@ BOOL Dialer::OnInitDialog()
 	m_hIconMutedInput = LoadImageIcon(IDI_MUTED_INPUT);
 
 	m_hIconHold = LoadImageIcon(IDI_HOLD);
+	m_hIconResume = LoadImageIcon(IDI_RESUME);
 	((CButton*)GetDlgItem(IDC_HOLD))->SetIcon(m_hIconHold);
 	m_hIconTransfer = LoadImageIcon(IDI_TRANSFER);
 	((CButton*)GetDlgItem(IDC_TRANSFER))->SetIcon(m_hIconTransfer);

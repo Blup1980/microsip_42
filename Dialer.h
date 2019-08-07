@@ -74,6 +74,7 @@ public:
 
 	CBitmapButton m_ButtonVoicemail;
 	HICON m_hIconHold;
+	HICON m_hIconResume;
 	HICON m_hIconTransfer;
 #ifdef _GLOBAL_VIDEO
 	HICON m_hIconVideo;

@@ -39,6 +39,7 @@ IDI_MUTE_INPUT          ICON                    "res\\mutein.ico"
 IDI_MUTED_INPUT         ICON                    "res\\mutedin.ico"
 IDI_SEARCH         ICON                    "res\\search.ico"
 IDI_HOLD				ICON                    "res\\hold.ico"
+IDI_RESUME				ICON                    "res\\resume.ico"
 IDI_CONFERENCE			ICON                    "res\\conference.ico"
 IDI_DROPDOWN			ICON                    "res\\dropdown.ico"
 IDI_TRANSFER			ICON                    "res\\transfer.ico"
@@ -55,7 +56,7 @@ IDI_CLOSE               ICON                    "res\\close.ico"
 IDI_CLOSE_2             ICON                    "res\\close2.ico"
 	IDI_INACTIVE            ICON                    "res\\inactive.ico"
 
-IDI_MISSED            ICON                    "res\\missed.ico"
+	IDI_MISSED            ICON                    "res\\missed.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //

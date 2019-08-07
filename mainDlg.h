@@ -23,6 +23,7 @@
 #include <afxwin.h>
 
 #include "define.h"
+#include "addons.h"
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
 

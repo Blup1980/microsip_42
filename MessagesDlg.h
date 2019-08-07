@@ -80,6 +80,7 @@ public:
 
 	HICON m_hIconDropDown;
 	HICON m_hIconHold;
+	HICON m_hIconResume;
 
 private:
 	void UpdateCallButton(BOOL active = FALSE, pjsua_call_info *call_info = NULL, call_user_data *user_data = NULL);

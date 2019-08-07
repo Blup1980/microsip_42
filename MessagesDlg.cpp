@@ -156,6 +156,7 @@ BOOL MessagesDlg::OnInitDialog()
 	para.dyLineSpacing = 22;
 
 	m_hIconHold = LoadImageIcon(IDI_HOLD);
+	m_hIconResume = LoadImageIcon(IDI_RESUME);
 	((CButton*)GetDlgItem(IDC_HOLD))->SetIcon(m_hIconHold);
 
 	MENUITEMINFO mii;
@@ -754,11 +755,15 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 	//--
 	if (onHold) {
 		buttonHold->SetCheck(TRUE);
+		buttonHold->SetIcon(m_hIconResume);
 		buttonHoldDialer->SetCheck(TRUE);
+		buttonHoldDialer->SetIcon(mainDlg->pageDialer->m_hIconResume);
 	}
 	else {
 		buttonHold->SetCheck(FALSE);
+		buttonHold->SetIcon(m_hIconHold);
 		buttonHoldDialer->SetCheck(FALSE);
+		buttonHoldDialer->SetIcon(mainDlg->pageDialer->m_hIconHold);
 	}
 	//--
 }

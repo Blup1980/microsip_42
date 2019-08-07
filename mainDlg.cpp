@@ -44,8 +44,6 @@
 #include <afxsock.h>
 #include "atlrx.h"
 
-#include "addons.h"
-
 using namespace MSIP;
 
 #ifdef _DEBUG
@@ -3102,7 +3100,6 @@ void CmainDlg::PJAccountAdd()
 		ShowErrorMessage(status);
 		UpdateWindowText(_T(""), IDI_DEFAULT, true);
 	}
-
 	PublishStatus(true, acc_cfg.register_on_acc_add);
 
 }
