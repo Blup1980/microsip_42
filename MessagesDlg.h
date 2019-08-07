@@ -53,6 +53,8 @@ public:
 	MessagesDlg(CWnd* pParent = NULL);	// standard constructor
 	~MessagesDlg();
 	enum { IDD = IDD_MESSAGES };
+	void TabFocusSet() override {};
+	bool GotoTab(int i, CTabCtrl* tab) { return false; };
 
 	MessagesContact* AddTab(CString number, CString name = CString(), BOOL activate = FALSE, pjsua_call_info *call_info = NULL, call_user_data *user_data = NULL, BOOL notShowWindow = FALSE, BOOL ifExists = FALSE);
 	void OnChangeTab(pjsua_call_info *p_call_info = NULL, call_user_data *user_data = NULL);

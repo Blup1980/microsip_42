@@ -339,26 +339,10 @@
     <None Include="res\menu.rc2">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="ClassDiagram1.cd" />
-    <None Include="StatusBar.htm" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="main.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Media Include="res\Ringin.wav">
-      <Filter>Resource Files</Filter>
-    </Media>
-    <Media Include="res\Ringin2.wav">
-      <Filter>Resource Files</Filter>
-    </Media>
-    <Media Include="res\Ringout.wav">
-      <Filter>Resource Files</Filter>
-    </Media>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="ReadMe.txt" />
   </ItemGroup>
 </Project>

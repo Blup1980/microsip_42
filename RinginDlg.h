@@ -30,12 +30,17 @@ public:
 	RinginDlg(CWnd* pParent = NULL);	// standard constructor
 	~RinginDlg();
 	enum { IDD = IDD_RINGIN };
+	void TabFocusSet() override {};
+	bool GotoTab(int i, CTabCtrl* tab) { return false; };
+
 	pjsua_call_id call_id;
+	bool answered;
 	CFont m_font;
 	bool remoteHasVideo;
 	CFont m_font_ignore;
 	void CallAccept(BOOL hasVideo = FALSE);
 	void SetCallId(pjsua_call_id new_call_id);
+	void OnAnswer();
 private:
 	void Close(BOOL accept = FALSE);
 protected:

@@ -937,7 +937,7 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 				}
 				else {
 					if (!accountSettings.ringingSound.GetLength()) {
-						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_RINGIN, 0);
+						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_RINGTONE, 0);
 					}
 					else {
 						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_CUSTOM, (LPARAM)&accountSettings.ringingSound);
@@ -1493,7 +1493,7 @@ void CmainDlg::OnBnClickedOk()
 void CmainDlg::OnBnClickedMenu()
 {
 	m_ButtonMenu.ModifyStyle(BS_DEFPUSHBUTTON, BS_PUSHBUTTON);
-	MainPopupMenu();
+	MainPopupMenu(true);
 	TabFocusSet();
 }
 
@@ -2028,11 +2028,19 @@ LRESULT CmainDlg::onTrayNotify(WPARAM wParam, LPARAM lParam)
 	return TRUE;
 }
 
-void CmainDlg::MainPopupMenu()
+void CmainDlg::MainPopupMenu(bool isMenuButton)
 {
 	CString str;
 	CPoint point;
-	GetCursorPos(&point);
+	if (isMenuButton) {
+		CWnd *menuButton = mainDlg->GetDlgItem(IDC_MAIN_MENU);
+		CRect rect;
+		menuButton->GetWindowRect(rect);
+		point = rect.TopLeft();
+	}
+	else {
+		GetCursorPos(&point);
+	}
 	CMenu menu;
 	menu.CreatePopupMenu();
 	CMenu* tracker = &menu;
@@ -2405,7 +2413,7 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 			}
 			else
 				if (TimerVal = IDT_TIMER_TONE) {
-					onPlayerPlay(MSIP_SOUND_RINGOUT, 0);
+					onPlayerPlay(MSIP_SOUND_RINGING, 0);
 				}
 }
 
@@ -2414,6 +2422,10 @@ void CmainDlg::PJCreate()
 	player_id = PJSUA_INVALID_ID;
 
 	pageContacts->isSubscribed = FALSE;
+	if (accountSettings.audioCodecs.IsEmpty())
+	{
+		accountSettings.audioCodecs = _T(_GLOBAL_CODECS_ENABLED);
+	}
 
 	// check updates
 	if (accountSettings.updatesInterval != _T("never"))
@@ -2516,18 +2528,34 @@ void CmainDlg::PJCreate()
 	media_cfg.enable_ice = PJ_FALSE;
 	media_cfg.no_vad = accountSettings.vad ? PJ_FALSE : PJ_TRUE;
 	media_cfg.ec_tail_len = accountSettings.ec ? PJSUA_DEFAULT_EC_TAIL_LEN : 0;
-	if (accountSettings.ec) {
-#ifndef _DEBUG
-		media_cfg.clock_rate = 48000;
-#else
-		media_cfg.clock_rate = 16000;
-#endif
-		media_cfg.channel_count = 1;
+
+	int maxClockRate = 8000;
+	int maxChannelCount = 1;
+	int curPos = 0;
+	CString resToken = accountSettings.audioCodecs.Tokenize(_T(" "), curPos);
+	while (!resToken.IsEmpty()) {
+		int pos = 0;
+		bool isOpus = resToken.Tokenize(_T("/"), pos) == _T("opus");
+		int clockRate;
+		if (isOpus) {
+			clockRate = 24000;
+		}
+		else {
+			clockRate = _wtoi(resToken.Tokenize(_T("/"), pos));
+		}
+		if (clockRate > maxClockRate) {
+			maxClockRate = clockRate;
+		}
+		if (!accountSettings.ec && !isOpus) {
+			BYTE channelCount = resToken.Tokenize(_T("/"), pos) == _T("2") ? 2 : 1;
+			if (channelCount > maxChannelCount) {
+				maxChannelCount = channelCount;
+			}
+		}
+		resToken = accountSettings.audioCodecs.Tokenize(_T(" "), curPos);
 	}
-	else {
-		media_cfg.clock_rate = 44100;
-		media_cfg.channel_count = 2;
-	}
+	media_cfg.clock_rate = maxClockRate;
+	media_cfg.channel_count = maxChannelCount;
 
 	if (accountSettings.dnsSrv && !accountSettings.dnsSrvNs.IsEmpty()) {
 		int pos = 0;
@@ -2584,10 +2612,6 @@ void CmainDlg::PJCreate()
 
 	//Set aud codecs prio
 	PJ_LOG(3, (THIS_FILE, "Set audio codecs"));
-	if (accountSettings.audioCodecs.IsEmpty())
-	{
-		accountSettings.audioCodecs = _T(_GLOBAL_CODECS_ENABLED);
-	}
 	if (accountSettings.audioCodecs.GetLength())
 	{
 		// add unknown new codecs to the list
@@ -3401,6 +3425,15 @@ bool CmainDlg::GotoTab(int i, CTabCtrl* tab) {
 		tab = (CTabCtrl*)GetDlgItem(IDC_MAIN_TAB);
 	}
 	int nTab = tab->GetCurSel();
+	if (i < 0) {
+		int max = tab->GetItemCount() - 1;
+		if (i == -1) {
+			i = nTab < max ? nTab + 1 : 0;
+		}
+		else {
+			i = nTab == 0 ? max : nTab - 1;
+		}
+	}
 	if (nTab != i) {
 		LRESULT pResult;
 		OnTcnSelchangingTab(NULL, &pResult);
@@ -3588,12 +3621,12 @@ LRESULT CmainDlg::onPlayerPlay(WPARAM wParam, LPARAM lParam)
 		filename = accountSettings.pathExe + _T("\\");
 		switch (wParam) {
 		case MSIP_SOUND_MESSAGE_IN:
-			filename.Append(_T("messagein.wav"));
+			filename.Append(_T("msgin.wav"));
 			noLoop = TRUE;
 			inCall = FALSE;
 			break;
 		case MSIP_SOUND_MESSAGE_OUT:
-			filename.Append(_T("messageout.wav"));
+			filename.Append(_T("msgout.wav"));
 			noLoop = TRUE;
 			inCall = FALSE;
 			break;
@@ -3602,18 +3635,18 @@ LRESULT CmainDlg::onPlayerPlay(WPARAM wParam, LPARAM lParam)
 			noLoop = TRUE;
 			inCall = TRUE;
 			break;
-		case MSIP_SOUND_RINGIN:
-			filename.Append(_T("ringin.wav"));
+		case MSIP_SOUND_RINGTONE:
+			filename.Append(_T("ringtone.wav"));
 			noLoop = FALSE;
 			inCall = FALSE;
 			break;
 		case MSIP_SOUND_RINGIN2:
-			filename.Append(_T("ringin2.wav"));
+			filename.Append(_T("ringing2.wav"));
 			noLoop = TRUE;
 			inCall = TRUE;
 			break;
-		case MSIP_SOUND_RINGOUT:
-			filename.Append(_T("ringout.wav"));
+		case MSIP_SOUND_RINGING:
+			filename.Append(_T("ringing.wav"));
 			noLoop = TRUE;
 			inCall = TRUE;
 			break;

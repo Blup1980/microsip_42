@@ -30,6 +30,8 @@ public:
 	Calls(CWnd* pParent = NULL);	// standard constructor
 	~Calls();
 	enum { IDD = IDD_CALLS };
+	void TabFocusSet() override {};
+	bool GotoTab(int i, CTabCtrl* tab) { return false; };
 
 	CListCtrl_SortItemsEx m_SortItemsExListCtrl;
 

@@ -316,7 +316,7 @@ void AccountSettings::Init()
 	swLevelAdjustment = _wtoi(str);
 
 	ptr = audioCodecs.GetBuffer(255);
-	GetPrivateProfileString(section, _T("audioCodecs"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("audioCodecs"), _T(_GLOBAL_CODECS_ENABLED), ptr, 256, iniFile);
 	audioCodecs.ReleaseBuffer();
 	if (isPortable) {
 		str = _T("Recordings");
@@ -368,7 +368,7 @@ void AccountSettings::Init()
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("EC"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	ec = str == _T("0") ? 0 : 1;
+	ec = str == _T("1") ? 1 : 0;
 
 	//--
 	ptr = str.GetBuffer(255);

@@ -30,6 +30,9 @@ public:
 	void AutoMove(HWND hWnd, double dXMovePct, double dYMovePct, double dXSizePct, double dYSizePct);
 	void AutoUnmove(HWND hWnd);
 
+	virtual void TabFocusSet() = 0;
+	virtual bool GotoTab(int i, CTabCtrl* tab = NULL) = 0;
+
 	// Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CBaseDialog)
@@ -46,6 +49,8 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 private:
+	CBaseDialog *mainWnd;
+
 	struct SMovingChild
 	{
 		HWND        m_hWnd;

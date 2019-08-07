@@ -82,6 +82,8 @@ public:
 	Dialer(CWnd* pParent = NULL);	// standard constructor
 	~Dialer();
 	enum { IDD = IDD_DIALER };
+	void TabFocusSet() override {};
+	bool GotoTab(int i, CTabCtrl* tab) { return false; };
 
 	void SetName(CString str = _T(""));
 	void UpdateVoicemailButton(bool hasMail);

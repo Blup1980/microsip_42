@@ -25,6 +25,7 @@ CBaseDialog::CBaseDialog(UINT nIDTemplate, CWnd* pParent /*=NULL*/)
 : CDialog(nIDTemplate, pParent),
 m_szMinimum(0, 0)
 {
+	mainWnd = NULL;
 }
 
 
@@ -38,29 +39,60 @@ END_MESSAGE_MAP()
 BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 {
 	BOOL catched = FALSE;
-	if (pMsg->message == WM_KEYDOWN) {
-		if (GetAsyncKeyState(VK_CONTROL)) {
-			if (pMsg->wParam == 'M') {
-				PostMessage(WM_COMMAND,ID_ACCOUNT_EDIT_RANGE,0);
+	if (!mainWnd) {
+		mainWnd = (CBaseDialog *)AfxGetApp()->GetMainWnd();
+	}
+	if (pMsg->message == WM_SYSKEYDOWN) {
+		if (pMsg->wParam == VK_F10) {
+			if (mainWnd == this || mainWnd == this->GetParent()) {
+				CWnd *menuButton = mainWnd->GetDlgItem(IDC_MAIN_MENU);
+				if (mainWnd->GetFocus() == menuButton) {
+					mainWnd->TabFocusSet();
+				}
+				else {
+					menuButton->SetFocus();
+				}
 				catched = TRUE;
+			}
+		}
+	}
+	else
+		if (pMsg->message == WM_KEYDOWN) {
+			int postCommand = 0;
+		if (GetAsyncKeyState(VK_CONTROL)) {
+			if (pMsg->wParam == VK_TAB) {
+				if (mainWnd == this || mainWnd == this->GetParent()) {
+					if (!GetAsyncKeyState(VK_SHIFT)) {
+						mainWnd->GotoTab(-1);
+					}
+					else {
+						mainWnd->GotoTab(-2);
+					}
+					catched = TRUE;
+				}
+			}
+			if (pMsg->wParam == 'M') {
+				postCommand = ID_ACCOUNT_EDIT_RANGE;
 			}
 			//ctrl alt f11
 			if (pMsg->wParam == 'P') {
-				PostMessage(WM_COMMAND,ID_SETTINGS,0);
-				catched = TRUE;
+				postCommand = ID_SETTINGS;
 			}
 			if (pMsg->wParam == 'S') {
-				PostMessage(WM_COMMAND,ID_SHORTCUTS,0);
-				catched = TRUE;
+				postCommand = ID_SHORTCUTS;
 			}
 			if (pMsg->wParam == 'W') {
-				PostMessage(WM_COMMAND,ID_MENU_WEBSITE,0);
-				catched = TRUE;
+				postCommand = ID_MENU_WEBSITE;
 			}
 			if (pMsg->wParam == 'Q') {
-				PostMessage(WM_COMMAND,ID_EXIT,0);
-				catched = TRUE;
+				postCommand = ID_EXIT;
 			}
+		}
+		else {
+		}
+		if (mainWnd && postCommand) {
+			mainWnd->PostMessage(WM_COMMAND, postCommand, 0);
+			catched = TRUE;
 		}
 	}
 	if (!catched) {

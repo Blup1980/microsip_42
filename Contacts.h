@@ -31,6 +31,8 @@ public:
 	Contacts(CWnd* pParent = NULL);	// standard constructor
 	~Contacts();
 	enum { IDD = IDD_CONTACTS };
+	void TabFocusSet() override {};
+	bool GotoTab(int i, CTabCtrl* tab) { return false; };
 
 	CListCtrl_SortItemsEx m_SortItemsExListCtrl;
 

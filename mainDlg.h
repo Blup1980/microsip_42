@@ -116,12 +116,12 @@ public:
 	void PJAccountConfig(pjsua_acc_config *acc_cfg);
 
 	void CommandLine(CString params);
-	void TabFocusSet();
+	void TabFocusSet() override;
 	void UpdateWindowText(CString = CString(), int icon = IDI_DEFAULT, bool afterRegister = false);
 	void PublishStatus(bool online = true, bool init=false);
 	void BaloonPopup(CString title, CString message, DWORD flags = NIIF_WARNING);
 	bool GotoTabLParam(LPARAM lParam);
-	bool GotoTab(int i, CTabCtrl* tab = NULL);
+	bool GotoTab(int i, CTabCtrl* tab = NULL) override;
 	void DialNumberFromCommandLine(CString number);
 	void DialNumber(CString params);
 	bool MakeCall(CString number, bool hasVideo = false);
@@ -137,7 +137,7 @@ public:
 	afx_msg LRESULT onUsersDirectoryLoaded(WPARAM wParam,LPARAM lParam);
 	void SetupJumpList();
 	void RemoveJumpList();
-	void MainPopupMenu();
+	void MainPopupMenu(bool isMenuButton = false);
 	void SetPaneText2(CString str = _T(""));
 	void AccountSettingsPendingSave();
 	void OnAccountChanged();

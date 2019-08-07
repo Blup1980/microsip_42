@@ -32,6 +32,7 @@ RinginDlg::RinginDlg(CWnd* pParent /*=NULL*/)
 	: CBaseDialog(RinginDlg::IDD, pParent)
 {
 	Create (IDD, pParent);
+	answered = false;
 }
 
 RinginDlg::~RinginDlg(void)
@@ -187,23 +188,36 @@ void RinginDlg::OnClose()
 	Close();
 }
 
+void RinginDlg::OnAnswer()
+{
+	answered = true;
+#ifdef _GLOBAL_VIDEO
+	GetDlgItem(IDC_VIDEO)->EnableWindow(FALSE);
+#endif
+	GetDlgItem(IDC_ANSWER)->EnableWindow(FALSE);
+	GetDlgItem(IDC_DECLINE)->EnableWindow(FALSE);
+}
+
 void RinginDlg::Close(BOOL accept)
 {
 	int count = mainDlg->ringinDlgs.GetCount();
-	for (int i = 0; i < count; i++ )
+	for (int i = 0; i < count; i++)
 	{
-		if ( call_id == mainDlg->ringinDlgs.GetAt(i)->call_id)
+		if (call_id == mainDlg->ringinDlgs.GetAt(i)->call_id)
 		{
 			if (!accept) {
 				mainDlg->UpdateWindowText(_T("-"));
 			}
-			if (count==1) {
+			if (count == 1) {
 				mainDlg->PlayerStop();
 			}
 			mainDlg->ringinDlgs.RemoveAt(i);
-			DestroyWindow();
+			call_id = -1;
 			break;
 		}
+	}
+	if (call_id == -1) {
+		DestroyWindow();
 	}
 }
 
@@ -218,10 +232,12 @@ void RinginDlg::OnBnClickedCancel()
 
 void RinginDlg::OnBnClickedDecline()
 {
-	pjsua_call_info call_info;
-	pjsua_call_get_info(call_id,&call_info);
-	msip_call_busy(call_id);
-	mainDlg->callIdIncomingIgnore = PjToStr(&call_info.call_id);
+	if (!answered) {
+		pjsua_call_info call_info;
+		pjsua_call_get_info(call_id, &call_info);
+		msip_call_busy(call_id);
+		mainDlg->callIdIncomingIgnore = PjToStr(&call_info.call_id);
+	}
 	Close();
 }
 
@@ -237,8 +253,9 @@ void RinginDlg::OnBnClickedVideo()
 
 void RinginDlg::CallAccept(BOOL hasVideo)
 {
-	mainDlg->onCallAnswer((WPARAM)call_id, (LPARAM)hasVideo);
-	//Close(TRUE);
+	if (!answered) {
+		mainDlg->onCallAnswer((WPARAM)call_id, (LPARAM)hasVideo);
+	}
 }
 
 void RinginDlg::OnShowWindow(BOOL bShow, UINT nStatus)

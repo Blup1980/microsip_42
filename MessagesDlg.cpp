@@ -272,6 +272,7 @@ void MessagesDlg::OnClose()
 {
 	call_hangup_all_noincoming();
 	ShowWindow(SW_HIDE);
+	mainDlg->PostMessage(UM_NOTIFYICON, NULL, WM_LBUTTONUP);
 }
 
 void MessagesDlg::OnMove(int x, int y)
