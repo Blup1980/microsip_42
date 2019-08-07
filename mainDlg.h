@@ -140,6 +140,7 @@ public:
 
 	void UsersDirectoryLoad();
 	void OnTimerContactBlink();
+	void OnTimerJoystickCheck();
 	afx_msg LRESULT onUsersDirectoryLoaded(WPARAM wParam,LPARAM lParam);
 	LRESULT onShortcutsURLLoaded(WPARAM wParam, LPARAM lParam);
 	void ShortcutsURLLoad();
@@ -172,6 +173,8 @@ protected:
 	NOTIFYICONDATA tnd;
 	StatusBar m_bar;
 	CMMNotificationClient *mmNotificationClient;
+
+	bool joyStickCaptured;
 
 	unsigned char m_tabPrev;
 
