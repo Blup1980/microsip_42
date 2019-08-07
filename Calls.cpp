@@ -26,6 +26,13 @@
 #include "mainDlg.h"
 #include "langpack.h"
 
+enum {
+	MSIP_CALLS_COL_NUMBER,
+	MSIP_CALLS_COL_TIME,
+	MSIP_CALLS_COL_DURATION,
+	MSIP_CALLS_COL_INFO,
+};
+
 Calls::Calls(CWnd* pParent /*=NULL*/)
 : CBaseDialog(Calls::IDD, pParent)
 {
@@ -60,11 +67,10 @@ BOOL Calls::OnInitDialog()
 	imageList->Add(theApp.LoadIcon(IDI_CALL_IN));
 	imageList->Add(theApp.LoadIcon(IDI_CALL_MISS));
 	list->SetImageList(imageList,LVSIL_SMALL);
-	list->InsertColumn(0,Translate(_T("Number")),LVCFMT_LEFT, accountSettings.callsWidth0>0?accountSettings.callsWidth0:81);
-	list->InsertColumn(1,Translate(_T("Time")),LVCFMT_LEFT, accountSettings.callsWidth1>0?accountSettings.callsWidth1:71);
-	list->InsertColumn(2,Translate(_T("Duration")),LVCFMT_LEFT, accountSettings.callsWidth2>0?accountSettings.callsWidth2:40);
-	list->InsertColumn(3,Translate(_T("Info")),LVCFMT_LEFT, accountSettings.callsWidth3>0?accountSettings.callsWidth3:50);
-
+	list->InsertColumn(MSIP_CALLS_COL_NUMBER,Translate(_T("Number")),LVCFMT_LEFT, accountSettings.callsWidth0>0?accountSettings.callsWidth0:81);
+	list->InsertColumn(MSIP_CALLS_COL_TIME,Translate(_T("Time")),LVCFMT_LEFT, accountSettings.callsWidth1>0?accountSettings.callsWidth1:71);
+	list->InsertColumn(MSIP_CALLS_COL_DURATION,Translate(_T("Duration")),LVCFMT_LEFT, accountSettings.callsWidth2>0?accountSettings.callsWidth2:40);
+	list->InsertColumn(MSIP_CALLS_COL_INFO,Translate(_T("Info")),LVCFMT_LEFT, accountSettings.callsWidth3>0?accountSettings.callsWidth3:50);
 	CallsLoad();
 
 	return TRUE;
@@ -381,7 +387,7 @@ void Calls::SetDuration(pj_str_t id, int sec) {
 		CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
 		Call *pCall = (Call *) list->GetItemData(i);
 		pCall->duration = sec;
-		list->SetItemText(i,2,GetDuration(pCall->duration));
+		list->SetItemText(i, MSIP_CALLS_COL_DURATION, GetDuration(pCall->duration));
 		CallSave(pCall);
 	}
 }
@@ -393,7 +399,7 @@ void Calls::SetInfo(pj_str_t id, CString str) {
 		CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
 		Call *pCall = (Call *) list->GetItemData(i);
 		pCall->info = str;
-		list->SetItemText(i,3,str);
+		list->SetItemText(i, MSIP_CALLS_COL_INFO, str);
 		CallSave(pCall);
 	}
 }
@@ -422,16 +428,11 @@ void Calls::Insert(Call *pCall, int pos)
 		return;
 	}
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
-	CString number;
-	if (pCall->name != pCall->number) {
-		number.AppendFormat(_T("%s (%s)"),pCall->name,pCall->number);
-	} else {
-		number = pCall->name;
-	}
+	CString number = pCall->name;
 	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,pos,number,0,0,pCall->type,(LPARAM)pCall);
-	list->SetItemText(i,1,FormatTime(pCall->time));
-	list->SetItemText(i,2,GetDuration(pCall->duration));
-	list->SetItemText(i,3,pCall->info);
+	list->SetItemText(i, MSIP_CALLS_COL_TIME,FormatTime(pCall->time));
+	list->SetItemText(i, MSIP_CALLS_COL_DURATION, GetDuration(pCall->duration));
+	list->SetItemText(i, MSIP_CALLS_COL_INFO, pCall->info);
 }
 
 void Calls::CallsClear()
@@ -474,7 +475,7 @@ void Calls::ReloadTime()
 		for (int i=0;i<count;i++) {
 			Call *pCall = (Call *) list->GetItemData(i);
 			CTime timeCall(pCall->time);
-			list->SetItemText(i,1,FormatTime(pCall->time, &timeNow));
+			list->SetItemText(i, MSIP_CALLS_COL_TIME,FormatTime(pCall->time, &timeNow));
 		}
 	}
 }

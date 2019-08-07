@@ -1,4 +1,4 @@
-#include "CLevelsSliderCtrl.h"
+#include "LevelsSliderCtrl.h"
 
 BEGIN_MESSAGE_MAP(CLevelsSliderCtrl, CSliderCtrl)
 	ON_NOTIFY_REFLECT(NM_CUSTOMDRAW, OnCustomDraw)

@@ -219,9 +219,8 @@ void RinginDlg::OnBnClickedDecline()
 {
 	pjsua_call_info call_info;
 	pjsua_call_get_info(call_id,&call_info);
-	if (pjsua_call_hangup(call_id, 0, NULL, NULL) == PJ_SUCCESS) {
-		mainDlg->callIdIncomingIgnore = PjToStr(&call_info.call_id);
-	}
+	msip_call_busy(call_id);
+	mainDlg->callIdIncomingIgnore = PjToStr(&call_info.call_id);
 	Close();
 }
 

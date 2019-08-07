@@ -25,6 +25,7 @@
 #include "utf.h"
 #include "langpack.h"
 #include "CSVFile.h"
+#include "XMLFile.h"
 #include "Transfer.h"
 
 Contacts::Contacts(CWnd* pParent /*=NULL*/)
@@ -85,10 +86,8 @@ void Contacts::OnCreated()
 void Contacts::PostNcDestroy()
 {
 	CBaseDialog::PostNcDestroy();
-	if (pj_ready) {
-		PresenceUnsubsribe();
-	}
-	mainDlg->pageContacts=NULL;
+	PresenceUnsubsribe();
+	mainDlg->pageContacts = NULL;
 	delete imageList;
 	delete this;
 }
@@ -274,17 +273,23 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 			tracker->EnableMenuItem(ID_VIDEOCALL, FALSE);
 #endif
 			tracker->EnableMenuItem(ID_CHAT, FALSE);
-			tracker->EnableMenuItem(ID_EDIT, FALSE);
 			tracker->EnableMenuItem(ID_COPY, FALSE);
-			tracker->EnableMenuItem(ID_DELETE, FALSE);
+			if (!pContact->directory) {
+				tracker->EnableMenuItem(ID_EDIT, FALSE);
+				tracker->EnableMenuItem(ID_DELETE, FALSE);
+			}
+			else {
+				tracker->EnableMenuItem(ID_EDIT, TRUE);
+				tracker->EnableMenuItem(ID_DELETE, TRUE);
+			}
 		} else {
 			tracker->EnableMenuItem(ID_CALL, TRUE);
 #ifdef _GLOBAL_VIDEO
 			tracker->EnableMenuItem(ID_VIDEOCALL, TRUE);
 #endif
 			tracker->EnableMenuItem(ID_CHAT, TRUE);
-			tracker->EnableMenuItem(ID_EDIT, TRUE);
 			tracker->EnableMenuItem(ID_COPY, TRUE);
+			tracker->EnableMenuItem(ID_EDIT, TRUE);
 			tracker->EnableMenuItem(ID_DELETE, TRUE);
 		}
 		tracker->AppendMenu(0, MF_SEPARATOR);
@@ -615,20 +620,22 @@ bool Contacts::ContactAdd(CString number, CString name, char presence, char dire
 
 	Contact *pContact;
 	bool found = false;
-	if (pj_ready && isSubscribed) {
-		pjsua_buddy_id ids[PJSUA_MAX_BUDDIES];
-		unsigned count = PJSUA_MAX_BUDDIES;
-		pjsua_enum_buddies(ids,&count);
-		for (unsigned i=0;i<count;i++) {
-			pContact =  (Contact *)pjsua_buddy_get_user_data(ids[i]);
-			if (pContact && pContact->number == number) {
-				found = true;
-				break;
+	if (isSubscribed) {
+		if (pjsua_var.state == PJSUA_STATE_RUNNING) {
+			pjsua_buddy_id ids[PJSUA_MAX_BUDDIES];
+			unsigned count = PJSUA_MAX_BUDDIES;
+			pjsua_enum_buddies(ids, &count);
+			for (unsigned i = 0; i < count; i++) {
+				pContact = (Contact *)pjsua_buddy_get_user_data(ids[i]);
+				if (pContact && pContact->number == number) {
+					found = true;
+					break;
+				}
 			}
 		}
 	}
 	if (!found) {
-		pContact =  new Contact();
+		pContact = new Contact();
 		pContact->image = 7;
 	}
 	pContact->number = number;
@@ -864,17 +871,18 @@ void Contacts::PresenceSubsribeOne(Contact *pContact)
 
 void Contacts::PresenceUnsubsribeOne(Contact *pContact)
 {
-	if (isSubscribed)
-	{
-		pjsua_buddy_id ids[PJSUA_MAX_BUDDIES];
-		unsigned count = PJSUA_MAX_BUDDIES;
-		pjsua_enum_buddies(ids,&count);
-		for (unsigned i=0;i<count;i++)
-		{
-			if ((Contact *)pjsua_buddy_get_user_data(ids[i])==pContact)
+	if (isSubscribed) {
+		if (pjsua_var.state == PJSUA_STATE_RUNNING) {
+			pjsua_buddy_id ids[PJSUA_MAX_BUDDIES];
+			unsigned count = PJSUA_MAX_BUDDIES;
+			pjsua_enum_buddies(ids, &count);
+			for (unsigned i = 0; i < count; i++)
 			{
-				pjsua_buddy_del(ids[i]);
-				break;
+				if ((Contact *)pjsua_buddy_get_user_data(ids[i]) == pContact)
+				{
+					pjsua_buddy_del(ids[i]);
+					break;
+				}
 			}
 		}
 	}
@@ -898,12 +906,14 @@ void Contacts::PresenceSubsribe()
 
 void Contacts::PresenceUnsubsribe()
 {
-	pjsua_buddy_id ids[PJSUA_MAX_BUDDIES];
-	unsigned count = PJSUA_MAX_BUDDIES;
-	pjsua_enum_buddies(ids,&count);
-	for (unsigned i=0;i<count;i++)
-	{
-		pjsua_buddy_del(ids[i]);
+	if (pjsua_var.state == PJSUA_STATE_RUNNING) {
+		pjsua_buddy_id ids[PJSUA_MAX_BUDDIES];
+		unsigned count = PJSUA_MAX_BUDDIES;
+		pjsua_enum_buddies(ids, &count);
+		for (unsigned i = 0; i < count; i++)
+		{
+			pjsua_buddy_del(ids[i]);
+		}
 	}
 	if (::IsWindow(this->m_hWnd)) {
 		CListCtrl *list= (CListCtrl *)GetDlgItem(IDC_CONTACTS);

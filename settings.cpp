@@ -36,6 +36,7 @@ CArray<Shortcut, Shortcut> shortcuts;
 
 void AccountSettings::Init()
 {
+	bool isPortable = false;
 	CString str;
 	LPTSTR ptr;
 	accountId = 0;
@@ -116,6 +117,7 @@ void AccountSettings::Init()
 		}
 		else {
 			// portable
+			isPortable = true;
 			pathRoaming = pathExe + _T("\\");
 			pathLocal = pathRoaming;
 			// for version <= 3.14.5 move ini file from currdir to exedir
@@ -225,7 +227,6 @@ void AccountSettings::Init()
 	ptr = stun.GetBuffer(255);
 	GetPrivateProfileString(section, _T("STUN"), NULL, ptr, 256, iniFile);
 	stun.ReleaseBuffer();
-
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("enableSTUN"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
@@ -268,22 +269,25 @@ void AccountSettings::Init()
 	ptr = audioCodecs.GetBuffer(255);
 	GetPrivateProfileString(section, _T("audioCodecs"), NULL, ptr, 256, iniFile);
 	audioCodecs.ReleaseBuffer();
-	ptr = recordingPath.GetBuffer(255);
-	GetPrivateProfileString(section, _T("recordingPath"), NULL, ptr, 256, iniFile);
-	recordingPath.ReleaseBuffer();
-	if (recordingPath.IsEmpty()) {
-		ptr = recordingPath.GetBuffer(MAX_PATH);
+	if (isPortable) {
+		str = _T("Recordings");
+	}
+	else {
+		ptr = str.GetBuffer(MAX_PATH);
 		SHGetSpecialFolderPath(
 			0,
 			ptr,
 			CSIDL_DESKTOPDIRECTORY,
 			FALSE);
-		recordingPath.ReleaseBuffer();
-		recordingPath.Append(_T("\\Recordings"));
+		str.ReleaseBuffer();
+		str.Append(_T("\\Recordings"));
 	}
+	ptr = recordingPath.GetBuffer(255);
+	GetPrivateProfileString(section, _T("recordingPath"), str, ptr, 256, iniFile);
+	recordingPath.ReleaseBuffer();
 
 	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
+		GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	autoRecording = str == "1" ? 1 : 0;
 
@@ -332,7 +336,7 @@ void AccountSettings::Init()
 	ptr = videoCodec.GetBuffer(255);
 	GetPrivateProfileString(section, _T("videoCodec"), NULL, ptr, 256, iniFile);
 	videoCodec.ReleaseBuffer();
-
+	
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("videoH264"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
@@ -496,7 +500,7 @@ void AccountSettings::Init()
 	cmdCallBusy.ReleaseBuffer();
 
 	ptr = cmdCallStart.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallStart"), NULL, ptr, 256, iniFile); 
+	GetPrivateProfileString(section, _T("cmdCallStart"), NULL, ptr, 256, iniFile);
 	cmdCallStart.ReleaseBuffer();
 
 	ptr = cmdCallEnd.GetBuffer(255);
@@ -583,7 +587,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	CString section;
 	if (id == -1) {
 		section = _T("Settings");
-	}
+}
 	else {
 		section.Format(_T("Account%d"), id);
 	}
@@ -603,7 +607,6 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	ptr = account->domain.GetBuffer(255);
 	GetPrivateProfileString(section, _T("domain"), NULL, ptr, 256, iniFile);
 	account->domain.ReleaseBuffer();
-
 
 	ptr = account->username.GetBuffer(255);
 	GetPrivateProfileString(section, _T("username"), NULL, ptr, 256, iniFile);
@@ -639,9 +642,9 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 			catch (CArchiveException *e) {
 			}
 		}
-	}
+					}
 
-	account->rememberPassword = account->password.GetLength() ? 1 : 0;
+	account->rememberPassword = account->username.GetLength() ? 1 : 0;
 
 
 	ptr = account->authID.GetBuffer(255);
@@ -669,7 +672,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	account->publicAddr.ReleaseBuffer();
 
 	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("publish"), NULL, ptr, 256, iniFile); 
+	GetPrivateProfileString(section, _T("publish"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	account->publish = str == _T("1") ? 1 : 0;
 
@@ -713,11 +716,11 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 		//if (!account->domain.IsEmpty() && !account->username.IsEmpty()) {
 		if (sectionExists && !account->domain.IsEmpty()) {
 			AccountSave(1, account);
-		}
 	}
+				}
 	//return !account->domain.IsEmpty() && !account->username.IsEmpty();
 	return  sectionExists && !account->domain.IsEmpty();
-		}
+			}
 
 void AccountSettings::AccountSave(int id, Account *account)
 {
@@ -748,7 +751,7 @@ void AccountSettings::AccountSave(int id, Account *account)
 		}
 		else {
 			str = account->password;
-		}
+	}
 		WritePrivateProfileString(section, _T("password"), str, iniFile);
 	}
 
@@ -759,13 +762,11 @@ void AccountSettings::AccountSave(int id, Account *account)
 	WritePrivateProfileString(section, _T("voicemailNumber"), account->voicemailNumber, iniFile);
 
 	WritePrivateProfileString(section, _T("transport"), account->transport, iniFile);
-
 	WritePrivateProfileString(section, _T("publicAddr"), account->publicAddr, iniFile);
-
 	WritePrivateProfileString(section, _T("SRTP"), account->srtp, iniFile);
-
 	WritePrivateProfileString(section, _T("publish"), account->publish ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("ICE"), account->ice ? _T("1") : _T("0"), iniFile);
+
 	WritePrivateProfileString(section, _T("allowRewrite"), account->allowRewrite ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("disableSessionTimer"), account->disableSessionTimer ? _T("1") : _T("0"), iniFile);
 	}
@@ -804,7 +805,7 @@ void AccountSettings::SettingsSave()
 
 	WritePrivateProfileString(section, _T("AA"), AA ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("autoAnswer"), autoAnswer, iniFile);
-	
+
 	WritePrivateProfileString(section, _T("DND"), DND ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("denyIncoming"), denyIncoming, iniFile);
 
@@ -986,14 +987,14 @@ void ShortcutsLoad()
 		if (GetPrivateProfileString(_T("Shortcuts"), key, NULL, ptr, 256, accountSettings.iniFile)) {
 			ShortcutDecode(ptr, &shortcut);
 			shortcuts.Add(shortcut);
-		}
+	}
 		else {
 			break;
 		}
 		i++;
 	}
 	if (!shortcuts.GetCount()) {
-	}
+}
 }
 
 void ShortcutsSave()
@@ -1004,6 +1005,6 @@ void ShortcutsSave()
 		CString key;
 		key.Format(_T("%d"), i);
 		WritePrivateProfileString(_T("Shortcuts"), key, ShortcutEncode(&shortcut), accountSettings.iniFile);
-}
+	}
 }
 

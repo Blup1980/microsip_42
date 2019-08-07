@@ -40,19 +40,24 @@ struct Account {
 	bool allowRewrite;
 	bool disableSessionTimer;
 	bool operator==(const Account& a) const	{
-		if (label == a.label
+		if (
+			label == a.label
 			&& server == a.server
 			&& proxy == a.proxy
 			&& username == a.username
 			&& domain == a.domain
+			&& port == a.port
 			&& authID == a.authID
 			&& password == a.password
 			&& displayName == a.displayName
+			&& voicemailNumber == a.voicemailNumber
 			&& srtp == a.srtp
 			&& transport == a.transport
+			&& publicAddr == a.publicAddr
 			&& publish == a.publish
 			&& ice == a.ice
 			&& allowRewrite == a.allowRewrite
+			&& disableSessionTimer == a.disableSessionTimer
 			)
 			return true;
 		return false;
@@ -67,14 +72,18 @@ struct Account {
 		proxy = a.proxy;
 		username = a.username;
 		domain = a.domain;
+		port = a.port;
 		authID = a.authID;
 		password = a.password;
 		displayName = a.displayName;
+		voicemailNumber = a.voicemailNumber;
 		srtp = a.srtp;
 		transport = a.transport;
+		publicAddr = a.publicAddr;
 		publish = a.publish;
 		ice = a.ice;
 		allowRewrite = a.allowRewrite;
+		disableSessionTimer = a.disableSessionTimer;
 	};
 	Account() : port(0)
 		, rememberPassword(false)

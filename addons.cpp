@@ -20,5 +20,3 @@
 #include "mainDlg.h"
 #include "settings.h"
 
-#include "addons/CXMLFile/XMLFile.cpp"
-

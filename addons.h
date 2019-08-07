@@ -18,5 +18,3 @@
 
 #include "const.h"
 
-#include "addons/CXMLFile/XMLFile.h"
-

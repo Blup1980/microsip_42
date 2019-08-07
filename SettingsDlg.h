@@ -78,5 +78,7 @@ public:
 	afx_msg void OnBnClickedRecordingBrowse();
 	afx_msg void OnEnChangeRecording();
 	afx_msg void OnBnClickedRecordingDefault();
+	afx_msg void OnBnClickedDnsSrv();
+	afx_msg void OnBnClickedStun();
 };
 

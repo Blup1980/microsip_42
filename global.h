@@ -161,6 +161,7 @@ struct call_user_data
 	pjsua_recorder_id recorder_id;
 	pj_timer_entry auto_hangup_timer;
 	msip_srtp_type srtp;
+	CString name;
 	CString userAgent;
 	CString diversion;
 	CString commands;
@@ -252,12 +253,14 @@ typedef struct {
 	HWND hWnd;
 	UINT message;
 	CString url;
+	CString username;
+	CString password;
 	bool post;
 	DWORD statusCode;
 	CString headers;
 	CStringA body;
 } URLGetAsyncData;
-void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false);
+void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false, CString username = _T(""), CString password = _T(""));
 URLGetAsyncData URLGetSync(CString url);
 
 CStringA urldecode(CStringA str);
@@ -277,7 +280,7 @@ void msip_conference_leave(pjsua_call_info *call_info, bool hold = false);
 void msip_call_hold(pjsua_call_info *call_info);
 void msip_call_unhold(pjsua_call_info *call_info = NULL);
 void msip_call_answer(pjsua_call_id call_id = PJSUA_INVALID_ID);
-void msip_call_busy(pjsua_call_id call_id, SIPURI *sipuri, call_user_data *user_data);
+void msip_call_busy(pjsua_call_id call_id);
 void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info = NULL);
 void msip_call_recording_stop(call_user_data *user_data); 
 CStringA msip_md5sum(CString *str);

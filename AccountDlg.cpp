@@ -324,8 +324,6 @@ void AccountDlg::OnBnClickedOk()
 
 	m_Account.allowRewrite = ((CButton*)GetDlgItem(IDC_REWRITE))->GetCheck();
 
-	m_Account.disableSessionTimer = ((CButton*)GetDlgItem(IDC_SESSION_TIMER))->GetCheck();
-
 	combobox= (CComboBox*)GetDlgItem(IDC_PUBLIC_ADDR);
 	if (combobox->IsWindowEnabled()) {
 		i = combobox->GetCurSel();
@@ -335,6 +333,8 @@ void AccountDlg::OnBnClickedOk()
 			m_Account.publicAddr = _T("");
 		}
 	}
+
+	m_Account.disableSessionTimer = ((CButton*)GetDlgItem(IDC_SESSION_TIMER))->GetCheck();
 
 	if (
 		m_Account.domain.IsEmpty() ||
@@ -362,7 +362,7 @@ void AccountDlg::OnBnClickedOk()
 		accountId = i;
 	}
 
-	accountSettings.AccountSave(accountId,&m_Account);
+	accountSettings.AccountSave(accountId, &m_Account);
 
 	mainDlg->PJAccountDelete(true);
 
@@ -374,8 +374,8 @@ void AccountDlg::OnBnClickedOk()
 		accountSettings.account.password = m_Account.password;
 		accountSettings.account.rememberPassword = false;
 	}
+	mainDlg->OnAccountChanged();
 	accountSettings.SettingsSave();
-	mainDlg->pageDialer->RebuildButtons();
 	mainDlg->PJAccountAdd();
 	OnClose();
 }
@@ -495,11 +495,6 @@ void AccountDlg::OnBnClickedDelete()
 				break;
 			}
 			accountSettings.AccountSave(i,&account);
-			if (accountSettings.accountId == i+1) {
-				accountSettings.accountId = i;
-				accountSettings.SettingsSave();
-				accountId = 0;
-			}
 			i++;
 		}
 		accountSettings.AccountDelete(i);
@@ -508,9 +503,13 @@ void AccountDlg::OnBnClickedDelete()
 			if (i>1) {
 				accountSettings.accountId = 1;
 				accountSettings.AccountLoad(accountSettings.accountId,&accountSettings.account);
+				mainDlg->OnAccountChanged();
+				mainDlg->InitUI();
 				mainDlg->PJAccountAdd();
 			} else {
 				accountSettings.accountId = 0;
+				mainDlg->OnAccountChanged();
+				mainDlg->InitUI();
 			}
 			accountSettings.SettingsSave();
 		}

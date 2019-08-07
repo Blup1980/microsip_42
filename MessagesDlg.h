@@ -63,6 +63,7 @@ public:
 	void CallStart(bool hasVideo = false, call_user_data *user_data = NULL);
 	void AddMessage(MessagesContact* messagesContact, CString message, int type = MSIP_MESSAGE_TYPE_SYSTEM, BOOL blockForeground = FALSE);
 	MessagesContact* GetMessageContact(int i = -1);
+	MessagesContact* GetMessageContactInCall();
 	int GetCallDuration(pjsua_call_id *call_id = NULL);
 	BOOL SendInstantMessage(MessagesContact *messagesContact, CString message, CString number = _T(""));
 	void UpdateHoldButton(pjsua_call_info *call_info);	

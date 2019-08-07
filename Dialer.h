@@ -22,7 +22,7 @@
 #include "define.h"
 #include "BaseDialog.h"
 #include "ButtonDialer.h"
-#include "CLevelsSliderCtrl.h"
+#include "LevelsSliderCtrl.h"
 #include "IconButton.h"
 
 enum DialerActions {
@@ -83,6 +83,7 @@ public:
 	~Dialer();
 	enum { IDD = IDD_DIALER };
 
+	void SetName(CString str = _T(""));
 	void UpdateVoicemailButton(bool hasMail);
 	void DTMF(CString digits);
 	void Input(CString digits, BOOL disableDTMF = FALSE);

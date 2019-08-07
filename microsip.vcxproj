@@ -98,12 +98,13 @@
       <ValidateAllParameters>true</ValidateAllParameters>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>lib;lib\jsoncpp\json;..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -129,12 +130,13 @@
       <MkTypLibCompatible>false</MkTypLibCompatible>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>lib;lib\jsoncpp\json;..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -160,10 +162,11 @@
       <ValidateAllParameters>true</ValidateAllParameters>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>lib;lib\jsoncpp\json;..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -190,10 +193,11 @@
       <MkTypLibCompatible>false</MkTypLibCompatible>
     </Midl>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>lib;lib\jsoncpp\json;..\pjlib\include;..\pjsip\include;..\pjmedia\include;..\pjnath\include;..\pjlib-util\include;..\third_party\sdl\include;..\third_party\openssl\Win32\include;..\third_party\hid;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -221,22 +225,30 @@
     <ClCompile Include="BaseDialog.cpp" />
     <ClCompile Include="ButtonDialer.cpp" />
     <ClCompile Include="Calls.cpp" />
-    <ClCompile Include="CLevelsSliderCtrl.cpp" />
     <ClCompile Include="CListCtrl_Sortable.cpp" />
     <ClCompile Include="CListCtrl_SortItemsEx.cpp" />
     <ClCompile Include="ClosableTabCtrl.cpp" />
     <ClCompile Include="Contacts.cpp" />
-    <ClCompile Include="Crypto.cpp" />
-    <ClCompile Include="CSVFile.cpp" />
     <ClCompile Include="Dialer.cpp" />
     <ClCompile Include="global.cpp" />
     <ClCompile Include="IconButton.cpp" />
     <ClCompile Include="jumplist.cpp" />
     <ClCompile Include="langpack.cpp" />
+    <ClCompile Include="lib\Crypto.cpp" />
+    <ClCompile Include="lib\CSVFile.cpp" />
+    <ClCompile Include="lib\jsoncpp\json_reader.cpp" />
+    <ClCompile Include="lib\jsoncpp\json_value.cpp" />
+    <ClCompile Include="lib\jsoncpp\json_writer.cpp" />
+    <ClCompile Include="lib\LevelsSliderCtrl.cpp" />
+    <ClCompile Include="lib\Markup.cpp" />
+    <ClCompile Include="lib\ModelessMessageBox.cpp" />
+    <ClCompile Include="lib\StdioFileEx.cpp" />
+    <ClCompile Include="lib\utf.cpp" />
+    <ClCompile Include="lib\VisualStylesXP.cpp" />
+    <ClCompile Include="lib\XMLFile.cpp" />
     <ClCompile Include="mainDlg.cpp" />
     <ClCompile Include="MessagesDlg.cpp" />
     <ClCompile Include="microsip.cpp" />
-    <ClCompile Include="ModelessMessageBox.cpp" />
     <ClCompile Include="Preview.cpp" />
     <ClCompile Include="RinginDlg.cpp" />
     <ClCompile Include="settings.cpp" />
@@ -249,11 +261,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="StdioFileEx.cpp" />
     <ClCompile Include="Transfer.cpp" />
-    <ClCompile Include="utf.cpp" />
-    <ClCompile Include="VisualStylesXP.cpp" />
-    <ClCompile Include="zip.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AccountDlg.h" />
@@ -262,26 +270,33 @@
     <ClInclude Include="BaseDialog.h" />
     <ClInclude Include="ButtonDialer.h" />
     <ClInclude Include="Calls.h" />
-    <ClInclude Include="CLevelsSliderCtrl.h" />
     <ClInclude Include="CListCtrl_DataModel.h" />
     <ClInclude Include="CListCtrl_Sortable.h" />
     <ClInclude Include="CListCtrl_SortItemsEx.h" />
     <ClInclude Include="ClosableTabCtrl.h" />
     <ClInclude Include="const.h" />
     <ClInclude Include="Contacts.h" />
-    <ClInclude Include="Crypto.h" />
-    <ClInclude Include="CSVFile.h" />
     <ClInclude Include="define.h" />
     <ClInclude Include="Dialer.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="IconButton.h" />
     <ClInclude Include="jumplist.h" />
     <ClInclude Include="langpack.h" />
+    <ClInclude Include="lib\Crypto.h" />
+    <ClInclude Include="lib\CSVFile.h" />
+    <ClInclude Include="lib\jsoncpp\json\json.h" />
+    <ClInclude Include="lib\LevelsSliderCtrl.h" />
+    <ClInclude Include="lib\Markup.h" />
+    <ClInclude Include="lib\ModelessMessageBox.h" />
+    <ClInclude Include="lib\StdioFileEx.h" />
+    <ClInclude Include="lib\TemplateSmartPtr.h" />
+    <ClInclude Include="lib\utf.h" />
+    <ClInclude Include="lib\VisualStylesXP.h" />
+    <ClInclude Include="lib\XMLFile.h" />
     <ClInclude Include="mainDlg.h" />
     <ClInclude Include="MessagesDlg.h" />
     <ClInclude Include="microsip.h" />
     <ClInclude Include="MMNotificationClient.h" />
-    <ClInclude Include="ModelessMessageBox.h" />
     <ClInclude Include="Preview.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="RinginDlg.h" />
@@ -290,11 +305,8 @@
     <ClInclude Include="ShortcutsDlg.h" />
     <ClInclude Include="StatusBar.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="StdioFileEx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Transfer.h" />
-    <ClInclude Include="utf.h" />
-    <ClInclude Include="VisualStylesXP.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\active.ico" />

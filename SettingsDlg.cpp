@@ -343,8 +343,9 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_BROWSE, &SettingsDlg::OnBnClickedRecordingBrowse)
 	ON_EN_CHANGE(IDC_SETTINGS_RECORDING, &SettingsDlg::OnEnChangeRecording)
 	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_DEFAULT, &SettingsDlg::OnBnClickedRecordingDefault)
+	ON_BN_CLICKED(IDC_SETTINGS_DNS_SRV_CHECKBOX, &SettingsDlg::OnBnClickedDnsSrv)
+	ON_BN_CLICKED(IDC_SETTINGS_STUN_CHECKBOX, &SettingsDlg::OnBnClickedStun)
 END_MESSAGE_MAP()
-
 
 void SettingsDlg::OnClose()
 {
@@ -447,11 +448,21 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 
 	GetDlgItem(IDC_SETTINGS_DNS_SRV_NS)->GetWindowText(accountSettings.dnsSrvNs);
 	accountSettings.dnsSrvNs.Trim();
-	accountSettings.dnsSrv = ((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV_CHECKBOX))->GetCheck();
+	if (!accountSettings.dnsSrvNs.IsEmpty()) {
+		accountSettings.dnsSrv = ((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV_CHECKBOX))->GetCheck();
+	}
+	else {
+		accountSettings.dnsSrv = false;
+	}
 
 	GetDlgItem(IDC_SETTINGS_STUN)->GetWindowText(accountSettings.stun);
 	accountSettings.stun.Trim();
-	accountSettings.enableSTUN = ((CButton*)GetDlgItem(IDC_SETTINGS_STUN_CHECKBOX))->GetCheck();
+	if (!accountSettings.stun.IsEmpty()) {
+		accountSettings.enableSTUN = ((CButton*)GetDlgItem(IDC_SETTINGS_STUN_CHECKBOX))->GetCheck();
+	}
+	else {
+		accountSettings.enableSTUN = false;
+	}
 
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_DTMF_METHOD);
 	accountSettings.DTMFMethod = combobox->GetCurSel();
@@ -801,4 +812,25 @@ void SettingsDlg::OnBnClickedPreview()
 }
 #endif
 
+void SettingsDlg::OnBnClickedDnsSrv()
+{
+	if (((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV_CHECKBOX))->GetCheck()) {
+		CString str;
+		GetDlgItem(IDC_SETTINGS_DNS_SRV_NS)->GetWindowText(str);
+		if (str.IsEmpty()) {
+			GetDlgItem(IDC_SETTINGS_DNS_SRV_NS)->SetWindowText(_T("8.8.8.8; 8.8.4.4"));
+		}
+	}
+}
+
+void SettingsDlg::OnBnClickedStun()
+{
+	if (((CButton*)GetDlgItem(IDC_SETTINGS_STUN_CHECKBOX))->GetCheck()) {
+		CString str;
+		GetDlgItem(IDC_SETTINGS_STUN)->GetWindowText(str);
+		if (str.IsEmpty()) {
+			GetDlgItem(IDC_SETTINGS_STUN)->SetWindowText(_T("stun.l.google.com:19302"));
+		}
+	}
+}
 

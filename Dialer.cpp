@@ -162,7 +162,6 @@ BOOL Dialer::OnInitDialog()
 		m_ToolTip.Activate(TRUE);
 	}
 
-	UpdateVoicemailButton(false);
 	RebuildButtons(true);
 
 	AutoMove(IDC_NUMBER, 0, 0, 100, 0);
@@ -229,7 +228,6 @@ BOOL Dialer::OnInitDialog()
 	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
 	combobox->SetWindowPos(NULL, 0, 0, combobox->GetDroppedWidth(), 400, SWP_NOZORDER | SWP_NOMOVE);
 	combobox->SetFont(&m_font_number);
-
 
 	GetDlgItem(IDC_KEY_1)->SetFont(&m_font);
 	GetDlgItem(IDC_KEY_2)->SetFont(&m_font);
@@ -354,6 +352,10 @@ BEGIN_MESSAGE_MAP(Dialer, CBaseDialog)
 	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
+void Dialer::SetName(CString str)
+{
+}
+
 void Dialer::UpdateVoicemailButton(bool hasMail)
 {
 	if (hasMail) {
@@ -367,17 +369,30 @@ void Dialer::UpdateVoicemailButton(bool hasMail)
 
 void Dialer::RebuildButtons(bool init)
 {
-	m_ButtonVoicemail.ShowWindow(SW_SHOW);
+	bool showVoicemail = false;
+	if (accountSettings.accountId && !accountSettings.account.voicemailNumber.IsEmpty()) {
+		m_ButtonVoicemail.ShowWindow(SW_SHOW);
+		showVoicemail = true;
+	}
+	else {
+		m_ButtonVoicemail.ShowWindow(SW_HIDE);
+	}
 	if (IsChild(&m_ButtonDND)) {
-		m_ToolTip.DelTool(&m_ButtonDND);
+		if (m_ToolTip) {
+			m_ToolTip.DelTool(&m_ButtonDND);
+		}
 		m_ButtonDND.DestroyWindow();
 	}
 	if (IsChild(&m_ButtonAA)) {
-		m_ToolTip.DelTool(&m_ButtonAA);
+		if (m_ToolTip) {
+			m_ToolTip.DelTool(&m_ButtonAA);
+		}
 		m_ButtonAA.DestroyWindow();
 	}
 	if (IsChild(&m_ButtonRec)) {
-		m_ToolTip.DelTool(&m_ButtonRec);
+		if (m_ToolTip) {
+			m_ToolTip.DelTool(&m_ButtonRec);
+		}
 		m_ButtonRec.DestroyWindow();
 	}
 	bool addDND = accountSettings.denyIncoming == _T("button");
@@ -404,14 +419,18 @@ void Dialer::RebuildButtons(bool init)
 		MapDialogRect(&mapRect);
 		int stepPx = mapRect.bottom + rect.Width();
 
-		rect.left -= stepPx;
-		rect.right -= stepPx;
+		if (showVoicemail || m_ButtonVoicemail.IsWindowVisible()) {
+			rect.left -= stepPx;
+			rect.right -= stepPx;
+		}
 
 		if (addRec) {
 			m_ButtonRec.Create(Translate(_T("REC")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX | BS_PUSHLIKE | WS_DISABLED, rect, this, IDC_DIALER_REC);
 			m_ButtonRec.SetFont(GetFont());
 			AutoMove(m_ButtonRec.m_hWnd, 100, 100, 0, 0);
-			m_ToolTip.AddTool(&m_ButtonRec, Translate(_T("Call Recording")));
+			if (m_ToolTip) {
+				m_ToolTip.AddTool(&m_ButtonRec, Translate(_T("Call Recording")));
+			}
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
@@ -420,7 +439,9 @@ void Dialer::RebuildButtons(bool init)
 			m_ButtonAA.SetFont(GetFont());
 			m_ButtonAA.SetCheck(accountSettings.AA ? BST_CHECKED : BST_UNCHECKED);
 			AutoMove(m_ButtonAA.m_hWnd, 100, 100, 0, 0);
-			m_ToolTip.AddTool(&m_ButtonAA, Translate(_T("Auto Answer")));
+			if (m_ToolTip) {
+				m_ToolTip.AddTool(&m_ButtonAA, Translate(_T("Auto Answer")));
+			}
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
@@ -429,7 +450,9 @@ void Dialer::RebuildButtons(bool init)
 			m_ButtonDND.SetFont(GetFont());
 			m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
 			AutoMove(m_ButtonDND.m_hWnd, 100, 100, 0, 0);
-			m_ToolTip.AddTool(&m_ButtonDND, Translate(_T("Do Not Disturb")));
+			if (m_ToolTip) {
+				m_ToolTip.AddTool(&m_ButtonDND, Translate(_T("Do Not Disturb")));
+			}
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
@@ -455,7 +478,9 @@ void Dialer::OnTimer(UINT_PTR TimerVal)
 
 BOOL Dialer::PreTranslateMessage(MSG* pMsg)
 {
-	m_ToolTip.RelayEvent(pMsg);
+	if (m_ToolTip) {
+		m_ToolTip.RelayEvent(pMsg);
+	}
 
 	BOOL catched = FALSE;
 	BOOL isEdit = FALSE;

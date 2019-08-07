@@ -28,21 +28,13 @@
 
 #ifndef _WIN64
 #ifdef NDEBUG
-#ifdef _GLOBAL_VIDEO
-#pragma comment(lib, "libpjproject-i386-Win32-vc14-Release-Static-Video.lib")
-#else
-#pragma comment(lib, "libpjproject-i386-Win32-vc14-Release-Static-NoVideo.lib")
-#endif
+#pragma comment(lib, "libpjproject-i386-Win32-vc14-Release-Static.lib")
 #else
 #pragma comment(lib, "libpjproject-i386-Win32-vc14-Debug-Static.lib")
 #endif
 #else
 #ifdef NDEBUG
-#ifdef _GLOBAL_VIDEO
-#pragma comment(lib, "libpjproject-x86_64-x64-vc14-Release-Static-Video.lib")
-#else
-#pragma comment(lib, "libpjproject-x86_64-x64-vc14-Release-Static-NoVideo.lib")
-#endif
+#pragma comment(lib, "libpjproject-x86_64-x64-vc14-Release-Static.lib")
 #else
 #pragma comment(lib, "libpjproject-x86_64-x64-vc14-Debug-Static.lib")
 #endif
@@ -113,6 +105,7 @@ public:
 	CList<CString> audioCodecList;
 	CList<int> confernceCalls;
 	
+	void InitUI();
 	void OnCreated();
 	void PJCreate();
 	void PJDestroy();
@@ -147,9 +140,9 @@ public:
 	void MainPopupMenu();
 	void SetPaneText2(CString str = _T(""));
 	void AccountSettingsPendingSave();
+	void OnAccountChanged();
 	void UpdateSoundDevicesIds();
 	void PlayerStop();
-	
 #ifdef _GLOBAL_VIDEO
 	Preview* previewWin;
 	int VideoCaptureDeviceId(CString name=_T(""));
