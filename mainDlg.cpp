@@ -1480,6 +1480,8 @@ BEGIN_MESSAGE_MAP(CmainDlg, CBaseDialog)
 	ON_MESSAGE(UM_TAB_ICON_UPDATE, onTabIconUpdate)
 	ON_MESSAGE(UM_SET_PANE_TEXT, onSetPaneText)
 	ON_MESSAGE(UM_ON_ACCOUNT, OnAccount)
+	ON_MESSAGE(MM_JOY1BUTTONDOWN, onJoystickBtnDown)
+	ON_MESSAGE(MM_JOY1BUTTONDOWN, onJoystickBtnUp)
 	ON_COMMAND(ID_ACCOUNT_ADD, OnMenuAccountAdd)
 	ON_COMMAND_RANGE(ID_ACCOUNT_CHANGE_RANGE, ID_ACCOUNT_CHANGE_RANGE + 99, OnMenuAccountChange)
 	ON_COMMAND_RANGE(ID_ACCOUNT_EDIT_RANGE, ID_ACCOUNT_EDIT_RANGE + 99, OnMenuAccountEdit)
@@ -1515,6 +1517,39 @@ BOOL CmainDlg::PreTranslateMessage(MSG* pMsg)
 }
 
 // CmainDlg message handlers
+
+LRESULT CmainDlg::onJoystickBtnDown(WPARAM wParam, LPARAM lParam) {
+	if (pressedButton == 0xff)
+	{
+		switch (wParam)
+		{
+		case 0:
+			MakeCall(CString("201"), false);
+			break;
+		case 1:
+			MakeCall(CString("202"), false);
+			break;
+		case 2:
+			MakeCall(CString("203"), false);
+			break;
+		case 3:
+			MakeCall(CString("204"), false);
+			break;
+		default:
+			break;
+		}
+	}
+	return TRUE;
+}
+
+LRESULT CmainDlg::onJoystickBtnUp(WPARAM wParam, LPARAM lParam) {
+	if (wParam == pressedButton)
+	{
+		pressedButton = 0xff;
+		call_hangup_all_noincoming(false);
+	}
+	return TRUE;
+}
 
 void CmainDlg::OnBnClickedOk()
 {
@@ -1673,6 +1708,7 @@ BOOL CmainDlg::OnInitDialog()
 	previewWin = NULL;
 #endif
 
+	pressedButton = 0xff;
 	joyStickCaptured = false;
 	mainDlg->SetTimer(IDT_TIMER_JOYSTICK,1000, NULL);
 
@@ -2402,7 +2438,7 @@ void CmainDlg::OnTimerJoystickCheck()
 			joyReleaseCapture(JOYSTICKID1);
 		}
 	} else {
-		if (~joyStickCaptured) {
+		if (joyStickCaptured == false) {
 			joySetCapture(*mainDlg, JOYSTICKID1,1000,false);
 		}
 	}
