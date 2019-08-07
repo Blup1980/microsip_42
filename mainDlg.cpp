@@ -1673,6 +1673,9 @@ BOOL CmainDlg::OnInitDialog()
 	previewWin = NULL;
 #endif
 
+	joyStickCaptured = false;
+	mainDlg->SetTimer(IDT_TIMER_JOYSTICK,1000, NULL);
+
 	if (!accountSettings.hidden) {
 
 		SetupJumpList();
@@ -2391,6 +2394,20 @@ void CmainDlg::OnTimerContactBlink()
 	}
 }
 
+void CmainDlg::OnTimerJoystickCheck()
+{
+	JOYINFO joyinfo;
+	if (joyGetPos(JOYSTICKID1, &joyinfo) != JOYERR_UNPLUGGED) {
+		if (joyStickCaptured) {
+			joyReleaseCapture(JOYSTICKID1);
+		}
+	} else {
+		if (~joyStickCaptured) {
+			joySetCapture(*mainDlg, JOYSTICKID1,1000,false);
+		}
+	}
+}
+
 void CmainDlg::OnTimer(UINT_PTR TimerVal)
 {
 	if (TimerVal == IDT_TIMER_AUTOANSWER) {
@@ -2441,6 +2458,9 @@ void CmainDlg::OnTimer(UINT_PTR TimerVal)
 	}
 	else if (TimerVal == IDT_TIMER_PROGRESS) {
 		OnTimerProgress();
+	}
+	else if (TimerVal == IDT_TIMER_JOYSTICK) {
+		OnTimerJoystickCheck();
 	}
 	else if (TimerVal == IDT_TIMER_CALL) {
 		OnTimerCall();
