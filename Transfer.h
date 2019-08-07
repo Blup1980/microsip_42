@@ -20,6 +20,7 @@
 
 #include "resource.h"
 #include "const.h"
+#include "Contacts.h"
 
 enum msip_action {
 	MSIP_ACTION_TRANSFER,
@@ -35,7 +36,9 @@ public:
 	enum { IDD = IDD_TRANSFER };
 	msip_action action;
 	void SetAction(msip_action action);
+	void LoadFromContacts(Contact *selectedContact = NULL);
 protected:
+	void ClearDropdown();
 	afx_msg void OnDestroy();
 	virtual BOOL OnInitDialog();
 	virtual void PostNcDestroy();

@@ -58,8 +58,17 @@ BOOL CALLBACK MyInfoEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonit
     }
 }
 
+void RinginDlg::DoDataExchange(CDataExchange* pDX)
+{
+	CBaseDialog::DoDataExchange(pDX);
+}
+
 BOOL RinginDlg::OnInitDialog() {
 	CBaseDialog::OnInitDialog();
+
+	AutoMove(IDC_ANSWER, 0, 100, 0, 0);
+	AutoMove(IDC_DECLINE, 0, 100, 0, 0);
+	AutoMove(IDC_IGNORE, 0, 100, 0, 0);
 	
 	TranslateDialog(this->m_hWnd);
 
@@ -127,9 +136,7 @@ BOOL RinginDlg::OnInitDialog() {
 			}
 		}
 	}
-
 	SetWindowPos(NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-
 	if (accountSettings.bringToFrontOnIncoming) {
 		if (!accountSettings.silent) {
 			if (mainDlg->IsWindowVisible()) {
@@ -151,8 +158,15 @@ BOOL RinginDlg::OnInitDialog() {
 			ShowWindow(SW_SHOWNORMAL);
 		}
 	}
+
 	return 0;
 }
+
+void RinginDlg::SetCallId(pjsua_call_id new_call_id)
+{
+	call_id = new_call_id;
+}
+
 
 BEGIN_MESSAGE_MAP(RinginDlg, CBaseDialog)
 	ON_WM_CREATE()
@@ -250,3 +264,4 @@ void RinginDlg::OnMove(int x, int y)
 		mainDlg->AccountSettingsPendingSave();
 	}
 }
+

@@ -75,5 +75,8 @@ public:
 	afx_msg void OnBnClickedBrowse();
 	afx_msg void OnEnChangeRingingSound();
 	afx_msg void OnBnClickedDefault();
+	afx_msg void OnBnClickedRecordingBrowse();
+	afx_msg void OnEnChangeRecording();
+	afx_msg void OnBnClickedRecordingDefault();
 };
 

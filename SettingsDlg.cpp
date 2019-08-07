@@ -22,6 +22,7 @@
 #include "settings.h"
 #include "Preview.h"
 #include "langpack.h"
+#include <afxshellmanager.h>
 
 SettingsDlg::SettingsDlg(CWnd* pParent /*=NULL*/)
 	: CDialog(SettingsDlg::IDD, pParent)
@@ -54,19 +55,19 @@ BOOL SettingsDlg::OnInitDialog()
 	TranslateDialog(this->m_hWnd);
 
 	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(accountSettings.ringingSound);
-
-	pjmedia_aud_dev_info aud_dev_info[128];
-	count = 128;
-	pjsua_enum_aud_devs(aud_dev_info, &count);
-
+	GetDlgItem(IDC_SETTINGS_RECORDING)->SetWindowText(accountSettings.recordingPath);
+	((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->SetCheck(accountSettings.autoRecording);
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_MICROPHONE);
 	combobox->AddString(Translate(_T("Default")));
 	combobox->SetCurSel(0);
 
+	pjmedia_aud_dev_info aud_dev_info[PJMEDIA_AUD_MAX_DEVS];
+	count = PJMEDIA_AUD_MAX_DEVS;
+	pjsua_enum_aud_devs(aud_dev_info, &count);
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (aud_dev_info[i].input_count) {
-			CString audDevName(aud_dev_info[i].name);
+			CString audDevName = AnsiToWideChar(aud_dev_info[i].name);
 			combobox->AddString(audDevName);
 			if (!accountSettings.audioInputDevice.Compare(audDevName))
 			{
@@ -83,7 +84,7 @@ BOOL SettingsDlg::OnInitDialog()
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (aud_dev_info[i].output_count) {
-			CString audDevName(aud_dev_info[i].name);
+			CString audDevName = AnsiToWideChar(aud_dev_info[i].name);
 			combobox->AddString(audDevName);
 			combobox2->AddString(audDevName);
 			if (!accountSettings.audioOutputDevice.Compare(audDevName))
@@ -100,14 +101,14 @@ BOOL SettingsDlg::OnInitDialog()
 	((CButton*)GetDlgItem(IDC_SETTINGS_MIC_AMPLIF))->SetCheck(accountSettings.micAmplification);
 	((CButton*)GetDlgItem(IDC_SETTINGS_SW_ADJUST))->SetCheck(accountSettings.swLevelAdjustment);
 
-	pjsua_codec_info codec_info[64];
+	pjsua_codec_info codec_info[PJMEDIA_CODEC_MGR_MAX_CODECS];
 	CListBox *listbox;
 	listbox = (CListBox*)GetDlgItem(IDC_SETTINGS_AUDIO_CODECS_ALL);
 	CListBox *listbox2;
 	listbox2 = (CListBox*)GetDlgItem(IDC_SETTINGS_AUDIO_CODECS);
 
 	CList<CString> disabledCodecsList;
-	count = 64;
+	count = PJMEDIA_CODEC_MGR_MAX_CODECS;
 	pjsua_enum_codecs(codec_info, &count);
 	for (unsigned i = 0; i < count; i++)
 	{
@@ -142,14 +143,15 @@ BOOL SettingsDlg::OnInitDialog()
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_VID_CAP_DEV);
 	combobox->AddString(Translate(_T("Default")));
 	combobox->SetCurSel(0);
-	pjmedia_vid_dev_info vid_dev_info[64];
-	count = 64;
+
+	count = PJMEDIA_VID_DEV_MAX_DEVS;
+	pjmedia_vid_dev_info vid_dev_info[PJMEDIA_VID_DEV_MAX_DEVS];
 	pjsua_vid_enum_devs(vid_dev_info, &count);
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (vid_dev_info[i].fmt_cnt && (vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING || vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING_DECODING))
 		{
-			CString vidDevName(vid_dev_info[i].name);
+			CString vidDevName = AnsiToWideChar(vid_dev_info[i].name);
 			combobox->AddString(vidDevName);
 			if (!accountSettings.videoCaptureDevice.Compare(vidDevName))
 			{
@@ -161,7 +163,7 @@ BOOL SettingsDlg::OnInitDialog()
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_VIDEO_CODEC);
 	combobox->AddString(Translate(_T("Default")));
 	combobox->SetCurSel(0);
-	count = 64;
+	count = PJMEDIA_CODEC_MGR_MAX_CODECS;
 	pjsua_vid_enum_codecs(codec_info, &count);
 	for (unsigned i = 0; i < count; i++)
 	{
@@ -194,7 +196,8 @@ BOOL SettingsDlg::OnInitDialog()
 	str.Format(_T("%d"), accountSettings.rtpPortMax);
 	GetDlgItem(IDC_SETTINGS_RTP_PORT_MAX)->SetWindowText(str);
 
-	((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV))->SetCheck(accountSettings.dnsSrv);
+	GetDlgItem(IDC_SETTINGS_DNS_SRV_NS)->SetWindowText(accountSettings.dnsSrvNs);
+	((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV_CHECKBOX))->SetCheck(accountSettings.dnsSrv);
 
 	GetDlgItem(IDC_SETTINGS_STUN)->SetWindowText(accountSettings.stun);
 	((CButton*)GetDlgItem(IDC_SETTINGS_STUN_CHECKBOX))->SetCheck(accountSettings.enableSTUN);
@@ -337,6 +340,9 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_BN_CLICKED(IDC_SETTINGS_BROWSE, &SettingsDlg::OnBnClickedBrowse)
 	ON_EN_CHANGE(IDC_SETTINGS_RINGING_SOUND, &SettingsDlg::OnEnChangeRingingSound)
 	ON_BN_CLICKED(IDC_SETTINGS_DEFAULT, &SettingsDlg::OnBnClickedDefault)
+	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_BROWSE, &SettingsDlg::OnBnClickedRecordingBrowse)
+	ON_EN_CHANGE(IDC_SETTINGS_RECORDING, &SettingsDlg::OnEnChangeRecording)
+	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_DEFAULT, &SettingsDlg::OnBnClickedRecordingDefault)
 END_MESSAGE_MAP()
 
 
@@ -439,7 +445,9 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	GetDlgItem(IDC_SETTINGS_RTP_PORT_MAX)->GetWindowText(str);
 	accountSettings.rtpPortMax = _wtoi(str);
 
-	accountSettings.dnsSrv = ((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV))->GetCheck();
+	GetDlgItem(IDC_SETTINGS_DNS_SRV_NS)->GetWindowText(accountSettings.dnsSrvNs);
+	accountSettings.dnsSrvNs.Trim();
+	accountSettings.dnsSrv = ((CButton*)GetDlgItem(IDC_SETTINGS_DNS_SRV_CHECKBOX))->GetCheck();
 
 	GetDlgItem(IDC_SETTINGS_STUN)->GetWindowText(accountSettings.stun);
 	accountSettings.stun.Trim();
@@ -456,15 +464,17 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 
 	GetDlgItem(IDC_SETTINGS_DIRECTORY)->GetWindowText(accountSettings.usersDirectory);
 	accountSettings.usersDirectory.Trim();
+
 	accountSettings.enableMediaButtons = ((CButton*)GetDlgItem(IDC_SETTINGS_MEDIA_BUTTONS))->GetCheck();
 	accountSettings.localDTMF = ((CButton*)GetDlgItem(IDC_SETTINGS_LOCAL_DTMF))->GetCheck();
 	accountSettings.singleMode = ((CButton*)GetDlgItem(IDC_SETTINGS_SINGLE_MODE))->GetCheck();
 	accountSettings.enableLog = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->GetCheck();
 	accountSettings.bringToFrontOnIncoming = ((CButton*)GetDlgItem(IDC_SETTINGS_BRING_TO_FRONT))->GetCheck();
 	accountSettings.randomAnswerBox = ((CButton*)GetDlgItem(IDC_SETTINGS_ANSWER_BOX_RANDOM))->GetCheck();
-
 	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->GetWindowText(accountSettings.ringingSound);
-
+	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(accountSettings.recordingPath);
+	accountSettings.recordingPath.Trim();
+	accountSettings.autoRecording = ((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->GetCheck();
 	accountSettings.enableLocalAccount = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOCAL))->GetCheck();
 
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_UPDATES_INTERVAL);
@@ -522,6 +532,29 @@ void SettingsDlg::OnEnChangeRingingSound()
 void SettingsDlg::OnBnClickedDefault()
 {
 	GetDlgItem(IDC_SETTINGS_RINGING_SOUND)->SetWindowText(_T(""));
+}
+
+void SettingsDlg::OnBnClickedRecordingBrowse()
+{
+	CString strOutFolder;
+	CShellManager* pShellManager = ((CWinAppEx*)AfxGetApp())->GetShellManager();
+	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(strOutFolder);
+	if (pShellManager->BrowseForFolder(strOutFolder,this, strOutFolder))
+	{
+		GetDlgItem(IDC_SETTINGS_RECORDING)->SetWindowText(strOutFolder);
+	}
+}
+
+void SettingsDlg::OnEnChangeRecording()
+{
+	CString str;
+	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(str);
+	GetDlgItem(IDC_SETTINGS_RECORDING_DEFAULT)->EnableWindow(str.GetLength() > 0);
+}
+
+void SettingsDlg::OnBnClickedRecordingDefault()
+{
+	GetDlgItem(IDC_SETTINGS_RECORDING)->SetWindowText(_T(""));
 }
 
 int SettingsDlg::OnVKeyToItem(UINT nKey, CListBox* pListBox, UINT nIndex)

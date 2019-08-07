@@ -100,6 +100,8 @@ struct AccountSettings {
 	bool vad;
 	bool ec;
 	bool forceCodec;
+	CString recordingPath;
+	bool autoRecording;
 	CString videoCaptureDevice;
 	CString videoCodec;
 	bool videoH264;
@@ -111,6 +113,7 @@ struct AccountSettings {
 	int rtpPortMin;
 	int rtpPortMax;
 	bool dnsSrv;
+	CString dnsSrvNs;
 	CString stun;
 	bool enableSTUN;
 	int DTMFMethod;
@@ -160,6 +163,7 @@ struct AccountSettings {
 
 	int contactsWidth0;
 	int contactsWidth1;
+	int contactsWidth2;
 
 	int volumeOutput;
 	int volumeInput;
@@ -179,10 +183,13 @@ struct AccountSettings {
 	int autoHangUpTime;
 	int maxConcurrentCalls;
 
+	CString cmdOutgoingCall;
+	CString cmdIncomingCall; 
+	CString cmdCallRing;
+	CString cmdCallAnswer;
+	CString cmdCallBusy;
 	CString cmdCallStart;
 	CString cmdCallEnd;
-	CString cmdIncomingCall;
-	CString cmdCallAnswer;
 	bool enableShortcuts;
 	bool shortcutsBottom;
 	AccountSettings();

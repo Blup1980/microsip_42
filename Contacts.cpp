@@ -25,6 +25,7 @@
 #include "utf.h"
 #include "langpack.h"
 #include "CSVFile.h"
+#include "Transfer.h"
 
 Contacts::Contacts(CWnd* pParent /*=NULL*/)
 : CBaseDialog(Contacts::IDD, pParent)
@@ -66,8 +67,9 @@ BOOL Contacts::OnInitDialog()
 	list->GetClientRect(rect);
 
 	int defaultWidth = rect.Width() - GetSystemMetrics(SM_CXVSCROLL);
-	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : defaultWidth/2);
-	list->InsertColumn(1, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.contactsWidth1 > 0 ? accountSettings.contactsWidth1 : defaultWidth/2);
+	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : 0.48*defaultWidth);
+	list->InsertColumn(1, Translate(_T("Number")), LVCFMT_LEFT, accountSettings.contactsWidth1 > 0 ? accountSettings.contactsWidth1 : 0.37*defaultWidth);
+	list->InsertColumn(2, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.contactsWidth2 > 0 ? accountSettings.contactsWidth2 : 0.15*defaultWidth);
 	list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT );
 	
 	ContactsLoad();
@@ -109,7 +111,9 @@ BEGIN_MESSAGE_MAP(Contacts, CBaseDialog)
 	ON_COMMAND(ID_EDIT,OnMenuEdit)
 	ON_COMMAND(ID_COPY,OnMenuCopy)
 	ON_COMMAND(ID_DELETE,OnMenuDelete)
+	ON_COMMAND(ID_IMPORT_CSV, OnMenuImportCSV)
 	ON_COMMAND(ID_IMPORT_GOOGLE,OnMenuImportGoogle)
+	ON_COMMAND(ID_EXPORT_CSV, OnMenuExportCSV)
 	ON_MESSAGE(WM_CONTEXTMENU,OnContextMenu)
 	ON_NOTIFY(NM_DBLCLK, IDC_CONTACTS, &Contacts::OnNMDblclkContacts)
 #ifdef _GLOBAL_VIDEO
@@ -145,6 +149,12 @@ void Contacts::OnEndtrack(NMHDR* pNMHDR, LRESULT* pResult)
 	case 0:
 		accountSettings.contactsWidth0 = width;
 		break;
+	case 1:
+		accountSettings.contactsWidth1 = width;
+		break;
+	case 2:
+		accountSettings.contactsWidth2 = width;
+		break;
 	}
 	mainDlg->AccountSettingsPendingSave();
 	*pResult = 0;
@@ -165,8 +175,20 @@ void Contacts::DefaultItemAction(int i)
 	Contact *pContact = (Contact *) list->GetItemData(i);
 	if (pContact->ringing) {
 		OnMenuCallPickup();
-	} else {
-		MessageDlgOpen(accountSettings.singleMode);
+	}
+	else {
+		MessagesContact*  messagesContact = mainDlg->messagesDlg->GetMessageContact();
+		if (messagesContact && messagesContact->callId != -1) {
+			if (!mainDlg->transferDlg) {
+				mainDlg->transferDlg = new Transfer(this);
+			}
+			mainDlg->transferDlg->SetAction(MSIP_ACTION_TRANSFER);
+			mainDlg->transferDlg->LoadFromContacts(pContact);
+			mainDlg->transferDlg->SetForegroundWindow();
+		}
+		else {
+			MessageDlgOpen(accountSettings.singleMode);
+		}
 	}
 }
 
@@ -268,8 +290,13 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 		tracker->AppendMenu(0, MF_SEPARATOR);
 		CMenu importMenu;
 		importMenu.CreatePopupMenu();
-		importMenu.AppendMenu(MF_STRING, ID_IMPORT_GOOGLE, Translate(_T("Google CSV")));
+		importMenu.AppendMenu(MF_STRING, ID_IMPORT_CSV, Translate(_T("CSV")));
+		importMenu.AppendMenu(MF_STRING, ID_IMPORT_GOOGLE, Translate(_T("CSV (Google)")));
 		tracker->AppendMenu(MF_POPUP, (UINT_PTR)importMenu.m_hMenu, Translate(_T("Import")));
+		CMenu exportMenu;
+		exportMenu.CreatePopupMenu();
+		exportMenu.AppendMenu(MF_STRING, ID_EXPORT_CSV, Translate(_T("CSV")));
+		tracker->AppendMenu(MF_POPUP, (UINT_PTR)exportMenu.m_hMenu, Translate(_T("Export")));
 		
 		tracker->TrackPopupMenu( 0, x, y, this );
 		return TRUE;
@@ -396,9 +423,68 @@ void Contacts::OnMenuDelete()
 	ContactsSave();
 }
 
+void Contacts::OnMenuImportCSV()
+{
+	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"), this);
+	if (dlgFile.DoModal() == IDOK) {
+		bool changed = false;
+		if (isFiltered()) {
+			filterReset();
+		}
+		CCSVFile CSVFile;
+		CSVFile.SetCodePage(CP_UTF8);
+		if (CSVFile.Open(dlgFile.GetPathName(), CCSVFile::modeRead | CFile::typeText | CFile::shareDenyWrite)) {
+			CStringArray arr;
+			int nameIndex = -1, numberIndex = -1, presenceIndex = -1, directoryIndex = -1;
+			while (CSVFile.ReadData(arr)) {
+				if (nameIndex == -1) {
+					for (int i = 0; i < arr.GetCount(); i++) {
+						CString s = arr.GetAt(i);
+						if (numberIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Number")) == 0) {
+							numberIndex = i;
+						}
+						if (nameIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Name")) == 0) {
+							nameIndex = i;
+						}
+						if (presenceIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Presence")) == 0) {
+							presenceIndex = i;
+						}
+						if (directoryIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Directory")) == 0) {
+							directoryIndex = i;
+						}
+					}
+					if (nameIndex == -1 || numberIndex == -1) {
+						AfxMessageBox(_T("Unknown format"));
+						break;
+					}
+				}
+				else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex && arr.GetCount() > presenceIndex && arr.GetCount() > directoryIndex) {
+					CString number = arr.GetAt(numberIndex);
+					CString name = arr.GetAt(nameIndex);
+					CString presence;
+					if (presenceIndex != -1) {
+						presence = arr.GetAt(presenceIndex);
+					}
+					CString directory;
+					if (directoryIndex != -1) {
+						directory = arr.GetAt(directoryIndex);
+					}
+					if (!number.IsEmpty() && ContactAdd(number, name, presence == _T("1") ? 1 : 0, directory == _T("1") ? 1 : 0, FALSE, TRUE) && !changed) {
+						changed = true;
+					}
+				}
+			}
+			CSVFile.Close();
+		}
+		if (changed) {
+			ContactsSave();
+		}
+	}
+}
+
 void Contacts::OnMenuImportGoogle()
 {
-	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"),this);
+	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"),this);
 	if (dlgFile.DoModal() == IDOK) {
 		bool changed = false;
 		if (isFiltered()) {
@@ -437,6 +523,39 @@ void Contacts::OnMenuImportGoogle()
 		}
 		if (changed) {
 			ContactsSave();
+		}
+	}
+}
+
+void Contacts::OnMenuExportCSV()
+{
+	CFileDialog dlgFile(FALSE, _T("cvs"), 0, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"), this);
+	if (dlgFile.DoModal() == IDOK) {
+		bool changed = false;
+		if (isFiltered()) {
+			filterReset();
+		}
+		CCSVFile CSVFile;
+		CSVFile.SetCodePage(CP_UTF8);
+		if (CSVFile.Open(dlgFile.GetPathName(), CCSVFile::modeCreate | CCSVFile::modeWrite | CFile::typeText | CFile::shareExclusive)) {
+			CStringArray arr;
+			arr.Add(_T("Name"));
+			arr.Add(_T("Number"));
+			arr.Add(_T("Presence"));
+			arr.Add(_T("Directory"));
+			CSVFile.WriteData(arr);
+			CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+			int count = list->GetItemCount();
+			for (int i = 0; i < count; i++) {
+				Contact *pContact = (Contact *)list->GetItemData(i);
+				arr.RemoveAll();
+				arr.Add(pContact->name);
+				arr.Add(pContact->number);
+				arr.Add(pContact->presence ? _T("1") : _T("0"));
+				arr.Add(pContact->directory ? _T("1") : _T("0"));
+				CSVFile.WriteData(arr);
+			}
+			CSVFile.Close();
 		}
 	}
 }
@@ -517,7 +636,7 @@ bool Contacts::ContactAdd(CString number, CString name, char presence, char dire
 	pContact->presence = presence>0;
 	pContact->directory = directory>0;
 	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,0,name,0,0,pContact->image,(LPARAM)pContact);
-	//list->SetItemText(i,1,number);
+	list->SetItemText(i,1,number);
 
 	if (save) {
 		ContactsSave();

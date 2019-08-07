@@ -35,9 +35,11 @@ public:
 	bool remoteHasVideo;
 	CFont m_font_ignore;
 	void CallAccept(BOOL hasVideo = FALSE);
+	void SetCallId(pjsua_call_id new_call_id);
 private:
 	void Close(BOOL accept = FALSE);
 protected:
+	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 	virtual BOOL OnInitDialog();
 	DECLARE_MESSAGE_MAP()
 public:

@@ -214,10 +214,13 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("usersDirectory"), NULL, ptr, 256, iniFile);
 	usersDirectory.ReleaseBuffer();
 
+	ptr = dnsSrvNs.GetBuffer(255);
+	GetPrivateProfileString(section, _T("dnsSrvNs"), NULL, ptr, 256, iniFile);
+	dnsSrvNs.ReleaseBuffer();
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("dnsSrv"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	dnsSrv = _wtoi(str);
+	dnsSrv = str == "1" ? 1 : 0;
 
 	ptr = stun.GetBuffer(255);
 	GetPrivateProfileString(section, _T("STUN"), NULL, ptr, 256, iniFile);
@@ -265,6 +268,24 @@ void AccountSettings::Init()
 	ptr = audioCodecs.GetBuffer(255);
 	GetPrivateProfileString(section, _T("audioCodecs"), NULL, ptr, 256, iniFile);
 	audioCodecs.ReleaseBuffer();
+	ptr = recordingPath.GetBuffer(255);
+	GetPrivateProfileString(section, _T("recordingPath"), NULL, ptr, 256, iniFile);
+	recordingPath.ReleaseBuffer();
+	if (recordingPath.IsEmpty()) {
+		ptr = recordingPath.GetBuffer(MAX_PATH);
+		SHGetSpecialFolderPath(
+			0,
+			ptr,
+			CSIDL_DESKTOPDIRECTORY,
+			FALSE);
+		recordingPath.ReleaseBuffer();
+		recordingPath.Append(_T("\\Recordings"));
+	}
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	autoRecording = str == "1" ? 1 : 0;
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("rport"), NULL, ptr, 256, iniFile);
@@ -419,6 +440,10 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("contactsWidth1"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	contactsWidth1 = _wtoi(str);
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("contactsWidth2"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	contactsWidth2 = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("volumeOutput"), NULL, ptr, 256, iniFile);
@@ -450,21 +475,33 @@ void AccountSettings::Init()
 	str.ReleaseBuffer();
 	maxConcurrentCalls = _wtoi(str);
 
-	ptr = cmdCallStart.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallStart"), NULL, ptr, 256, iniFile);
-	cmdCallStart.ReleaseBuffer();
-
-	ptr = cmdCallEnd.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallEnd"), NULL, ptr, 256, iniFile);
-	cmdCallEnd.ReleaseBuffer();
+	ptr = cmdOutgoingCall.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdOutgoingCall"), NULL, ptr, 256, iniFile);
+	cmdOutgoingCall.ReleaseBuffer();
 
 	ptr = cmdIncomingCall.GetBuffer(255);
 	GetPrivateProfileString(section, _T("cmdIncomingCall"), NULL, ptr, 256, iniFile);
 	cmdIncomingCall.ReleaseBuffer();
 
+	ptr = cmdCallRing.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallRing"), NULL, ptr, 256, iniFile);
+	cmdCallRing.ReleaseBuffer();
+
 	ptr = cmdCallAnswer.GetBuffer(255);
 	GetPrivateProfileString(section, _T("cmdCallAnswer"), NULL, ptr, 256, iniFile);
 	cmdCallAnswer.ReleaseBuffer();
+
+	ptr = cmdCallBusy.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallBusy"), NULL, ptr, 256, iniFile);
+	cmdCallBusy.ReleaseBuffer();
+
+	ptr = cmdCallStart.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallStart"), NULL, ptr, 256, iniFile); 
+	cmdCallStart.ReleaseBuffer();
+
+	ptr = cmdCallEnd.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallEnd"), NULL, ptr, 256, iniFile);
+	cmdCallEnd.ReleaseBuffer();
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("enableLog"), NULL, ptr, 256, iniFile);
@@ -773,6 +810,7 @@ void AccountSettings::SettingsSave()
 
 	WritePrivateProfileString(section, _T("usersDirectory"), usersDirectory, iniFile);
 
+	WritePrivateProfileString(section, _T("dnsSrvNs"), dnsSrvNs, iniFile);
 	WritePrivateProfileString(section, _T("dnsSrv"), dnsSrv ? _T("1") : _T("0"), iniFile);
 
 	WritePrivateProfileString(section, _T("STUN"), stun, iniFile);
@@ -806,6 +844,8 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("VAD"), vad ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("EC"), ec ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("forceCodec"), forceCodec ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("recordingPath"), recordingPath, iniFile);
+	WritePrivateProfileString(section, _T("autoRecording"), autoRecording ? _T("1") : _T("0"), iniFile);
 #ifdef _GLOBAL_VIDEO
 	WritePrivateProfileString(section, _T("videoCaptureDevice"), _T("\"") + videoCaptureDevice + _T("\""), iniFile);
 	WritePrivateProfileString(section, _T("videoCodec"), videoCodec, iniFile);
@@ -868,6 +908,8 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("contactsWidth0"), str, iniFile);
 	str.Format(_T("%d"), contactsWidth1);
 	WritePrivateProfileString(section, _T("contactsWidth1"), str, iniFile);
+	str.Format(_T("%d"), contactsWidth2);
+	WritePrivateProfileString(section, _T("contactsWidth2"), str, iniFile);
 
 	str.Format(_T("%d"), volumeOutput);
 	WritePrivateProfileString(section, _T("volumeOutput"), str, iniFile);
@@ -887,10 +929,13 @@ void AccountSettings::SettingsSave()
 	str.Format(_T("%d"), maxConcurrentCalls);
 	WritePrivateProfileString(section, _T("maxConcurrentCalls"), str, iniFile);
 
+	WritePrivateProfileString(section, _T("cmdOutgoingCall"), cmdOutgoingCall, iniFile);
+	WritePrivateProfileString(section, _T("cmdIncomingCall"), cmdIncomingCall, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallRing"), cmdCallRing, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallAnswer"), cmdCallAnswer, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallBusy"), cmdCallBusy, iniFile);
 	WritePrivateProfileString(section, _T("cmdCallStart"), cmdCallStart, iniFile);
 	WritePrivateProfileString(section, _T("cmdCallEnd"), cmdCallEnd, iniFile);
-	WritePrivateProfileString(section, _T("cmdIncomingCall"), cmdIncomingCall, iniFile);
-	WritePrivateProfileString(section, _T("cmdCallAnswer"), cmdCallAnswer, iniFile);
 }
 
 CString ShortcutEncode(Shortcut *pShortcut)

@@ -43,31 +43,51 @@ BOOL Transfer::OnInitDialog()
 {
 	CDialog::OnInitDialog();
 	TranslateDialog(this->m_hWnd);
+	return TRUE;
+}
+
+void Transfer::LoadFromContacts(Contact *selectedContact)
+{
+	ClearDropdown();
 	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
-	CListCtrl *list= (CListCtrl*)mainDlg->pageContacts->GetDlgItem(IDC_CONTACTS);
-	if (mainDlg->pageContacts->isFiltered()) {
+	CListCtrl *list = (CListCtrl*)mainDlg->pageContacts->GetDlgItem(IDC_CONTACTS);
+	if (!selectedContact && mainDlg->pageContacts->isFiltered()) {
 		mainDlg->pageContacts->filterReset();
 	}
 	int count = list->GetItemCount();
-	for (int i=0;i<count;i++) {
-		Contact *pContact = (Contact *) list->GetItemData(i);
+	int selectedIndex = -1;
+	for (int i = 0; i<count; i++) {
+		Contact *pContact = (Contact *)list->GetItemData(i);
+		if (selectedContact == pContact) {
+			selectedIndex = i;
+		}
 		int n = combobox->AddString(pContact->name);
 		CString *number = new CString(pContact->number);
 		combobox->SetItemData(n, (DWORD_PTR)number);
 	}
-	combobox->SetWindowText(lastTransferNumber);
-	return TRUE;
+	if (selectedIndex != -1) {
+		combobox->SetCurSel(selectedIndex);
+	}
+	else {
+		combobox->SetWindowText(lastTransferNumber);
+	}
+}
+
+void Transfer::ClearDropdown()
+{
+	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
+	int n = combobox->GetCount();
+	for (int i = 0; i<n; i++) {
+		CString *number = (CString *)combobox->GetItemData(i);
+		delete number;
+	}
+	combobox->ResetContent();
 }
 
 void Transfer::OnDestroy()
 {
 	mainDlg->transferDlg = NULL;
-	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
-	int n = combobox->GetCount();
-	for (int i=0;i<n;i++) {
-		CString *number = (CString *)combobox->GetItemData(i);
-		delete number;
-	}
+	ClearDropdown();
 	CDialog::OnDestroy();
 }
 

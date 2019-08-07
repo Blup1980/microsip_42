@@ -64,10 +64,12 @@ public:
 	void AddMessage(MessagesContact* messagesContact, CString message, int type = MSIP_MESSAGE_TYPE_SYSTEM, BOOL blockForeground = FALSE);
 	MessagesContact* GetMessageContact(int i = -1);
 	int GetCallDuration(pjsua_call_id *call_id = NULL);
-	BOOL SendInstantMessage(MessagesContact* messagesContact, CString message, CString number = _T(""));
+	BOOL SendInstantMessage(MessagesContact *messagesContact, CString message, CString number = _T(""));
 	void UpdateHoldButton(pjsua_call_info *call_info);	
-	void UpdateTabIcon(MessagesContact* messagesContact, int tabIndex=-1, pjsua_call_info *call_info=NULL, call_user_data *user_data = NULL);
+	void UpdateRecButton(call_user_data *user_data = NULL);
+	void UpdateTabIcon(MessagesContact *messagesContact, int tabIndex=-1, pjsua_call_info *call_info=NULL, call_user_data *user_data = NULL);
 	void CallAction(int action, CString number);
+	void Merge(pjsua_call_id call_id);
 
 	CClosableTabCtrl* tab;
 	MessagesContact* lastCall;
@@ -79,7 +81,8 @@ private:
 	void UpdateCallButton(BOOL active = FALSE, pjsua_call_info *call_info = NULL);
 	BOOL CloseTab(int i, BOOL safe = FALSE);
 
-	CMenu menuActions;
+	CMenu menuTransfer;
+	CMenu menuConference;
 	CMenu menuAttendedTransfer;
 	CMenu menuMerge;
 
@@ -104,7 +107,9 @@ public:
 	afx_msg LRESULT OnCloseTab(WPARAM wParam,LPARAM lParam);
 	afx_msg void OnBnClickedCallEnd();
 	afx_msg void OnBnClickedVideoCall();
-	afx_msg void OnBnClickedActions();
+	afx_msg void OnBnClickedActions(bool isConference = false);
+	afx_msg void OnBnClickedTransfer();
+	afx_msg void OnBnClickedConference();
 	afx_msg void OnBnClickedHold();
 	afx_msg void OnBnClickedEnd();
 	afx_msg void OnCloseAllTabs(); 

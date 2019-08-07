@@ -65,11 +65,15 @@ enum EUserWndMessages
 	IDT_TIMER_HEADSET,
 	IDT_TIMER_VU_METER,
 	IDT_TIMER_AUTOANSWER,
-	
 	UM_CLOSETAB,
 	UM_DBLCLICKTAB,
 	UM_QUERYTAB,
 
+};
+
+enum {
+IDS_STATUSBAR,
+IDS_STATUSBAR2,
 };
 
 enum {MSIP_MESSAGE_TYPE_LOCAL, MSIP_MESSAGE_TYPE_REMOTE, MSIP_MESSAGE_TYPE_SYSTEM};
@@ -154,14 +158,18 @@ struct call_user_data
 {
 	pjsua_call_id call_id;
 	call_tonegen_data *tonegen_data;
+	pjsua_recorder_id recorder_id;
 	pj_timer_entry auto_hangup_timer;
 	msip_srtp_type srtp;
 	CString userAgent;
 	CString diversion;
 	CString commands;
 	bool inConference;
+	bool autoAnswer;
 	call_user_data(pjsua_call_id call_id): tonegen_data(NULL)
+		,recorder_id(PJSUA_INVALID_ID)
 		,inConference(false)
+		,autoAnswer(false)
 		,srtp(MSIP_SRTP_DISABLED)
 		{
 			this->call_id = call_id;
@@ -193,6 +201,7 @@ char* StrToPj(CString str);
 CString Utf8DecodeUni(CStringA str);
 CStringA UnicodeToAnsi(CString str);
 CString AnsiToUnicode(CStringA str);
+CString AnsiToWideChar(char* str);
 CString XMLEntityDecode(CString str);
 CString XMLEntityEncode(CString str);
 void OpenURL(CString url);
@@ -206,6 +215,7 @@ bool IniSectionExists(CString section, CString iniFile);
 CString Bin2String(CByteArray *ca);
 void String2Bin(CString str, CByteArray *res);
 void CommandLineToShell(CString cmd, CString &command, CString &params);
+void RunCmd(CString cmdLine, CString addParams=_T(""));
 
 namespace MSIP {
 	void GetScreenRect(CRect *rect);
@@ -213,6 +223,7 @@ namespace MSIP {
 
 CString get_account_username();
 CString get_account_password();
+CString get_account_domain();
 CString get_account_server();
 
 struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id);
@@ -241,13 +252,15 @@ typedef struct {
 	HWND hWnd;
 	UINT message;
 	CString url;
+	bool post;
 	DWORD statusCode;
 	CString headers;
 	CStringA body;
 } URLGetAsyncData;
-void URLGetAsync(CString url, HWND hWnd=0, UINT message=0);
+void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false);
 URLGetAsyncData URLGetSync(CString url);
 
+CStringA urldecode(CStringA str);
 CStringA urlencode(CStringA str);
 CStringA char2hex(char dec);
 
@@ -264,9 +277,10 @@ void msip_conference_leave(pjsua_call_info *call_info, bool hold = false);
 void msip_call_hold(pjsua_call_info *call_info);
 void msip_call_unhold(pjsua_call_info *call_info = NULL);
 void msip_call_answer(pjsua_call_id call_id = PJSUA_INVALID_ID);
-void msip_call_process_dtmf_queue(call_user_data *user_data);
+void msip_call_busy(pjsua_call_id call_id, SIPURI *sipuri, call_user_data *user_data);
+void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info = NULL);
+void msip_call_recording_stop(call_user_data *user_data); 
 CStringA msip_md5sum(CString *str);
 CString msip_url_mask(CString url);
-void msip_audio_output_set_volume(int val, bool mute = false);
 void msip_audio_input_set_volume(int val, bool mute = false);
 void msip_audio_conf_set_volume(int val, bool mute);

@@ -63,6 +63,7 @@
 #include "Preview.h"
 #include "Transfer.h"
 #include "addons.h"
+#include "StatusBar.h"
 
 // CmainDlg dialog
 class CmainDlg : public CBaseDialog
@@ -76,7 +77,6 @@ public:
 	enum { IDD = IDD_MAIN };
 
 	bool m_startMinimized;
-	CPoint windowSize;
 	CButton m_ButtonMenu;
 	SettingsDlg* settingsDlg;
 	bool shortcutsEnabled;
@@ -165,7 +165,7 @@ protected:
 	HICON iconInactive;
 	HICON iconMissed;
 	NOTIFYICONDATA tnd;
-	CStatusBar m_bar;
+	StatusBar m_bar;
 
 	CMMNotificationClient *mmNotificationClient;
 

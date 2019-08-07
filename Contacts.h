@@ -80,7 +80,9 @@ public:
 	afx_msg void OnMenuEdit(); 
 	afx_msg void OnMenuCopy(); 
 	afx_msg void OnMenuDelete(); 
+	afx_msg void OnMenuImportCSV();
 	afx_msg void OnMenuImportGoogle();
+	afx_msg void OnMenuExportCSV();
 	afx_msg LRESULT OnContextMenu(WPARAM wParam,LPARAM lParam);
 	afx_msg void OnNMDblclkContacts(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnEndtrack(NMHDR* pNMHDR, LRESULT* pResult);

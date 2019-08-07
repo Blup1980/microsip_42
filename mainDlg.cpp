@@ -52,7 +52,7 @@ static UINT WM_SHELLHOOKMESSAGE;
 static UINT BASED_CODE indicators[] =
 {
 	IDS_STATUSBAR,
-	IDS_STATUSBAR2
+	IDS_STATUSBAR2,
 };
 
 static bool timerContactBlinkState = false;
@@ -160,6 +160,9 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e)
 		msip_call_unhold(call_info);
 		break;
 	case PJSIP_INV_STATE_CONFIRMED:
+		if (accountSettings.autoRecording) {
+			msip_call_recording_start(user_data, call_info);
+		}
 		if (accountSettings.autoHangUpTime > 0) {
 			/* Schedule timer to hangup call after the specified duration */
 			pj_time_val delay;
@@ -171,6 +174,7 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e)
 		}
 		break;
 	case PJSIP_INV_STATE_DISCONNECTED:
+		msip_call_recording_stop(user_data);
 		/* Cancel duration timer, if any */
 		if (user_data->auto_hangup_timer.id != PJSUA_INVALID_ID) {
 			pjsua_cancel_timer(&user_data->auto_hangup_timer);
@@ -307,12 +311,33 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 	CString number = PjToStr(&call_info->remote_info, TRUE);
 	SIPURI sipuri;
 	ParseSIPURI(number, &sipuri);
+
+	if (call_info->state == PJSIP_INV_STATE_CALLING) {
+		//--
+		if (!accountSettings.cmdOutgoingCall.IsEmpty()) {
+			CString params = sipuri.user;
+			RunCmd(accountSettings.cmdOutgoingCall, params);
+		}
+		//--
+	}
+
 	if (call_info->state == PJSIP_INV_STATE_CONFIRMED) {
 		PostMessage(WM_TIMER, IDT_TIMER_CALL, NULL);
 		SetTimer(IDT_TIMER_CALL, 1000, NULL);
-		if (!accountSettings.cmdCallStart.IsEmpty()) {
-			ShellExecute(NULL, NULL, accountSettings.cmdCallStart, sipuri.user, NULL, SW_HIDE);
+		if (call_info->role == PJSIP_ROLE_UAS) {
+			//--
+			if (!accountSettings.cmdCallAnswer.IsEmpty()) {
+				CString params = sipuri.user;
+				RunCmd(accountSettings.cmdCallAnswer, params);
+			}
+			//--
 		}
+		//--
+		if (!accountSettings.cmdCallStart.IsEmpty()) {
+			CString params = sipuri.user;
+			RunCmd(accountSettings.cmdCallStart, params);
+		}
+		//--
 		if (user_data && !user_data->commands.IsEmpty()) {
 			SetTimer((UINT_PTR)call_info->id, 1000, (TIMERPROC)DTMFQueueTimerHandler);
 		}
@@ -393,10 +418,21 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 				}
 			}
 		}
-		if (call_info->last_status != 486) {
-			if (!accountSettings.cmdCallEnd.IsEmpty()) {
-				ShellExecute(NULL, NULL, accountSettings.cmdCallEnd, number, NULL, SW_HIDE);
+		if (call_info->role == PJSIP_ROLE_UAS && call_info->last_status == 603) {
+			//--
+			if (!accountSettings.cmdCallBusy.IsEmpty()) {
+				CString params = number;
+				RunCmd(accountSettings.cmdCallBusy, params);
 			}
+			//--
+		}
+		if (call_info->role == PJSIP_ROLE_UAC || call_info->last_status != 486) {
+			//--
+			if (!accountSettings.cmdCallEnd.IsEmpty()) {
+				CString params = number;
+				RunCmd(accountSettings.cmdCallEnd, params);
+			}
+			//--
 		}
 		if (call_info->role == PJSIP_ROLE_UAS && call_info->last_status == 487) {
 			//-- missed call
@@ -426,12 +462,6 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 		pageCalls->SetDuration(call_info->call_id, call_info->connect_duration.sec);
 		if (call_info->last_status != 200) {
 			pageCalls->SetInfo(call_info->call_id, *str);
-		}
-	}
-
-	if (call_info->role == PJSIP_ROLE_UAS && call_info->state == PJSIP_INV_STATE_CONFIRMED) {
-		if (!accountSettings.cmdCallAnswer.IsEmpty()) {
-			ShellExecute(NULL, NULL, accountSettings.cmdCallAnswer, sipuri.user, NULL, SW_HIDE);
 		}
 	}
 
@@ -509,6 +539,11 @@ LRESULT CmainDlg::onCallState(WPARAM wParam, LPARAM lParam)
 	// --
 	delete call_info;
 	delete str;
+
+	bool hasCalls = call_get_count_noincoming();
+	if (pageDialer->IsChild(&pageDialer->m_ButtonRec)) {
+		pageDialer->m_ButtonRec.EnableWindow(hasCalls);
+	}
 	return 0;
 }
 
@@ -633,7 +668,6 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 		user_data = new call_user_data(call_info.id);
 		pjsua_call_set_user_data(call_info.id, user_data);
 	}
-
 	SIPURI sipuri;
 	ParseSIPURI(PjToStr(&call_info.remote_info, TRUE), &sipuri);
 	if (accountSettings.forceCodec) {
@@ -660,7 +694,7 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 					sipuri.user + _T("@") + sipuri.domain == sipuri_curr.user + _T("@") + sipuri_curr.domain
 					) {
 					// 486 Busy Here
-					pjsua_call_hangup(call_info.id, 486, NULL, NULL);
+					msip_call_busy(call_info.id, &sipuri, user_data);
 					return;
 				}
 				if (call_info_curr.state != PJSIP_INV_STATE_DISCONNECTED) {
@@ -672,7 +706,7 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 
 	if (accountSettings.maxConcurrentCalls > 0 && calls_count_cmp > accountSettings.maxConcurrentCalls) {
 		// 486 Busy Here
-		pjsua_call_hangup(call_info.id, 486, NULL, NULL);
+		msip_call_busy(call_info.id, &sipuri, user_data);
 		return;
 	}
 
@@ -711,14 +745,14 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 			SIPURI sipuri_curr;
 			ParseSIPURI(PjToStr(&call_info.local_info, TRUE), &sipuri_curr);
 			if (accountSettings.accountId) {
-				if (sipuri_curr.domain != accountSettings.account.domain) {
+				if (sipuri_curr.domain != get_account_domain()) {
 					reject = true;
 				}
 			}
 		}
 		else if (accountSettings.denyIncoming == _T("rdomain")) {
 			if (accountSettings.accountId) {
-				if (sipuri.domain != accountSettings.account.domain) {
+				if (sipuri.domain != get_account_domain()) {
 					reject = true;
 				}
 			}
@@ -726,22 +760,25 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 		else if (accountSettings.denyIncoming == _T("address")) {
 			SIPURI sipuri_curr;
 			ParseSIPURI(PjToStr(&call_info.local_info, TRUE), &sipuri_curr);
-			if (sipuri_curr.user != get_account_username() || (accountSettings.account.domain != _T("") && sipuri_curr.domain != accountSettings.account.domain)) {
+			if (sipuri_curr.user != get_account_username() || (get_account_domain() != _T("") && sipuri_curr.domain != get_account_domain())) {
 				reject = true;
 			}
 		}
 
 		if (reject) {
-			pjsua_call_hangup(call_info.id, 486, NULL, NULL);
+			msip_call_busy(call_info.id, &sipuri, user_data);
 			return;
 		}
 
 		accountSettings.lastCallNumber = sipuri.user;
 		accountSettings.lastCallHasVideo = false;
 
+		//--
 		if (!accountSettings.cmdIncomingCall.IsEmpty()) {
-			ShellExecute(NULL, NULL, accountSettings.cmdIncomingCall, sipuri.user, NULL, SW_HIDE);
+			CString params = sipuri.user;
+			RunCmd(accountSettings.cmdIncomingCall, params);
 		}
+		//--
 
 		bool autoAnswer = false;
 		bool noRingDialog = false;
@@ -834,6 +871,12 @@ static void on_incoming_call(pjsua_acc_id acc, pjsua_call_id call_id,
 						mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_CUSTOM, (LPARAM)&accountSettings.ringingSound);
 					}
 				}
+				//--
+				if (!accountSettings.cmdCallRing.IsEmpty()) {
+					CString params = sipuri.user;
+					RunCmd(accountSettings.cmdCallRing, params);
+				}
+				//--
 			}
 		}
 		if (playBeep) {
@@ -936,7 +979,7 @@ LRESULT CmainDlg::onBuddyState(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < n; i++) {
 		if (contact == (Contact *)list->GetItemData(i)) {
 			list->SetItem(i, 0, LVIF_IMAGE, 0, contact->image, 0, 0, 0);
-			list->SetItemText(i, 1, contact->presenceNote);
+			list->SetItemText(i, 2, Translate(contact->presenceNote.GetBuffer()));
 			found = true;
 		}
 	}
@@ -960,7 +1003,7 @@ static void on_pager2(pjsua_call_id call_id, const pj_str_t *from, const pj_str_
 		ParseSIPURI(*number, &sipuri);
 		if (accountSettings.accountId && account == acc_id) {
 			if (IsIP(sipuri.domain)) {
-				sipuri.domain = accountSettings.account.domain;
+				sipuri.domain = get_account_domain();
 			}
 			if (!sipuri.user.IsEmpty()) {
 				number->Format(_T("%s@%s"), sipuri.user, sipuri.domain);
@@ -988,7 +1031,7 @@ static void on_pager_status2(pjsua_call_id call_id, const pj_str_t *to, const pj
 			ParseSIPURI(*number, &sipuri);
 			if (accountSettings.accountId && account == acc_id) {
 				if (IsIP(sipuri.domain)) {
-					sipuri.domain = accountSettings.account.domain;
+					sipuri.domain = get_account_domain();
 				}
 				if (!sipuri.user.IsEmpty()) {
 					number->Format(_T("%s@%s"), sipuri.user, sipuri.domain);
@@ -1071,7 +1114,7 @@ static void on_call_transfer_request2(pjsua_call_id call_id, const pj_str_t *dst
 	if (number.IsEmpty()) {
 		number = sipuri.domain;
 	}
-	else if (!accountSettings.accountId || sipuri.domain != accountSettings.account.domain) {
+	else if (!accountSettings.accountId || sipuri.domain != get_account_domain()) {
 		number.Append(_T("@") + sipuri.domain);
 	}
 	pj_str_t status_text = StrToPjStr(number);
@@ -1452,24 +1495,34 @@ L16/44100/2;LPCM 44 kHz Stereo");
 int CmainDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 
+	bool setpos = false;
+	if (accountSettings.noResize) {
+		lpCreateStruct->style &= ~(WS_MAXIMIZEBOX | WS_THICKFRAME);
+		::SetWindowLong(m_hWnd, GWL_STYLE, lpCreateStruct->style);
+		CRect rectStub;
+		GetClientRect(&rectStub);
+		AdjustWindowRectEx(&rectStub, lpCreateStruct->style, FALSE, lpCreateStruct->dwExStyle);
+		lpCreateStruct->cx = rectStub.Width();
+		lpCreateStruct->cy = rectStub.Height();
+		setpos = true;
+	}
+
 	ShortcutsLoad();
 	shortcutsEnabled = accountSettings.enableShortcuts;
 	shortcutsBottom = accountSettings.shortcutsBottom;
 	if (accountSettings.enableShortcuts) {
 		if (shortcutsBottom) {
-			heightAdd += 10 + shortcuts.GetCount() * 25;
+			if (shortcuts.GetCount()) {
+				heightAdd += 10 + shortcuts.GetCount() * 25;
+			}
 		}
 		else {
 			widthAdd += 140;
 		}
 	}
 	int heightFix = 0;
-	if (widthAdd || heightAdd || heightFix) {
+	if (setpos || widthAdd || heightAdd || heightFix) {
 		SetWindowPos(NULL, 0, 0, lpCreateStruct->cx + widthAdd, lpCreateStruct->cy + heightAdd + heightFix, SWP_NOMOVE | SWP_NOZORDER);
-	}
-
-	if (accountSettings.noResize) {
-		ModifyStyle(WS_MAXIMIZEBOX | WS_THICKFRAME, WS_BORDER);
 	}
 
 	if (langPack.rtl) {
@@ -1522,8 +1575,6 @@ BOOL CmainDlg::OnInitDialog()
 
 		TranslateDialog(this->m_hWnd);
 
-		// Set the icon for this dialog.  The framework does this automatically
-		//  when the application's main window is not a dialog
 		SetIcon(m_hIcon, TRUE);			// Set big icon
 		SetIcon(m_hIcon, FALSE);		// Set small icon
 
@@ -1550,8 +1601,8 @@ BOOL CmainDlg::OnInitDialog()
 
 	m_bar.Create(this);
 	m_bar.SetIndicators(indicators, sizeof(indicators) / sizeof(indicators[0]));
-	m_bar.SetPaneInfo(0, IDS_STATUSBAR, SBPS_STRETCH, 0);
-	m_bar.SetPaneInfo(1, IDS_STATUSBAR2, SBPS_NOBORDERS, 0);
+	m_bar.SetPaneInfo(IDS_STATUSBAR, IDS_STATUSBAR, SBPS_STRETCH, 0);
+	m_bar.SetPaneInfo(IDS_STATUSBAR2, IDS_STATUSBAR2, SBPS_NOBORDERS, 0);
 	RepositionBars(AFX_IDW_CONTROLBAR_FIRST, AFX_IDW_CONTROLBAR_LAST, IDS_STATUSBAR);
 
 	AutoMove(m_bar.m_hWnd, 0, 100, 100, 0);
@@ -1559,11 +1610,10 @@ BOOL CmainDlg::OnInitDialog()
 	//--set window pos
 	CRect screenRect;
 	GetScreenRect(&screenRect);
+	CRect clientRect;
+	GetClientRect(&clientRect);
 	CRect rect;
 	GetWindowRect(&rect);
-
-	windowSize.x = rect.Width();
-	windowSize.y = rect.Height();
 
 	int mx;
 	int my;
@@ -1653,16 +1703,19 @@ BOOL CmainDlg::OnInitDialog()
 	AutoMove(m_ButtonMenu.m_hWnd, 100, 0, 0, 0);
 
 	BYTE offset = tabRect.bottom - 1;
+	CRect pageRect;
 
 	pageDialer = new Dialer(this);
 	tabItem.pszText = Translate(_T("Phone"));
 	tabItem.iImage = 0;
 	tabItem.lParam = (LPARAM)pageDialer;
 	tab->InsertItem(99, &tabItem);
-	pageDialer->SetWindowPos(NULL, 0, offset, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	pageDialer->GetWindowRect(pageRect);
+	int pageWidth = pageRect.Width() + (clientRect.Width() - pageRect.Width()) / 3;
+	int offsetX = (clientRect.Width() - pageWidth)/2;
+	pageDialer->SetWindowPos(NULL, offsetX, offset, pageWidth, pageRect.Height(), SWP_NOZORDER);
 	AutoMove(pageDialer->m_hWnd, 40, 40, 20, 20);
 
-		CRect pageRect;
 		pageCalls = new Calls(this);
 		pageCalls->OnCreated();
 		tabItem.pszText = Translate(_T("Logs"));
@@ -2008,8 +2061,7 @@ LRESULT CmainDlg::onCreateRingingDlg(WPARAM wParam, LPARAM lParam)
 	if (call_info.rem_vid_cnt) {
 		((CButton*)ringinDlg->GetDlgItem(IDC_VIDEO))->EnableWindow(TRUE);
 	}
-
-	ringinDlg->call_id = call_info.id;
+	ringinDlg->SetCallId(call_info.id);
 	SIPURI sipuri;
 	CStringW rab;
 	CString str;
@@ -2023,43 +2075,27 @@ LRESULT CmainDlg::onCreateRingingDlg(WPARAM wParam, LPARAM lParam)
 	if (name.IsEmpty()) {
 		name = !sipuri.name.IsEmpty() ? sipuri.name : (!sipuri.user.IsEmpty() ? sipuri.user : sipuri.domain);
 	}
-	if (user_data && !user_data->diversion.IsEmpty()) {
-		name.Format(_T("%s -> %s"), user_data->diversion, name);
-	}
 	ringinDlg->GetDlgItem(IDC_CALLER_NAME)->SetWindowText(name);
 
-	int c = 0;
-	int len = 0;
+	str.Empty();
 
 	info = (!sipuri.user.IsEmpty() ? sipuri.user + _T("@") : _T("")) + sipuri.domain;
 	if (!sipuri.name.IsEmpty() && sipuri.name != name) {
 		info = sipuri.name + _T(" <") + info + _T(">");
 	}
-	len += info.GetLength();
-	str.Format(_T("%s\r\n\r\n"), info);
-
+	str.AppendFormat(_T("%s\r\n"), info);
+	if (user_data && !user_data->userAgent.IsEmpty()) {
+		str.AppendFormat(_T("%s\r\n"), user_data->userAgent);
+	}
+	str.Append(_T("\r\n"));
 	info = PjToStr(&call_info.local_info, TRUE);
 	ParseSIPURI(info, &sipuri);
 	info = (!sipuri.user.IsEmpty() ? sipuri.user + _T("@") : _T("")) + sipuri.domain;
-	len += info.GetLength();
-	str.AppendFormat(_T("%s: %s\r\n\r\n"), Translate(_T("To")), info);
+	str.AppendFormat(_T("%s: %s\r\n"), Translate(_T("To")), info);
 
-	if (len < 70) {
-		c++;
+	if (user_data && !user_data->diversion.IsEmpty()) {
+		str.AppendFormat(_T("%s: %s\r\n"), Translate(_T("Diversion")), user_data->diversion);
 	}
-
-	if (user_data && !user_data->userAgent.IsEmpty()) {
-		str.AppendFormat(_T("%s: %s"), Translate(_T("User-Agent")), user_data->userAgent);
-	}
-	else {
-		c++;
-	}
-
-	for (int i = 0; i < c; i++) {
-		str = _T("\r\n") + str;
-	}
-
-
 	if (str != name) {
 		ringinDlg->GetDlgItem(IDC_CALLER_ADDR)->SetWindowText(str);
 	}
@@ -2390,12 +2426,9 @@ void CmainDlg::PJCreate()
 		media_cfg.channel_count = 2;
 	}
 
-	if (accountSettings.dnsSrv) {
-		ua_cfg.nameserver_count = 4;
-		ua_cfg.nameserver[0] = StrToPjStr(_T("8.8.8.8"));
-		ua_cfg.nameserver[1] = StrToPjStr(_T("8.8.4.4"));
-		ua_cfg.nameserver[2] = StrToPjStr(_T("2001:4860:4860::8888"));
-		ua_cfg.nameserver[3] = StrToPjStr(_T("2001:4860:4860::8844"));
+	if (accountSettings.dnsSrv && !accountSettings.dnsSrvNs.IsEmpty()) {
+		ua_cfg.nameserver_count = 1;
+		ua_cfg.nameserver[0] = StrToPjStr(accountSettings.dnsSrvNs);
 	}
 
 	// Initialize pjsua
@@ -2449,8 +2482,8 @@ void CmainDlg::PJCreate()
 	if (accountSettings.audioCodecs.GetLength())
 	{
 		// add unknown new codecs to the list
-		pjsua_codec_info codec_info[64];
-		unsigned count = 64;
+		unsigned count = PJMEDIA_CODEC_MGR_MAX_CODECS;
+		pjsua_codec_info codec_info[PJMEDIA_CODEC_MGR_MAX_CODECS];
 		if (pjsua_enum_codecs(codec_info, &count) == PJ_SUCCESS) {
 			for (unsigned i = 0; i < count; i++) {
 				pjsua_codec_set_priority(&codec_info[i].codec_id, PJMEDIA_CODEC_PRIO_DISABLED);
@@ -2626,7 +2659,6 @@ void CmainDlg::PJCreate()
 			cfg.port = 0;
 			pjsua_transport_create(PJSIP_TRANSPORT_TCP, &cfg, &transport_tcp);
 		}
-
 		cfg.port = MACRO_ENABLE_LOCAL_ACCOUNT ? 5061 : 0;
 		status = pjsua_transport_create(PJSIP_TRANSPORT_TLS, &cfg, &transport_tls);
 		if (status != PJ_SUCCESS && cfg.port) {
@@ -2653,12 +2685,12 @@ void CmainDlg::UpdateSoundDevicesIds()
 	msip_audio_output = -2;
 	msip_audio_ring = -2;
 
-	unsigned count = 128;
-	pjmedia_aud_dev_info aud_dev_info[128];
+	unsigned count = PJMEDIA_AUD_MAX_DEVS;
+	pjmedia_aud_dev_info aud_dev_info[PJMEDIA_AUD_MAX_DEVS];
 	pjsua_enum_aud_devs(aud_dev_info, &count);
 	for (unsigned i = 0; i < count; i++)
 	{
-		CString audDevName(aud_dev_info[i].name);
+		CString audDevName = AnsiToWideChar(aud_dev_info[i].name);
 		if (aud_dev_info[i].input_count && !accountSettings.audioInputDevice.Compare(audDevName)) {
 			msip_audio_input = i;
 		}
@@ -3325,7 +3357,13 @@ bool CmainDlg::MakeCall(CString number, bool hasVideo)
 	if (accountSettings.singleMode && call_get_count_noincoming()) {
 		GotoTab(0);
 	}
-	else {
+	else if (!pjsua_acc_is_valid(account) && !pjsua_acc_is_valid(account_local)) {
+		Account dummy;
+		pj_status_t status = accountSettings.AccountLoad(1, &dummy) ? PJSIP_EAUTHACCDISABLED : PJSIP_EAUTHACCNOTFOUND;
+		ShowErrorMessage(status);
+	}
+	else
+	{
 		accountSettings.lastCallNumber = number;
 		accountSettings.lastCallHasVideo = hasVideo;
 		CString commands;
@@ -3366,6 +3404,10 @@ void CmainDlg::AutoAnswer(pjsua_call_id call_id)
 	if (pjsua_call_get_info(call_id, &call_info) != PJ_SUCCESS || (call_info.state != PJSIP_INV_STATE_INCOMING && call_info.state != PJSIP_INV_STATE_EARLY)) {
 		return;
 	}
+	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
+	if (user_data) {
+		user_data->autoAnswer = true;
+	}
 	mainDlg->PostMessage(UM_CALL_ANSWER, (WPARAM)call_id, (LPARAM)call_info.rem_vid_cnt);
 	if (!accountSettings.hidden) {
 		mainDlg->PostMessage(UM_ON_PLAYER_PLAY, MSIP_SOUND_RINGIN2, 0);
@@ -3374,6 +3416,7 @@ void CmainDlg::AutoAnswer(pjsua_call_id call_id)
 
 void CmainDlg::ShortcutAction(Shortcut *shortcut)
 {
+	MessagesContact* messagesContactSelected;
 	switch (shortcut->type) {
 	case MSIP_SHORTCUT_CALL:
 		mainDlg->MakeCall(shortcut->number);
@@ -3392,7 +3435,7 @@ void CmainDlg::ShortcutAction(Shortcut *shortcut)
 		mainDlg->pageDialer->DTMF(shortcut->number);
 		break;
 	case MSIP_SHORTCUT_TRANSFER:
-		MessagesContact* messagesContactSelected = mainDlg->messagesDlg->GetMessageContact();
+		messagesContactSelected = mainDlg->messagesDlg->GetMessageContact();
 		if (messagesContactSelected && messagesContactSelected->callId != -1) {
 			pj_str_t pj_uri = StrToPjStr(GetSIPURI(shortcut->number, true));
 			call_user_data *user_data;
@@ -3584,7 +3627,11 @@ LRESULT CmainDlg::onCallAnswer(WPARAM wParam, LPARAM lParam)
 					callIdIncomingIgnore = PjToStr(&call_info.call_id);
 				}
 				PlayerStop();
-				if (!accountSettings.silent) {
+				bool restore = true;
+				if (accountSettings.silent) {
+					restore = false;
+				}
+				if (restore) {
 					onTrayNotify(NULL, WM_LBUTTONUP);
 				}
 		}
@@ -3632,16 +3679,17 @@ LRESULT CmainDlg::onSetPaneText(WPARAM wParam, LPARAM lParam)
 void CmainDlg::SetPaneText2(CString str)
 {
 	if (str.IsEmpty()) {
-		m_bar.SetPaneInfo(1, IDS_STATUSBAR2, SBPS_NOBORDERS, 0);
+		m_bar.SetPaneInfo(IDS_STATUSBAR2, IDS_STATUSBAR2, SBPS_NOBORDERS, 0);
 	}
 	else {
 		CSize size = m_bar.GetDC()->GetTextExtent(str);
 		int width = size.cx;
-		m_bar.SetPaneInfo(1, IDS_STATUSBAR2, SBPS_NORMAL, width);
+		m_bar.SetPaneInfo(IDS_STATUSBAR2, IDS_STATUSBAR2, SBPS_NORMAL, width);
 	}
-	m_bar.SetPaneText(1, str);
+	m_bar.SetPaneText(IDS_STATUSBAR2, str);
 	RepositionBars(AFX_IDW_CONTROLBAR_FIRST, AFX_IDW_CONTROLBAR_LAST, IDS_STATUSBAR);
 }
+
 
 BOOL CmainDlg::CopyStringToClipboard(IN const CString & str)
 {
@@ -3979,12 +4027,12 @@ void CmainDlg::CheckUpdates()
 #ifdef _GLOBAL_VIDEO
 int CmainDlg::VideoCaptureDeviceId(CString name)
 {
-	unsigned count = 64;
-	pjmedia_vid_dev_info vid_dev_info[64];
+	unsigned count = PJMEDIA_VID_DEV_MAX_DEVS;
+	pjmedia_vid_dev_info vid_dev_info[PJMEDIA_VID_DEV_MAX_DEVS];
 	pjsua_vid_enum_devs(vid_dev_info, &count);
 	for (unsigned i = 0; i < count; i++) {
 		if (vid_dev_info[i].fmt_cnt && (vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING || vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING_DECODING)) {
-			CString vidDevName(vid_dev_info[i].name);
+			CString vidDevName = AnsiToWideChar(vid_dev_info[i].name);
 			if ((!name.IsEmpty() && name == vidDevName)
 				||
 				(name.IsEmpty() && accountSettings.videoCaptureDevice == vidDevName)) {

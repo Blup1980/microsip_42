@@ -46,13 +46,19 @@ BEGIN
     END
 END
 
-IDR_MENU_CALL_ACTIONS MENU 
+IDR_MENU_CALL_TRANSFER MENU 
 BEGIN
     POPUP ""
     BEGIN
         MENUITEM "Call Transfer",                  ID_TRANSFER
         MENUITEM "Attended Transfer",         ID_ATTENDED_TRANSFER
-		MENUITEM SEPARATOR
+    END
+END
+
+IDR_MENU_CALL_CONFERENCE MENU 
+BEGIN
+    POPUP ""
+    BEGIN
         MENUITEM "Invite to Conference",                ID_CONFERENCE
         MENUITEM "Merge",                     ID_MERGE
         MENUITEM "Separate",                  ID_SEPARATE

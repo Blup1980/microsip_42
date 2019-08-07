@@ -39,7 +39,6 @@ class Dialer :
 
 	CButton m_ButtonDND;
 	CButton m_ButtonAA;
-
 	CButtonDialer m_ButtonDialer1;
 	CButtonDialer m_ButtonDialer2;
 	CButtonDialer m_ButtonDialer3;
@@ -68,9 +67,11 @@ class Dialer :
 	BOOL muteOutput;
 	BOOL muteInput;
 
-	CRect defaultPos;
+	CPoint windowSize;
 
 public:
+	CButton m_ButtonRec;
+
 	CBitmapButton m_ButtonVoicemail;
 	HICON m_hIconHold;
 	HICON m_hIconTransfer;
@@ -113,6 +114,7 @@ public:
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnBnClickedDND(); 
 	afx_msg void OnBnClickedAA();
+	afx_msg void OnBnClickedRec();
 	afx_msg void OnBnClickedVoicemail();
 
 	afx_msg void OnBnClickedCall();
@@ -154,6 +156,7 @@ public:
 	afx_msg void OnMouseMove(UINT nFlags, CPoint pt );
 	afx_msg void OnHScroll( UINT, UINT, CScrollBar* );
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	void SetRecBtnState(bool state);
 	afx_msg void OnTimer (UINT_PTR TimerVal);
 	CList<CButton*> shortcutButtons;
 	void RebuildShortcuts(bool init = false);

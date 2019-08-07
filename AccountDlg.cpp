@@ -20,6 +20,7 @@
 #include "AccountDlg.h"
 #include "mainDlg.h"
 #include "langpack.h"
+#include "atlrx.h"
 
 #include <ws2tcpip.h>
 
@@ -137,6 +138,7 @@ BEGIN_MESSAGE_MAP(AccountDlg, CDialog)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_DISPLAY_PASSWORD, &AccountDlg::OnNMClickSyslinkDisplayPasswod)
 	ON_NOTIFY(NM_RETURN, IDC_SYSLINK_DISPLAY_PASSWORD, &AccountDlg::OnNMClickSyslinkDisplayPasswod)
 	ON_BN_CLICKED(IDC_ACCOUNT_REMOVE, &AccountDlg::OnBnClickedDelete)
+
 	
 END_MESSAGE_MAP()
 
@@ -158,6 +160,11 @@ void AccountDlg::Load(int id)
 	accountId = id;
 	if (accountSettings.AccountLoad(id,&m_Account)) {
 		accountId = id;
+		if (accountSettings.accountId == id && !accountSettings.account.rememberPassword) {
+			m_Account.username = accountSettings.account.username;
+			m_Account.password = accountSettings.account.password;
+			m_Account.rememberPassword = false;
+		}
 	} else {
 		accountId = 0;
 	}
@@ -230,7 +237,7 @@ int i;
 
 	((CButton*)GetDlgItem(IDC_REWRITE))->SetCheck(m_Account.allowRewrite);
 	((CButton*)GetDlgItem(IDC_SESSION_TIMER))->SetCheck(m_Account.disableSessionTimer);
-	if (accountId>0 && !m_Account.username.IsEmpty()) {
+	if (accountId>0 && (!m_Account.username.IsEmpty() || accountId>1)) {
 		GetDlgItem(IDC_ACCOUNT_REMOVE)->ShowWindow(SW_SHOW);
 	} else {
 		GetDlgItem(IDC_ACCOUNT_REMOVE)->ShowWindow(SW_HIDE);
@@ -362,9 +369,10 @@ void AccountDlg::OnBnClickedOk()
 	accountSettings.accountId = accountId;
 	accountSettings.account = m_Account;
 	accountSettings.AccountLoad(accountSettings.accountId,&accountSettings.account);
-	if (!accountSettings.account.rememberPassword) {
+	if (!m_Account.rememberPassword) {
 		accountSettings.account.username = m_Account.username;
 		accountSettings.account.password = m_Account.password;
+		accountSettings.account.rememberPassword = false;
 	}
 	accountSettings.SettingsSave();
 	mainDlg->pageDialer->RebuildButtons();

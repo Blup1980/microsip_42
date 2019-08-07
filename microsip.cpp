@@ -41,8 +41,8 @@
 
 // CmicrosipApp
 
-BEGIN_MESSAGE_MAP(CmicrosipApp, CWinApp)
-	ON_COMMAND(ID_HELP, &CWinApp::OnHelp)
+BEGIN_MESSAGE_MAP(CmicrosipApp, CWinAppEx)
+	ON_COMMAND(ID_HELP, &CWinAppEx::OnHelp)
 END_MESSAGE_MAP()
 
 
@@ -204,6 +204,8 @@ BOOL CmicrosipApp::InitInstance()
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	AfxInitRichEdit2();
+
+	InitShellManager();
 
 	WNDCLASS wc;
 	// Get the info for this class.

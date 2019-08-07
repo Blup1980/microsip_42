@@ -94,7 +94,8 @@ BOOL MessagesDlg::OnInitDialog()
 	AutoMove(IDC_MESSAGES_TAB,0,0,100,0);
 	AutoMove(IDC_LAST_CALL,100,0,0,0);
 	AutoMove(IDC_CLOSE_ALL,100,0,0,0);
-	AutoMove(IDC_ACTIONS,100,0,0,0);
+	AutoMove(IDC_CONFERENCE,100,0,0,0);
+	AutoMove(IDC_TRANSFER,100,0,0,0);
 	AutoMove(IDC_HOLD,100,0,0,0);
 	AutoMove(IDC_END,100,0,0,0);
 	AutoMove(IDC_LIST,0,0,100,80);
@@ -120,6 +121,7 @@ BOOL MessagesDlg::OnInitDialog()
 	imageList.Add(LoadImageIcon(IDI_ON_REMOTE_HOLD_CONFERENCE));
 
 	tab->SetImageList(&imageList);
+
 	
 	TranslateDialog(this->m_hWnd);
 
@@ -153,24 +155,27 @@ BOOL MessagesDlg::OnInitDialog()
 	para.bLineSpacingRule = 5;
 	para.dyLineSpacing = 22;
 
-	m_hIconDropDown = LoadImageIcon(IDI_DROPDOWN);
-	((CButton*)GetDlgItem(IDC_ACTIONS))->SetIcon(m_hIconDropDown);
-
 	m_hIconHold = LoadImageIcon(IDI_HOLD);
 	((CButton*)GetDlgItem(IDC_HOLD))->SetIcon(m_hIconHold);
-
-	menuActions.LoadMenu(IDR_MENU_CALL_ACTIONS);
-	CMenu *tracker = menuActions.GetSubMenu(0);
-	TranslateMenu(tracker->m_hMenu);
 
 	MENUITEMINFO mii;
 	mii.cbSize = sizeof (MENUITEMINFO);
 	mii.fMask = MIIM_SUBMENU;
-	
+
+	CMenu *tracker;
+
+	menuTransfer.LoadMenu(IDR_MENU_CALL_TRANSFER);
+	tracker = menuTransfer.GetSubMenu(0);
+	TranslateMenu(tracker->m_hMenu);
+
 	menuAttendedTransfer.CreatePopupMenu();
 	mii.hSubMenu = menuAttendedTransfer.m_hMenu;
-	tracker->SetMenuItemInfo(ID_ATTENDED_TRANSFER,&mii);
-	
+	tracker->SetMenuItemInfo(ID_ATTENDED_TRANSFER, &mii);
+
+	menuConference.LoadMenu(IDR_MENU_CALL_CONFERENCE);
+	tracker = menuConference.GetSubMenu(0);
+	TranslateMenu(tracker->m_hMenu);
+
 	menuMerge.CreatePopupMenu();
 	mii.hSubMenu = menuMerge.m_hMenu;
 	tracker->SetMenuItemInfo(ID_MERGE,&mii);
@@ -213,7 +218,8 @@ BEGIN_MESSAGE_MAP(MessagesDlg, CBaseDialog)
 	ON_MESSAGE(UM_CLOSETAB, &MessagesDlg::OnCloseTab)
 	ON_BN_CLICKED(IDC_CALL_END, &MessagesDlg::OnBnClickedCallEnd)
 	ON_BN_CLICKED(IDC_VIDEO_CALL, &MessagesDlg::OnBnClickedVideoCall)
-	ON_BN_CLICKED(IDC_ACTIONS, &MessagesDlg::OnBnClickedActions)
+	ON_BN_CLICKED(IDC_TRANSFER, &MessagesDlg::OnBnClickedTransfer)
+	ON_BN_CLICKED(IDC_CONFERENCE, &MessagesDlg::OnBnClickedConference)
 	ON_COMMAND(ID_TRANSFER,OnTransfer)
 	ON_COMMAND(ID_CONFERENCE,OnConference)
 	ON_COMMAND(ID_SEPARATE,OnSeparate)
@@ -264,7 +270,7 @@ LRESULT MessagesDlg::OnContextMenu(WPARAM wParam,LPARAM lParam)
 void MessagesDlg::OnClose() 
 {
 	call_hangup_all_noincoming();
-	this->ShowWindow(SW_HIDE);
+	ShowWindow(SW_HIDE);
 }
 
 void MessagesDlg::OnMove(int x, int y)
@@ -320,14 +326,14 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		//-- fix wrong domain
 		if (accountSettings.accountId && account == call_info->acc_id) {
 			if (IsIP(RemovePort(sipuri.domain))) {
-				sipuri.domain = accountSettings.account.domain;
+				sipuri.domain = get_account_domain();
 			}
 		}
 		//--
 	}
 	//--
-	if (accountSettings.accountId && RemovePort(accountSettings.account.domain) == RemovePort(sipuri.domain)) {
-		sipuri.domain = accountSettings.account.domain;
+	if (accountSettings.accountId && RemovePort(get_account_domain()) == RemovePort(sipuri.domain)) {
+		sipuri.domain = get_account_domain();
 	}
 
 	number = (sipuri.user.GetLength() ? sipuri.user + _T("@") : _T("")) + sipuri.domain;
@@ -362,9 +368,9 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		if (name.IsEmpty()) {
 			CString numberLocal = number;
 			if (sipuri.name.IsEmpty()) {
-				name = (sipuri.domain == accountSettings.account.domain ? sipuri.user : numberLocal);
+				name = (sipuri.domain == get_account_domain() ? sipuri.user : numberLocal);
 			} else {
-				name = sipuri.name + _T(" (") + (sipuri.domain == accountSettings.account.domain ? sipuri.user : numberLocal) + _T(")");
+				name = sipuri.name + _T(" (") + (sipuri.domain == get_account_domain() ? sipuri.user : numberLocal) + _T(")");
 			}
 		}
 	}
@@ -421,8 +427,6 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	if (call_info) {
 		UpdateTabIcon(messagesContact, exists, call_info, user_data);
 	}
-	//--
-
 	//if (tab->GetCurSel() != exists && (activate || !IsWindowVisible()))
 	if (tab->GetCurSel() != exists && activate)
 	{
@@ -431,6 +435,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		tab->SetCurSel(exists);
 		OnChangeTab(call_info, user_data);
 	}
+
 	if (!IsWindowVisible()) {
 		if (!notShowWindow) 
 		{
@@ -473,7 +478,7 @@ void MessagesDlg::OnChangeTab(pjsua_call_info *p_call_info, call_user_data *user
 			) {
 			SIPURI sipuri;
 			ParseSIPURI(messagesContact->number, &sipuri);
-			mainDlg->pageDialer->SetNumber(!sipuri.user.IsEmpty() && sipuri.domain == accountSettings.account.domain ? sipuri.user : messagesContact->number, 1);
+			mainDlg->pageDialer->SetNumber(!sipuri.user.IsEmpty() && sipuri.domain == get_account_domain() ? sipuri.user : messagesContact->number, 1);
 		}
 	} else {
 		UpdateCallButton();
@@ -590,7 +595,6 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 	pjsip_generic_string_hdr_init2 (&subject, &hname, &hvalue);
     pj_list_push_back(&msg_data.hdr_list, &subject);
 	//*/
-
 	pj_status_t status = pjsua_call_make_call(
 		acc_id,
 		&pj_uri,
@@ -662,6 +666,7 @@ void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info)
 	GetDlgItem(IDC_VIDEO_CALL)->ShowWindow(active? SW_HIDE : SW_SHOW);
 #endif
 	UpdateHoldButton(call_info);
+	UpdateRecButton();
 	if (!active) {
 		if (mainDlg->transferDlg) {
 			mainDlg->transferDlg->OnClose();
@@ -679,7 +684,8 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 	bool hasActions = false;
 	bool hasHold = false;
 	bool onHold = false;
-	CButton* buttonActions = (CButton*)GetDlgItem(IDC_ACTIONS);
+	CButton* buttonTransfer = (CButton*)GetDlgItem(IDC_TRANSFER);
+	CButton* buttonConference = (CButton*)GetDlgItem(IDC_CONFERENCE);
 	CButton* buttonHold = (CButton*)GetDlgItem(IDC_HOLD);
 	CButton* buttonHoldDialer = (CButton*)mainDlg->pageDialer->GetDlgItem(IDC_HOLD);
 	CButton* buttonTransferDialer = (CButton*)mainDlg->pageDialer->GetDlgItem(IDC_TRANSFER);
@@ -704,10 +710,12 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 	}
 	//--
 	if (hasActions) {
-		buttonActions->ShowWindow(SW_SHOW);
+		buttonTransfer->ShowWindow(SW_SHOW);
+		buttonConference->ShowWindow(SW_SHOW);
 		buttonTransferDialer->EnableWindow(TRUE);
 	} else {
-		buttonActions->ShowWindow(SW_HIDE);
+		buttonTransfer->ShowWindow(SW_HIDE);
+		buttonConference->ShowWindow(SW_HIDE);
 		buttonTransferDialer->EnableWindow(FALSE);
 	}
 	//--
@@ -727,6 +735,23 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 		buttonHoldDialer->SetCheck(FALSE);
 	}
 	//--
+}
+
+void MessagesDlg::UpdateRecButton(call_user_data *user_data)
+{
+	bool state = false;
+	MessagesContact* messagesContact = GetMessageContact();
+	if (messagesContact) {
+		if (messagesContact->callId != -1) {
+			if (!user_data) {
+				user_data = (call_user_data *)pjsua_call_get_user_data(messagesContact->callId);
+			}
+			if (user_data && user_data->recorder_id != PJSUA_INVALID_ID) {
+				state = true;
+			}
+		}
+	}
+	mainDlg->pageDialer->SetRecBtnState(state);
 }
 
 bool MessagesDlg::CallCheck()
@@ -961,9 +986,42 @@ MessagesContact* MessagesDlg::GetMessageContact(int i)
 	}
 	return NULL;
 }
+
 void MessagesDlg::OnBnClickedVideoCall()
 {
 	CallStart(true);
+}
+
+void MessagesDlg::Merge(pjsua_call_id call_id)
+{
+	MessagesContact* messagesContact = GetMessageContact();
+	if (!messagesContact || messagesContact->callId == -1) {
+		return;
+	}
+	if (!pjsua_call_is_active(call_id)) {
+		return;
+	}
+	call_user_data *user_data;
+	user_data = (call_user_data *)pjsua_call_get_user_data(messagesContact->callId);
+	if (!user_data) {
+		user_data = new call_user_data(messagesContact->callId);
+		pjsua_call_set_user_data(messagesContact->callId, user_data);
+	}
+	user_data->inConference = true;
+
+	user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
+	if (!user_data) {
+		user_data = new call_user_data(messagesContact->callId);
+		pjsua_call_set_user_data(messagesContact->callId, user_data);
+	}
+	user_data->inConference = true;
+
+	pjsua_call_info call_info;
+	if (pjsua_call_get_info(call_id, &call_info) != PJ_SUCCESS) {
+		return;
+	}
+	msip_conference_join(&call_info);
+	msip_call_unhold(&call_info);
 }
 
 void MessagesDlg::CallAction(int action, CString number)
@@ -1019,13 +1077,29 @@ void MessagesDlg::OnBnClickedHold()
 	}
 }
 
-void MessagesDlg::OnBnClickedActions()
+void MessagesDlg::OnBnClickedTransfer()
+{
+	OnBnClickedActions();
+}
+
+void MessagesDlg::OnBnClickedConference()
+{
+	OnBnClickedActions(true);
+}
+
+void MessagesDlg::OnBnClickedActions(bool isConference)
 {
 	MessagesContact* messagesContact = GetMessageContact();
 	if (!messagesContact || messagesContact->callId==-1) {
 		return;
 	}
-	CMenu *tracker = menuActions.GetSubMenu(0);
+	CMenu *tracker;
+	if (isConference) {
+		tracker = menuConference.GetSubMenu(0);
+	}
+	else {
+		tracker = menuTransfer.GetSubMenu(0);
+	}
 	pjsua_call_info call_info;
 	if (pjsua_call_get_info(messagesContact->callId, &call_info) != PJ_SUCCESS) {
 		return;
@@ -1114,6 +1188,7 @@ void MessagesDlg::OnTransfer()
 {
 	if (!mainDlg->transferDlg) {
 		mainDlg->transferDlg = new Transfer(this);
+		mainDlg->transferDlg->LoadFromContacts();
 	}
 	mainDlg->transferDlg->SetAction(MSIP_ACTION_TRANSFER);
 	mainDlg->transferDlg->SetForegroundWindow();
@@ -1142,6 +1217,7 @@ void MessagesDlg::OnConference()
 {
 	if (!mainDlg->transferDlg) {
 		mainDlg->transferDlg = new Transfer(this);
+		mainDlg->transferDlg->LoadFromContacts();
 	}
 	mainDlg->transferDlg->SetAction(MSIP_ACTION_INVITE);
 	mainDlg->transferDlg->SetForegroundWindow();
@@ -1151,39 +1227,11 @@ void MessagesDlg::OnMerge(UINT nID)
 {
 	int pos = nID - ID_MERGE_RANGE;
 	MENUITEMINFO mii;
-	mii.cbSize = sizeof (MENUITEMINFO);
+	mii.cbSize = sizeof(MENUITEMINFO);
 	mii.fMask = MIIM_DATA;
 	menuMerge.GetMenuItemInfo(pos, &mii, TRUE);
 	pjsua_call_id call_id = mii.dwItemData;
-
-	MessagesContact* messagesContact = GetMessageContact();
-	if (!messagesContact || messagesContact->callId == -1) {
-		return;
-	}
-	if (!pjsua_call_is_active(call_id)) {
-		return;
-	}
-	call_user_data *user_data;
-	user_data = (call_user_data *) pjsua_call_get_user_data(messagesContact->callId);
-	if (!user_data) {
-		user_data = new call_user_data(messagesContact->callId);
-		pjsua_call_set_user_data(messagesContact->callId,user_data);
-	}
-	user_data->inConference = true;
-
-	user_data = (call_user_data *) pjsua_call_get_user_data(call_id);
-	if (!user_data) {
-		user_data = new call_user_data(messagesContact->callId);
-		pjsua_call_set_user_data(messagesContact->callId,user_data);
-	}
-	user_data->inConference = true;
-
-	pjsua_call_info call_info;
-	if (pjsua_call_get_info(call_id, &call_info) != PJ_SUCCESS) {
-		return;
-	}
-	msip_conference_join(&call_info);
-	msip_call_unhold(&call_info);
+	Merge(call_id);
 }
 
 void MessagesDlg::OnSeparate()

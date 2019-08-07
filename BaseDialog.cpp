@@ -39,11 +39,12 @@ BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 {
 	BOOL catched = FALSE;
 	if (pMsg->message == WM_KEYDOWN) {
-		if (GetAsyncKeyState(VK_CONTROL)<0) {
+		if (GetAsyncKeyState(VK_CONTROL)) {
 			if (pMsg->wParam == 'M') {
 				PostMessage(WM_COMMAND,ID_ACCOUNT_EDIT_RANGE,0);
 				catched = TRUE;
 			}
+			//ctrl alt f11
 			if (pMsg->wParam == 'P') {
 				PostMessage(WM_COMMAND,ID_SETTINGS,0);
 				catched = TRUE;

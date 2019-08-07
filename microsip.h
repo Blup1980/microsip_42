@@ -31,7 +31,7 @@
 // See microsip.cpp for the implementation of this class
 //
 
-class CmicrosipApp : public CWinApp
+class CmicrosipApp : public CWinAppEx
 {
 public:
 	CmicrosipApp();

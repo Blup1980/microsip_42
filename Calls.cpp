@@ -347,7 +347,7 @@ void Calls::Add(pj_str_t id, CString number, CString name, int type)
 			if (sipuri.user.IsEmpty()) {
 				pCall->number = sipuri.domain+sipuri.parameters;
 			} else {
-				if (sipuri.parameters.IsEmpty() && (accountSettings.account.domain == sipuri.domain || sipuri.domain.IsEmpty())) {
+				if (sipuri.parameters.IsEmpty() && (get_account_domain() == sipuri.domain || sipuri.domain.IsEmpty())) {
 					pCall->number = sipuri.user;
 				} else {
 					pCall->number = sipuri.user+_T("@")+sipuri.domain+sipuri.parameters;
