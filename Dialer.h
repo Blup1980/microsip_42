@@ -33,6 +33,7 @@ class Dialer :
 	public CBaseDialog
 {
 	CFont m_font;
+	CFont m_font_number;
 	CFont m_font_balance;
 
 	CButton m_ButtonDND;
@@ -80,6 +81,7 @@ public:
 	~Dialer();
 	enum { IDD = IDD_DIALER };
 
+	void UpdateVoicemailButton(bool hasMail);
 	void RebuildButtons();
 	void DTMF(CString digits);
 	void Input(CString digits, BOOL disableDTMF = FALSE);
@@ -150,7 +152,7 @@ public:
 	afx_msg void OnRButtonUp( UINT nFlags, CPoint pt );
 	afx_msg void OnLButtonUp( UINT nFlags, CPoint pt );
 	afx_msg void OnMouseMove(UINT nFlags, CPoint pt );
-	afx_msg void OnVScroll( UINT, UINT, CScrollBar* );
+	afx_msg void OnHScroll( UINT, UINT, CScrollBar* );
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	afx_msg void OnTimer (UINT_PTR TimerVal);
 	CList<CButton*> shortcutButtons;

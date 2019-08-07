@@ -50,7 +50,7 @@ BOOL ShortcutsDlg::OnInitDialog()
 	((CButton*)GetDlgItem(IDC_SHORTCUTS_BOTTOM))->SetCheck(accountSettings.shortcutsBottom);
 
 	CComboBox *combobox;
-	for (int i=0; i<8; i++) {
+	for (int i=0; i<_GLOBAL_SHORTCUTS_QTY; i++) {
 		combobox= (CComboBox*)GetDlgItem(IDC_SHORTCUTS_COMBO_SHORTCUT1_TYPE+i*3);
 		combobox->AddString(Translate(_T("Call")));
 #ifdef _GLOBAL_VIDEO
@@ -59,8 +59,10 @@ BOOL ShortcutsDlg::OnInitDialog()
 		combobox->AddString(Translate(_T("Message")));
 		combobox->AddString(Translate(_T("DTMF")));		
 		combobox->AddString(Translate(_T("Call Transfer")));
+		combobox->SetCurSel(0);
 	}
-	for (int i=0;i<shortcuts.GetCount();i++) {
+	
+	for (int i=0;(i<_GLOBAL_SHORTCUTS_QTY && i<shortcuts.GetCount());i++) {
 		Shortcut shortcut = shortcuts.GetAt(i);
 		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_LABEL+i*3)->SetWindowText(shortcut.label);
 		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_NUMBER+i*3)->SetWindowText(shortcut.number);
@@ -110,7 +112,7 @@ void ShortcutsDlg::OnBnClickedOk()
 {
 	this->ShowWindow(SW_HIDE);
 	shortcuts.RemoveAll();
-	for (int i=0; i<8; i++) {
+	for (int i=0; i<_GLOBAL_SHORTCUTS_QTY; i++) {
 		Shortcut shortcut;
 		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_LABEL+i*3)->GetWindowText(shortcut.label);
 		GetDlgItem(IDC_SHORTCUTS_EDIT_SHORTCUT1_NUMBER+i*3)->GetWindowText(shortcut.number);

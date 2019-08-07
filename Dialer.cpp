@@ -82,31 +82,51 @@ void Dialer::RebuildShortcuts(bool init)
 	}
 	if (shortcuts.GetCount()) {
 		CFont* font = this->GetFont();
-		CRect rect;
-		GetWindowRect(rect);
-		ScreenToClient(rect);
-		CRect rectNumber;
-		GetDlgItem(IDC_NUMBER)->GetWindowRect(&rectNumber);
-		ScreenToClient(rectNumber);
+		CRect shortcutsRect;
+		GetWindowRect(shortcutsRect);
+		ScreenToClient(shortcutsRect);
+
+		CRect rectVoicemail;
+		m_ButtonVoicemail.GetWindowRect(&rectVoicemail);
+		ScreenToClient(rectVoicemail);
+		CRect mapRect;
+		int buttonHeight;
+		int moveFactor;
+		int moveFix;
 		if (mainDlg->shortcutsBottom) {
-			rect.top = rectNumber.bottom + 60;
+			mapRect.top = 8;
+			mapRect.left = 4;
+			MapDialogRect(&mapRect);
+			shortcutsRect.top = rectVoicemail.bottom + mapRect.top;
+			buttonHeight = 25;
+			moveFactor = 0;
 		}
 		else {
-			rect.top = 10 * (9 - shortcuts.GetCount()) + 31;
+			mapRect.top = 2;
+			mapRect.bottom = 1;
+			MapDialogRect(&mapRect);
+			shortcutsRect.top += mapRect.top;
+			shortcutsRect.bottom -= mapRect.bottom;
+			buttonHeight = shortcutsRect.Height() / shortcuts.GetCount();
+			shortcutsRect.top = shortcutsRect.top + (shortcutsRect.Height() - buttonHeight * shortcuts.GetCount())/2;
+			moveFactor = 100 / shortcuts.GetCount();
 		}
 		for (int i = 0; i < shortcuts.GetCount(); i++) {
 			Shortcut shortcut = shortcuts.GetAt(i);
 			CButton *button = new CButton();
 			if (mainDlg->shortcutsBottom) {
-				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, CRect(rectNumber.left + 7, rect.top, rectNumber.right - 7, rect.top + 25), this, IDC_SHORTCUT_RANGE + i);
-				AutoMove(button->m_hWnd, 44, 65, 12, 0);
+				CRect buttonRect;
+				buttonRect = CRect(shortcutsRect.left + mapRect.left, shortcutsRect.top, shortcutsRect.right - mapRect.left, shortcutsRect.top + buttonHeight);
+				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, buttonRect, this, IDC_SHORTCUT_RANGE + i);
+				AutoMove(button->m_hWnd, 0, 100, 100, 0);
+				shortcutsRect.top += buttonHeight;
 			}
 			else {
-				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, CRect(rect.right - 135, rect.top, rect.right - 10, rect.top + 25), this, IDC_SHORTCUT_RANGE + i);
-				AutoMove(button->m_hWnd, 72, 50, 10, 0);
+				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, CRect(shortcutsRect.right - 138, shortcutsRect.top, shortcutsRect.right - 4, shortcutsRect.top + buttonHeight), this, IDC_SHORTCUT_RANGE + i);
+				AutoMove(button->m_hWnd, 100, i * moveFactor, 0, moveFactor);
+				shortcutsRect.top += buttonHeight;
 			}
 			button->SetFont(font);
-			rect.top += 30;
 			shortcutButtons.AddTail(button);
 		}
 	}
@@ -128,79 +148,73 @@ BOOL Dialer::OnInitDialog()
 
 	RebuildButtons();
 
-	m_ButtonVoicemail.LoadBitmaps(IDB_VOICEMAIL, IDB_VOICEMAIL2);
-	m_ButtonVoicemail.SizeToContent();
+	UpdateVoicemailButton(false);
 
-	if (mainDlg->widthAdd) {
-		CRect pageRect;
-		m_ButtonVoicemail.GetWindowRect(pageRect);
-		ScreenToClient(pageRect);
-		m_ButtonVoicemail.SetWindowPos(NULL, pageRect.left + mainDlg->widthAdd, pageRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-	}
+	AutoMove(IDC_NUMBER, 0, 0, 100, 0);
 
-	AutoMove(IDC_PHONE_VOICEMAIL, 100, 0, 0, 0);
+	int height = 17;
+	int height4 = height * 4;
+	int height2 = height * 2;
+	int height3 = height * 3;
+	AutoMove(IDC_KEY_1, 0, 0, 33, height);
+	AutoMove(IDC_KEY_4, 0, height, 33, height);
+	AutoMove(IDC_KEY_7, 0, height2, 33, height);
+	AutoMove(IDC_KEY_STAR, 0, height3, 33, height);
+	AutoMove(IDC_REDIAL, 0, height4, 33, height);
+	AutoMove(IDC_DELETE, 0, height4, 33, 17);
 
-	AutoMove(IDC_BUTTON_PLUS_INPUT, 35, 50, 0, 0);
-	AutoMove(IDC_VOLUME_INPUT, 35, 50, 0, 0);
-	AutoMove(IDC_BUTTON_MINUS_INPUT, 35, 50, 0, 0);
-	AutoMove(IDC_BUTTON_MUTE_INPUT, 35, 50, 0, 0);
+	AutoMove(IDC_KEY_2, 33, 0, 34, height);
+	AutoMove(IDC_KEY_5, 33, height, 34, height);
+	AutoMove(IDC_KEY_8, 33, height2, 34, height);
+	AutoMove(IDC_KEY_0, 33, height3, 34, height);
+	AutoMove(IDC_KEY_PLUS, 33, height4, 34, height);
 
-	AutoMove(IDC_BUTTON_PLUS_OUTPUT, 65, 50, 0, 0);
-	AutoMove(IDC_VOLUME_OUTPUT, 65, 50, 0, 0);
-	AutoMove(IDC_BUTTON_MINUS_OUTPUT, 65, 50, 0, 0);
-	AutoMove(IDC_BUTTON_MUTE_OUTPUT, 65, 50, 0, 0);
-
-	AutoMove(IDC_KEY_1, 40, 43, 6, 2);
-	AutoMove(IDC_KEY_4, 40, 46, 6, 2);
-	AutoMove(IDC_KEY_7, 40, 49, 6, 2);
-	AutoMove(IDC_KEY_STAR, 40, 52, 6, 2);
-	AutoMove(IDC_REDIAL, 40, 55, 6, 2);
-	AutoMove(IDC_DELETE, 40, 55, 6, 2);
-
-	AutoMove(IDC_KEY_2, 47, 43, 6, 2);
-	AutoMove(IDC_KEY_5, 47, 46, 6, 2);
-	AutoMove(IDC_KEY_8, 47, 49, 6, 2);
-	AutoMove(IDC_KEY_0, 47, 52, 6, 2);
-	AutoMove(IDC_KEY_PLUS, 47, 55, 6, 2);
-
-	AutoMove(IDC_KEY_3, 54, 43, 6, 2);
-	AutoMove(IDC_KEY_6, 54, 46, 6, 2);
-	AutoMove(IDC_KEY_9, 54, 49, 6, 2);
-	AutoMove(IDC_KEY_GRATE, 54, 52, 6, 2);
-	AutoMove(IDC_CLEAR, 54, 55, 6, 2);
-
-	AutoMove(IDC_NUMBER, 40, 60, 20, 0);
+	AutoMove(IDC_KEY_3, 67, 0, 33, height);
+	AutoMove(IDC_KEY_6, 67, height, 33, height);
+	AutoMove(IDC_KEY_9, 67, height2, 33, height);
+	AutoMove(IDC_KEY_GRATE, 67, height3, 33, height);
+	AutoMove(IDC_CLEAR, 67, height4, 33, height);
 
 #ifdef _GLOBAL_VIDEO
-	AutoMove(IDC_VIDEO_CALL, 37, 62, 6, 2);
-	AutoMove(IDC_CALL, 44, 62, 12, 2);
-	AutoMove(IDC_MESSAGE, 57, 62, 6, 2);
+	AutoMove(IDC_VIDEO_CALL, 0, 85, 14, 15);
+	AutoMove(IDC_CALL, 14, 85, 72, 15);
+	AutoMove(IDC_MESSAGE, 86, 85, 14, 15);
 #else
-	AutoMove(IDC_CALL, 36, 62, 21, 2);
-	AutoMove(IDC_MESSAGE, 58, 62, 6, 2);
+	AutoMove(IDC_CALL, 0, 85, 84, 15);
+	AutoMove(IDC_MESSAGE, 84, 85, 16, 15);
 #endif
 
-	AutoMove(IDC_HOLD, 37, 62, 6, 2);
-	AutoMove(IDC_END, 44, 62, 12, 2);
-	AutoMove(IDC_TRANSFER, 57, 62, 6, 2);
+	AutoMove(IDC_HOLD, 0, 85, 14, 15);
+	AutoMove(IDC_END, 14, 85, 72, 15);
+	AutoMove(IDC_TRANSFER, 86, 85, 14, 15);
 
-		DialedLoad();
+	AutoMove(IDC_BUTTON_MUTE_OUTPUT, 0, 100, 0, 0);
+	AutoMove(IDC_BUTTON_MUTE_INPUT, 0, 100, 0, 0);
+	AutoMove(IDC_VOLUME_INPUT, 0, 100, 100, 0);
+	AutoMove(IDC_VOLUME_OUTPUT, 0, 100, 100, 0);
+
+	AutoMove(IDC_PHONE_VOICEMAIL, 100, 100, 0, 0);
+
+
+	DialedLoad();
 
 	LOGFONT lf;
 	font->GetLogFont(&lf);
-	lf.lfHeight = 22;
-	CDC *pDC = GetDC();
-	if (pDC) {
-		int dpiY = GetDeviceCaps(pDC->m_hDC, LOGPIXELSY);
-		lf.lfHeight = MulDiv(lf.lfHeight, dpiY, 96);
-		ReleaseDC(pDC);
-	}
 	StringCchCopy(lf.lfFaceName, LF_FACESIZE, _T("Franklin Gothic Medium"));
+	//--
+	CDC *pDC = GetDC();
+	int dpiY = GetDeviceCaps(pDC->m_hDC, LOGPIXELSY);
+	//--
+	lf.lfHeight = MulDiv(22, dpiY, 96);
 	m_font.CreateFontIndirect(&lf);
-
+	//--
+	m_font_number.CreateFontIndirect(&lf);
+	//--
+	ReleaseDC(pDC);
+	//--
 	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
 	combobox->SetWindowPos(NULL, 0, 0, combobox->GetDroppedWidth(), 400, SWP_NOZORDER | SWP_NOMOVE);
-	combobox->SetFont(&m_font);
+	combobox->SetFont(&m_font_number);
 
 	GetDlgItem(IDC_KEY_1)->SetFont(&m_font);
 	GetDlgItem(IDC_KEY_2)->SetFont(&m_font);
@@ -220,9 +234,9 @@ BOOL Dialer::OnInitDialog()
 	GetDlgItem(IDC_DELETE)->SetFont(&m_font);
 
 	if (m_ToolTip.Create(this)) {
-		m_ToolTip.AddTool(&m_ButtonDialerRedial, _T("Redial"));
-		m_ToolTip.AddTool(&m_ButtonDialerDelete, _T("Backspace"));
-		m_ToolTip.AddTool(&m_ButtonDialerClear, _T("Clear"));
+		m_ToolTip.AddTool(&m_ButtonDialerRedial, Translate(_T("Redial")));
+		m_ToolTip.AddTool(&m_ButtonDialerDelete, Translate(_T("Backspace")));
+		m_ToolTip.AddTool(&m_ButtonDialerClear, Translate(_T("Clear")));
 		m_ToolTip.Activate(TRUE);
 	}
 
@@ -230,10 +244,10 @@ BOOL Dialer::OnInitDialog()
 	muteInput = FALSE;
 
 	m_SliderCtrlOutput.SetRange(0, 100);
-	m_SliderCtrlOutput.SetPos(100 - accountSettings.volumeOutput);
+	m_SliderCtrlOutput.SetPos(accountSettings.volumeOutput);
 
 	m_SliderCtrlInput.SetRange(0, 100);
-	m_SliderCtrlInput.SetPos(100 - accountSettings.volumeInput);
+	m_SliderCtrlInput.SetPos(accountSettings.volumeInput);
 
 	m_hIconMuteOutput = LoadImageIcon(IDI_MUTE_OUTPUT);
 	((CButton*)GetDlgItem(IDC_BUTTON_MUTE_OUTPUT))->SetIcon(m_hIconMuteOutput);
@@ -322,11 +336,23 @@ BEGIN_MESSAGE_MAP(Dialer, CBaseDialog)
 	ON_BN_CLICKED(IDC_DELETE, &Dialer::OnBnClickedDelete)
 	ON_BN_CLICKED(IDC_KEY_PLUS, &Dialer::OnBnClickedKeyPlus)
 	ON_BN_CLICKED(IDC_CLEAR, &Dialer::OnBnClickedClear)
-	ON_WM_VSCROLL()
+	ON_WM_HSCROLL()
 	ON_WM_CREATE()
 	ON_WM_DESTROY()
 	ON_WM_TIMER()
 END_MESSAGE_MAP()
+
+void Dialer::UpdateVoicemailButton(bool hasMail)
+{
+	if (hasMail) {
+		m_ButtonVoicemail.LoadBitmaps(IDB_VMAIL, IDB_VMAIL_DOWN, IDB_VMAIL_FOCUS);
+	}
+	else {
+		m_ButtonVoicemail.LoadBitmaps(IDB_VMAIL_GREY, IDB_VMAIL_GREY_DOWN, IDB_VMAIL_GREY_FOCUS);
+	}
+	m_ButtonVoicemail.SizeToContent();
+
+}
 
 void Dialer::RebuildButtons()
 {
@@ -336,27 +362,43 @@ void Dialer::RebuildButtons()
 	if (IsChild(&m_ButtonAA)) {
 		m_ButtonAA.DestroyWindow();
 	}
-	int width = 22;
-	int height = 13;
-	int step = 26;
-	CRect rectUnits = CRect(4, 4, width + 4, height + 4);
-	if (accountSettings.denyIncoming == _T("button")) {
-		CRect rect = rectUnits;
-		MapDialogRect(&rect);
-		m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_DND);
-		m_ButtonDND.SetFont(GetFont());
-		m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
-		rectUnits.left += step;
-		rectUnits.right += step;
+
+	CRect rect;
+	m_ButtonVoicemail.GetWindowRect(&rect);
+	ScreenToClient(rect);
+	rect.top -= 1;
+	rect.bottom += 2;
+	rect.left -= 1;
+	rect.right += 2;
+
+	CRect mapRect;
+	mapRect.bottom = 5;
+	MapDialogRect(&mapRect);
+	int stepPx = mapRect.bottom + rect.Width();
+
+	if (1 || accountSettings.accountId && !accountSettings.account.voicemailNumber.IsEmpty()) {
+		m_ButtonVoicemail.ShowWindow(SW_SHOW);
+		rect.left -= stepPx;
+		rect.right -= stepPx;
+	}
+	else {
+		m_ButtonVoicemail.ShowWindow(SW_HIDE);
 	}
 	if (accountSettings.autoAnswer == _T("button")) {
-		CRect rect = rectUnits;
-		MapDialogRect(&rect);
 		m_ButtonAA.Create(Translate(_T("AA")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_AA);
 		m_ButtonAA.SetFont(GetFont());
 		m_ButtonAA.SetCheck(accountSettings.AA ? BST_CHECKED : BST_UNCHECKED);
-		rectUnits.left += step;
-		rectUnits.right += step;
+		AutoMove(m_ButtonAA.m_hWnd, 100, 100, 0, 0);
+		rect.left -= stepPx;
+		rect.right -= stepPx;
+	}
+	if (accountSettings.denyIncoming == _T("button")) {
+		m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_PHONE_DND);
+		m_ButtonDND.SetFont(GetFont());
+		m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
+		AutoMove(m_ButtonDND.m_hWnd, 100, 100, 0, 0);
+		rect.left -= stepPx;
+		rect.right -= stepPx;
 	}
 }
 
@@ -919,7 +961,7 @@ void Dialer::OnMouseMove(UINT nFlags, CPoint pt)
 {
 }
 
-void Dialer::OnVScroll(UINT, UINT, CScrollBar* sender)
+void Dialer::OnHScroll(UINT, UINT, CScrollBar* sender)
 {
 	if (pj_ready) {
 		int pos;
@@ -930,7 +972,7 @@ void Dialer::OnVScroll(UINT, UINT, CScrollBar* sender)
 				OnBnClickedMuteOutput();
 				return;
 			}
-			pos = 100 - m_SliderCtrlOutput.GetPos();
+			pos = m_SliderCtrlOutput.GetPos();
 			//msip_audio_output_set_volume(pos,muteOutput);
 			msip_audio_conf_set_volume(pos, muteOutput);
 			accountSettings.volumeOutput = pos;
@@ -943,7 +985,7 @@ void Dialer::OnVScroll(UINT, UINT, CScrollBar* sender)
 				OnBnClickedMuteInput();
 				return;
 			}
-			pos = 100 - m_SliderCtrlInput.GetPos();
+			pos = m_SliderCtrlInput.GetPos();
 			msip_audio_input_set_volume(pos, muteInput);
 			accountSettings.volumeInput = pos;
 			mainDlg->AccountSettingsPendingSave();
@@ -960,7 +1002,7 @@ void Dialer::OnBnClickedPlusInput()
 			pos = 0;
 		}
 		m_SliderCtrlInput.SetPos(pos);
-		OnVScroll(0, 0, (CScrollBar *)&m_SliderCtrlInput);
+		OnHScroll(0, 0, (CScrollBar *)&m_SliderCtrlInput);
 	}
 
 
@@ -975,7 +1017,7 @@ void Dialer::OnBnClickedMinusInput()
 			pos = 100;
 		}
 		m_SliderCtrlInput.SetPos(pos);
-		OnVScroll(0, 0, (CScrollBar *)&m_SliderCtrlInput);
+		OnHScroll(0, 0, (CScrollBar *)&m_SliderCtrlInput);
 	}
 }
 
@@ -988,7 +1030,7 @@ void Dialer::OnBnClickedPlusOutput()
 			pos = 0;
 		}
 		m_SliderCtrlOutput.SetPos(pos);
-		OnVScroll(0, 0, (CScrollBar *)&m_SliderCtrlOutput);
+		OnHScroll(0, 0, (CScrollBar *)&m_SliderCtrlOutput);
 	}
 }
 
@@ -1001,7 +1043,7 @@ void Dialer::OnBnClickedMinusOutput()
 			pos = 100;
 		}
 		m_SliderCtrlOutput.SetPos(pos);
-		OnVScroll(0, 0, (CScrollBar *)&m_SliderCtrlOutput);
+		OnHScroll(0, 0, (CScrollBar *)&m_SliderCtrlOutput);
 	}
 }
 
@@ -1011,12 +1053,12 @@ void Dialer::OnBnClickedMuteOutput()
 	if (button->GetCheck() == BST_CHECKED) {
 		button->SetIcon(m_hIconMutedOutput);
 		muteOutput = TRUE;
-		OnVScroll(0, 0, NULL);
+		OnHScroll(0, 0, NULL);
 	}
 	else {
 		button->SetIcon(m_hIconMuteOutput);
 		muteOutput = FALSE;
-		OnVScroll(0, 0, NULL);
+		OnHScroll(0, 0, NULL);
 	}
 }
 
@@ -1026,12 +1068,12 @@ void Dialer::OnBnClickedMuteInput()
 	if (button->GetCheck() == BST_CHECKED) {
 		button->SetIcon(m_hIconMutedInput);
 		muteInput = TRUE;
-		OnVScroll(0, 0, NULL);
+		OnHScroll(0, 0, NULL);
 	}
 	else {
 		button->SetIcon(m_hIconMuteInput);
 		muteInput = FALSE;
-		OnVScroll(0, 0, NULL);
+		OnHScroll(0, 0, NULL);
 	}
 }
 
@@ -1069,9 +1111,9 @@ void Dialer::TimerVuMeter()
 	//CString s;
 	//s.Format(_T("tx %d rx %d"),tx_level_max, tx_level_max);
 	//mainDlg->SetWindowText(s);
-	m_SliderCtrlInput.SetSelection(100 - tx_level / 0.95, 100);
+	m_SliderCtrlInput.SetSelection(0, tx_level / 0.95);
 	m_SliderCtrlInput.Invalidate(FALSE);
-	m_SliderCtrlOutput.SetSelection(100 - rx_level / 1.15, 100);
+	m_SliderCtrlOutput.SetSelection(0, rx_level / 1.15);
 	m_SliderCtrlOutput.Invalidate(FALSE);
 }
 

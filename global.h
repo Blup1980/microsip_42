@@ -110,6 +110,7 @@ struct Contact {
 	BOOL directory;
 	time_t presenceTime;
 	BOOL ringing;
+	CString presenceNote;
 	int image;
 	BOOL candidate;
 	Contact():presenceTime(0),ringing(FALSE),image(0),candidate(FALSE){}

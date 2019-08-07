@@ -59,11 +59,15 @@ BOOL Contacts::OnInitDialog()
 	imageList->Add(theApp.LoadIcon(IDI_BUSY));
 	imageList->Add(theApp.LoadIcon(IDI_DEFAULT));
 
-
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	list->SetImageList(imageList,LVSIL_SMALL);
 
-	list->InsertColumn(0,Translate(_T("Name")),LVCFMT_LEFT, accountSettings.contactsWidth0>0?accountSettings.contactsWidth0:242);
+	CRect rect;
+	list->GetClientRect(rect);
+
+	int defaultWidth = rect.Width() - GetSystemMetrics(SM_CXVSCROLL);
+	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : defaultWidth/2);
+	list->InsertColumn(1, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.contactsWidth1 > 0 ? accountSettings.contactsWidth1 : defaultWidth/2);
 	list->SetExtendedStyle( list->GetExtendedStyle() |  LVS_EX_FULLROWSELECT );
 	
 	ContactsLoad();

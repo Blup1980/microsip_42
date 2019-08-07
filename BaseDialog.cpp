@@ -55,7 +55,7 @@ BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 				PostMessage(WM_COMMAND,ID_MENU_WEBSITE,0);
 				catched = TRUE;
 			}
-			if (pMsg->wParam == 'Q' || pMsg->wParam == 'X') {
+			if (pMsg->wParam == 'Q') {
 				PostMessage(WM_COMMAND,ID_EXIT,0);
 				catched = TRUE;
 			}

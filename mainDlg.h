@@ -118,7 +118,7 @@ public:
 	void PJDestroy();
 	void PJAccountAdd();
 	void PJAccountAddLocal();
-	void PJAccountDelete();
+	void PJAccountDelete(bool deep = false);
 	void PJAccountDeleteLocal();
 	void PJAccountConfig(pjsua_acc_config *acc_cfg);
 
@@ -143,6 +143,8 @@ public:
 	void SetupJumpList();
 	void RemoveJumpList();
 	void MainPopupMenu();
+	void SetPaneText2(CString str = _T(""));
+
 	void AccountSettingsPendingSave();
 	void UpdateSoundDevicesIds();
 	void PlayerStop();
@@ -217,6 +219,7 @@ public:
 	afx_msg void OnMenuAccountAdd();
 	afx_msg void OnMenuAccountChange(UINT nID);
 	afx_msg void OnMenuAccountEdit(UINT nID);
+	afx_msg void OnMenuCustomRange(UINT nID);
 	afx_msg void OnMenuSettings();
 	afx_msg void OnMenuShortcuts();
 	afx_msg void OnMenuAlwaysOnTop();

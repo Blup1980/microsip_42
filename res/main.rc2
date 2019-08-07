@@ -67,8 +67,12 @@ IDI_CLOSE_2             ICON                    "res\\close2.ico"
 
 IDB_DOWNARROW           BITMAP                  "res\\downarrow.bmp"
 IDB_UPARROW             BITMAP                  "res\\uparrow.bmp"
-IDB_VOICEMAIL             BITMAP                  "res\\voicemail.bmp"
-IDB_VOICEMAIL2             BITMAP                  "res\\voicemail2.bmp"
+IDB_VMAIL               BITMAP                  "res\\voicemail.bmp"
+IDB_VMAIL_FOCUS         BITMAP                  "res\\voicemail-focus.bmp"
+IDB_VMAIL_DOWN          BITMAP                  "res\\voicemail-down.bmp"
+IDB_VMAIL_GREY               BITMAP                  "res\\voicemail-grey.bmp"
+IDB_VMAIL_GREY_FOCUS         BITMAP                  "res\\voicemail-grey-focus.bmp"
+IDB_VMAIL_GREY_DOWN          BITMAP                  "res\\voicemail-grey-down.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 

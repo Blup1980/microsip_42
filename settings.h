@@ -40,7 +40,8 @@ struct Account {
 	bool allowRewrite;
 	bool disableSessionTimer;
 	bool operator==(const Account& a) const	{
-		if (server == a.server
+		if (label == a.label
+			&& server == a.server
 			&& proxy == a.proxy
 			&& username == a.username
 			&& domain == a.domain
@@ -61,6 +62,7 @@ struct Account {
 	}
 	void operator=(const Account& a)
 	{
+		label = a.label;
 		server = a.server;
 		proxy = a.proxy;
 		username = a.username;
@@ -74,6 +76,13 @@ struct Account {
 		ice = a.ice;
 		allowRewrite = a.allowRewrite;
 	};
+	Account() : port(0)
+		, rememberPassword(false)
+		, publish(false)
+		, ice(false)
+		, allowRewrite(false)
+		, disableSessionTimer(false)
+	{}
 };
 
 struct AccountSettings {
@@ -148,6 +157,7 @@ struct AccountSettings {
 	int callsWidth4;
 
 	int contactsWidth0;
+	int contactsWidth1;
 
 	int volumeOutput;
 	int volumeInput;

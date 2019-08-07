@@ -23,6 +23,9 @@
 #include <algorithm>
 #include <vector>
 
+#include <Msi.h>
+#pragma comment(lib, "Msi.lib")
+
 using namespace MFC;
 
 AccountSettings accountSettings;
@@ -70,7 +73,18 @@ void AccountSettings::Init()
 			pathInstaller.ReleaseBuffer();
 			regKey.Close();
 		}
-
+		if (pathInstaller.IsEmpty()) {
+			ptr = pathInstaller.GetBuffer(255);
+			DWORD bChars = 256;
+			UINT e = MsiGetProductInfo(_T("{F6560769-8A2F-4874-9E76-D86B016CBDFF}"), INSTALLPROPERTY_PRODUCTNAME, ptr, &bChars);
+			if (e == ERROR_SUCCESS) {
+				pathInstaller = pathExe;
+			}
+			else {
+				pathInstaller.ReleaseBuffer();
+				pathInstaller.Empty();
+			}
+		}
 		CString appDataRoaming;
 		ptr = appDataRoaming.GetBuffer(MAX_PATH);
 		SHGetSpecialFolderPath(
@@ -275,10 +289,12 @@ void AccountSettings::Init()
 	str.ReleaseBuffer();
 	ec = str == _T("0") ? 0 : 1;
 
+	//--
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("forceCodec"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	forceCodec = str == "1" ? 1 : 0;
+	forceCodec = _wtoi(str);
+	//--
 
 #ifdef _GLOBAL_VIDEO
 	ptr = videoCaptureDevice.GetBuffer(255);
@@ -392,6 +408,10 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("contactsWidth0"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	contactsWidth0 = _wtoi(str);
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("contactsWidth1"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	contactsWidth1 = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("volumeOutput"), NULL, ptr, 256, iniFile);
@@ -837,6 +857,8 @@ void AccountSettings::SettingsSave()
 
 	str.Format(_T("%d"), contactsWidth0);
 	WritePrivateProfileString(section, _T("contactsWidth0"), str, iniFile);
+	str.Format(_T("%d"), contactsWidth1);
+	WritePrivateProfileString(section, _T("contactsWidth1"), str, iniFile);
 
 	str.Format(_T("%d"), volumeOutput);
 	WritePrivateProfileString(section, _T("volumeOutput"), str, iniFile);
@@ -905,8 +927,7 @@ void ShortcutsLoad()
 	CString val;
 	LPTSTR ptr = val.GetBuffer(255);
 	int i = 0;
-	// allow 20 shortcuts max
-	while (i < 20) {
+	while (i < _GLOBAL_SHORTCUTS_QTY) {
 		key.Format(_T("%d"), i);
 		if (GetPrivateProfileString(_T("Shortcuts"), key, NULL, ptr, 256, accountSettings.iniFile)) {
 			ShortcutDecode(ptr, &shortcut);
@@ -916,6 +937,8 @@ void ShortcutsLoad()
 			break;
 		}
 		i++;
+	}
+	if (!shortcuts.GetCount()) {
 	}
 }
 

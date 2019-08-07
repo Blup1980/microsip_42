@@ -51,7 +51,8 @@ static UINT WM_SHELLHOOKMESSAGE;
 
 static UINT BASED_CODE indicators[] =
 {
-	IDS_STATUSBAR
+	IDS_STATUSBAR,
+	IDS_STATUSBAR2
 };
 
 static bool timerContactBlinkState = false;
@@ -889,11 +890,11 @@ static void on_buddy_state(pjsua_buddy_id buddy_id)
 					image = MSIP_CONTACT_ICON_OFFLINE;
 					break;
 				case PJSUA_BUDDY_STATUS_ONLINE:
-					if (PjToStr(&buddy_info.status_text) == _T("Ringing")) {
-						ringing = true;
-					}
-					if (PjToStr(&buddy_info.status_text) == _T("On the phone")) {
+					if (buddy_info.rpid.activity == PJRPID_ACTIVITY_ON_THE_PHONE) {				
 						image = MSIP_CONTACT_ICON_ON_THE_PHONE;
+						if (PjToStr(&buddy_info.status_text).Left(4) == _T("Ring")) {
+							ringing = true;
+						}
 					}
 					else if (buddy_info.rpid.activity == PJRPID_ACTIVITY_AWAY)
 					{
@@ -915,6 +916,7 @@ static void on_buddy_state(pjsua_buddy_id buddy_id)
 				}
 				contact->image = image;
 				contact->ringing = ringing;
+				contact->presenceNote = PjToStr(&buddy_info.status_text);
 				mainDlg->PostMessage(UM_ON_BUDDY_STATE, (WPARAM)contact);
 			}
 		}
@@ -930,6 +932,7 @@ LRESULT CmainDlg::onBuddyState(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < n; i++) {
 		if (contact == (Contact *)list->GetItemData(i)) {
 			list->SetItem(i, 0, LVIF_IMAGE, 0, contact->image, 0, 0, 0);
+			list->SetItemText(i, 1, contact->presenceNote);
 			found = true;
 		}
 	}
@@ -1157,7 +1160,7 @@ static void on_mwi_info(pjsua_acc_id acc_id, pjsua_mwi_info *mwi_info)
 LRESULT CmainDlg::onMWIInfo(WPARAM wParam, LPARAM lParam)
 {
 	bool hasMail = (bool)wParam;
-	pageDialer->m_ButtonVoicemail.ShowWindow(hasMail ? SW_SHOW : SW_HIDE);
+	pageDialer->UpdateVoicemailButton(hasMail);
 	return 0;
 }
 
@@ -1265,14 +1268,14 @@ CmainDlg::~CmainDlg(void)
 
 void CmainDlg::OnDestroy()
 {
-	accountSettings.SettingsSave();
-
 	if (mmNotificationClient) {
 		delete mmNotificationClient;
 	}
 	WTSUnRegisterSessionNotification(m_hWnd);
 
 	PJDestroy();
+
+	accountSettings.SettingsSave();
 
 	RemoveJumpList();
 	if (tnd.hWnd) {
@@ -1335,6 +1338,7 @@ BEGIN_MESSAGE_MAP(CmainDlg, CBaseDialog)
 	ON_COMMAND(ID_ACCOUNT_ADD, OnMenuAccountAdd)
 	ON_COMMAND_RANGE(ID_ACCOUNT_CHANGE_RANGE, ID_ACCOUNT_CHANGE_RANGE + 99, OnMenuAccountChange)
 	ON_COMMAND_RANGE(ID_ACCOUNT_EDIT_RANGE, ID_ACCOUNT_EDIT_RANGE + 99, OnMenuAccountEdit)
+	ON_COMMAND_RANGE(ID_CUSTOM_RANGE, ID_CUSTOM_RANGE + 99, OnMenuCustomRange)
 	ON_COMMAND(ID_SETTINGS, OnMenuSettings)
 	ON_COMMAND(ID_SHORTCUTS, OnMenuShortcuts)
 	ON_COMMAND(ID_ALWAYS_ON_TOP, OnMenuAlwaysOnTop)
@@ -1443,20 +1447,12 @@ L16/44100/2;LPCM 44 kHz Stereo");
 int CmainDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 
-	if (accountSettings.noResize) {
-		ModifyStyle(WS_MAXIMIZEBOX | WS_THICKFRAME, WS_BORDER);
-	}
-
-	if (langPack.rtl) {
-		ModifyStyleEx(0, WS_EX_LAYOUTRTL);
-	}
-
 	ShortcutsLoad();
 	shortcutsEnabled = accountSettings.enableShortcuts;
 	shortcutsBottom = accountSettings.shortcutsBottom;
 	if (accountSettings.enableShortcuts) {
 		if (shortcutsBottom) {
-			heightAdd += 10 + shortcuts.GetCount() * 30;
+			heightAdd += 10 + shortcuts.GetCount() * 25;
 		}
 		else {
 			widthAdd += 140;
@@ -1466,6 +1462,15 @@ int CmainDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (widthAdd || heightAdd || heightFix) {
 		SetWindowPos(NULL, 0, 0, lpCreateStruct->cx + widthAdd, lpCreateStruct->cy + heightAdd + heightFix, SWP_NOMOVE | SWP_NOZORDER);
 	}
+
+	if (accountSettings.noResize) {
+		ModifyStyle(WS_MAXIMIZEBOX | WS_THICKFRAME, WS_BORDER);
+	}
+
+	if (langPack.rtl) {
+		ModifyStyleEx(0, WS_EX_LAYOUTRTL);
+	}
+
 	return CBaseDialog::OnCreate(lpCreateStruct);
 }
 
@@ -1537,10 +1542,11 @@ BOOL CmainDlg::OnInitDialog()
 	}
 
 	m_bar.Create(this);
-	m_bar.SetIndicators(indicators, 1);
+	m_bar.SetIndicators(indicators, sizeof(indicators) / sizeof(indicators[0]));
 	m_bar.SetPaneInfo(0, IDS_STATUSBAR, SBPS_STRETCH, 0);
+	m_bar.SetPaneInfo(1, IDS_STATUSBAR2, SBPS_NOBORDERS, 0);
 	RepositionBars(AFX_IDW_CONTROLBAR_FIRST, AFX_IDW_CONTROLBAR_LAST, IDS_STATUSBAR);
-	m_bar.SetPaneText(0, _T(""));
+
 	AutoMove(m_bar.m_hWnd, 0, 100, 100, 0);
 
 	//--set window pos
@@ -1745,7 +1751,7 @@ void CmainDlg::OnMenuAccountAdd()
 void CmainDlg::OnMenuAccountChange(UINT nID)
 {
 	if (accountSettings.accountId) {
-		PJAccountDelete();
+		PJAccountDelete(true);
 	}
 	int idNew = nID - ID_ACCOUNT_CHANGE_RANGE + 1;
 	if (accountSettings.accountId != idNew) {
@@ -1769,6 +1775,10 @@ void CmainDlg::OnMenuAccountEdit(UINT nID)
 	}
 	int id = accountSettings.accountId > 0 ? accountSettings.accountId : nID - ID_ACCOUNT_EDIT_RANGE + 1;
 	accountDlg->Load(id);
+}
+
+void CmainDlg::OnMenuCustomRange(UINT nID)
+{
 }
 
 void CmainDlg::OnMenuSettings()
@@ -1881,19 +1891,19 @@ void CmainDlg::MainPopupMenu()
 			//-- edit
 			CMenu editMenu;
 			editMenu.CreatePopupMenu();
-			Account account;
+			Account acc;
 			int i = 0;
 			bool checked = false;
 			while (true) {
-				if (!accountSettings.AccountLoad(i + 1, &account)) {
+				if (!accountSettings.AccountLoad(i + 1, &acc)) {
 					break;
 				}
 
-				if (!account.label.IsEmpty()) {
-					str = account.label;
+				if (!acc.label.IsEmpty()) {
+					str = acc.label;
 				}
 				else {
-					str.Format(_T("%s@%s"), account.username, account.domain);
+					str.Format(_T("%s@%s"), acc.username, acc.domain);
 				}
 					tracker->InsertMenu(ID_ACCOUNT_ADD, (accountSettings.accountId == i + 1 ? MF_CHECKED : 0), ID_ACCOUNT_CHANGE_RANGE + i, str);
 					editMenu.AppendMenu(MF_STRING, ID_ACCOUNT_EDIT_RANGE + i, str);
@@ -2054,7 +2064,7 @@ LRESULT CmainDlg::onCreateRingingDlg(WPARAM wParam, LPARAM lParam)
 
 LRESULT CmainDlg::onRefreshLevels(WPARAM wParam, LPARAM lParam)
 {
-	pageDialer->OnVScroll(0, 0, NULL);
+	pageDialer->OnHScroll(0, 0, NULL);
 	return 0;
 }
 
@@ -2718,20 +2728,25 @@ void CmainDlg::PJAccountAdd()
 		}
 
 	CString title = _T(_GLOBAL_NAME_NICE);
+	CString titleAdder;
 	CString usernameLocal;
 	usernameLocal = accountSettings.account.username;
 	if (!accountSettings.account.label.IsEmpty())
 	{
-		title.Append(_T(" - ") + accountSettings.account.label);
+		titleAdder = accountSettings.account.label;
 	}
 	else if (!accountSettings.account.displayName.IsEmpty())
 	{
-		title.Append(_T(" - ") + accountSettings.account.displayName);
+		titleAdder = accountSettings.account.displayName;
 	}
 	else if (!usernameLocal.IsEmpty())
 	{
-		title.Append(_T(" - ") + usernameLocal);
+		titleAdder = usernameLocal;
 	}
+	if (!titleAdder.IsEmpty()) {
+		title.AppendFormat(_T(" - %s"), titleAdder);
+	}
+	SetPaneText2(titleAdder);
 	SetWindowText(title);
 
 	pjsua_acc_config acc_cfg;
@@ -2882,7 +2897,7 @@ void CmainDlg::PJAccountAddLocal()
 /**
  * Delete account if exists.
  */
-void CmainDlg::PJAccountDelete()
+void CmainDlg::PJAccountDelete(bool deep)
 {
 	if (pageContacts) {
 		pageContacts->PresenceUnsubsribe();
@@ -2892,6 +2907,7 @@ void CmainDlg::PJAccountDelete()
 		account = PJSUA_INVALID_ID;
 	}
 	onMWIInfo(0, 0);
+	SetPaneText2();
 	SetWindowText(_T(_GLOBAL_NAME_NICE));
 	UpdateWindowText();
 }
@@ -3508,6 +3524,20 @@ LRESULT CmainDlg::onSetPaneText(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+void CmainDlg::SetPaneText2(CString str)
+{
+	if (str.IsEmpty()) {
+		m_bar.SetPaneInfo(1, IDS_STATUSBAR2, SBPS_NOBORDERS, 0);
+	}
+	else {
+		CSize size = m_bar.GetDC()->GetTextExtent(str);
+		int width = size.cx;
+		m_bar.SetPaneInfo(1, IDS_STATUSBAR2, SBPS_NORMAL, width);
+	}
+	m_bar.SetPaneText(1, str);
+	RepositionBars(AFX_IDW_CONTROLBAR_FIRST, AFX_IDW_CONTROLBAR_LAST, IDS_STATUSBAR);
+}
+
 BOOL CmainDlg::CopyStringToClipboard(IN const CString & str)
 {
 	// Open the clipboard
@@ -3814,7 +3844,22 @@ void CmainDlg::CheckUpdates()
 			DWORD dwStatusCode;
 			pFile->QueryInfoStatusCode(dwStatusCode);
 			if (dwStatusCode == 202) {
-				if (::MessageBox(this->m_hWnd, Translate(_T("Do you want to update now?")), Translate(_T("Update Available")), MB_YESNO | MB_ICONQUESTION) == IDYES)
+				CString caption = Translate(_T("Update Available"));
+				CString message = Translate(_T("Do you want to update now?"));
+				CStringA body;
+				int i;
+				UINT len = 0;
+				do {
+					LPSTR p = body.GetBuffer(len + 1024);
+					i = pFile->Read(p + len, 1024);
+					len += i;
+					body.ReleaseBuffer(len);
+				} while (i>0);
+				//--
+				if (!body.IsEmpty()) {
+					message.AppendFormat(_T("\r\n\r\n%s"), CString(body));
+				}
+				if (::MessageBox(this->m_hWnd, message, caption, MB_YESNO | MB_ICONQUESTION) == IDYES)
 				{
 					OpenURL(_T("http://www.microsip.org/downloads"));
 }

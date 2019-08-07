@@ -75,6 +75,8 @@ BOOL AccountDlg::OnInitDialog()
 	combobox->AddString(Translate(_T("Mandatory")));
 	combobox->SetCurSel(0);
 
+	((CButton*)GetDlgItem(IDC_ICE))->SetCheck(m_Account.ice);
+
 	CEdit* edit;
 
 	combobox= (CComboBox*)GetDlgItem(IDC_PUBLIC_ADDR);
@@ -233,7 +235,6 @@ int i;
 
 	((CButton*)GetDlgItem(IDC_PUBLISH))->SetCheck(m_Account.publish);
 
-	((CButton*)GetDlgItem(IDC_ICE))->SetCheck(m_Account.ice);
 	((CButton*)GetDlgItem(IDC_REWRITE))->SetCheck(m_Account.allowRewrite);
 	((CButton*)GetDlgItem(IDC_SESSION_TIMER))->SetCheck(m_Account.disableSessionTimer);
 	if (accountId>0 && !m_Account.username.IsEmpty()) {
@@ -317,9 +318,9 @@ void AccountDlg::OnBnClickedOk()
 			m_Account.srtp=_T("");
 	}
 
-	m_Account.publish = ((CButton*)GetDlgItem(IDC_PUBLISH))->GetCheck();
-
 	m_Account.ice = ((CButton*)GetDlgItem(IDC_ICE))->GetCheck();
+
+	m_Account.publish = ((CButton*)GetDlgItem(IDC_PUBLISH))->GetCheck();
 
 	m_Account.allowRewrite = ((CButton*)GetDlgItem(IDC_REWRITE))->GetCheck();
 
@@ -363,12 +364,13 @@ void AccountDlg::OnBnClickedOk()
 
 	accountSettings.AccountSave(accountId,&m_Account);
 
-	mainDlg->PJAccountDelete();
+	mainDlg->PJAccountDelete(true);
 
 	accountSettings.accountId = accountId;
 	accountSettings.account = m_Account;
 	accountSettings.AccountLoad(accountSettings.accountId,&accountSettings.account);
 	accountSettings.SettingsSave();
+	mainDlg->pageDialer->RebuildButtons();
 	mainDlg->PJAccountAdd();
 	OnClose();
 }
@@ -497,7 +499,7 @@ void AccountDlg::OnNMClickSyslinkDelete(NMHDR *pNMHDR, LRESULT *pResult)
 		}
 		accountSettings.AccountDelete(i);
 		if (accountId && accountId == accountSettings.accountId) {
-			mainDlg->PJAccountDelete();
+			mainDlg->PJAccountDelete(true);
 			if (i>1) {
 				accountSettings.accountId = 1;
 				accountSettings.AccountLoad(accountSettings.accountId,&accountSettings.account);
