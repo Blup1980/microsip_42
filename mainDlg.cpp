@@ -2428,7 +2428,7 @@ void CmainDlg::OnTimerJoystickCheck()
 	JOYINFO joyinfo;
 	if (joyGetPos(JOYSTICKID1, &joyinfo) != JOYERR_UNPLUGGED) {
 		if (joyStickCaptured == false) {
-			joySetCapture(*mainDlg, JOYSTICKID1, 1000, false);
+			joySetCapture(*mainDlg, JOYSTICKID1, 200, false);
 			joyStickCaptured = true;
 		}
 	} else {
