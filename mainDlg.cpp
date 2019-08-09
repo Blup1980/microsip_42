@@ -1333,7 +1333,7 @@ BEGIN_MESSAGE_MAP(CmainDlg, CBaseDialog)
 	ON_MESSAGE(UM_SET_PANE_TEXT, onSetPaneText)
 	ON_MESSAGE(UM_ON_ACCOUNT, OnAccount)
 	ON_MESSAGE(MM_JOY1BUTTONDOWN, onJoystickBtnDown)
-	ON_MESSAGE(MM_JOY1BUTTONDOWN, onJoystickBtnUp)
+	ON_MESSAGE(MM_JOY1BUTTONUP, onJoystickBtnUp)
 	ON_COMMAND(ID_ACCOUNT_ADD, OnMenuAccountAdd)
 	ON_COMMAND_RANGE(ID_ACCOUNT_CHANGE_RANGE, ID_ACCOUNT_CHANGE_RANGE + 99, OnMenuAccountChange)
 	ON_COMMAND_RANGE(ID_ACCOUNT_EDIT_RANGE, ID_ACCOUNT_EDIT_RANGE + 99, OnMenuAccountEdit)
@@ -1363,33 +1363,26 @@ BOOL CmainDlg::PreTranslateMessage(MSG* pMsg)
 // CmainDlg message handlers
 
 LRESULT CmainDlg::onJoystickBtnDown(WPARAM wParam, LPARAM lParam) {
-	if (pressedButton == 0xff)
-	{
-		switch (wParam)
-		{
-		case 0:
-			MakeCall(CString("201"), false);
-			break;
-		case 1:
-			MakeCall(CString("202"), false);
-			break;
-		case 2:
-			MakeCall(CString("203"), false);
-			break;
-		case 3:
-			MakeCall(CString("204"), false);
-			break;
-		default:
-			break;
-		}
+	if (wParam & JOY_BUTTON1CHG) {
+		MakeCall(accountSettings.telnumjoy1, false);
+	} 
+	else if (wParam & JOY_BUTTON2CHG) {
+		MakeCall(accountSettings.telnumjoy2, false);
 	}
+	else if (wParam & JOY_BUTTON3CHG) {
+		MakeCall(accountSettings.telnumjoy3, false);
+	}
+	else if (wParam & JOY_BUTTON4CHG) {
+		MakeCall(accountSettings.telnumjoy4, false);
+	}
+	pressedButton = wParam & (JOY_BUTTON1CHG | JOY_BUTTON2CHG | JOY_BUTTON3CHG | JOY_BUTTON4CHG);
 	return TRUE;
 }
 
 LRESULT CmainDlg::onJoystickBtnUp(WPARAM wParam, LPARAM lParam) {
-	if (wParam == pressedButton)
+	if (pressedButton & wParam)
 	{
-		pressedButton = 0xff;
+		pressedButton = 0x00;
 		call_hangup_all_noincoming(false);
 	}
 	return TRUE;
@@ -2220,12 +2213,14 @@ void CmainDlg::OnTimerJoystickCheck()
 {
 	JOYINFO joyinfo;
 	if (joyGetPos(JOYSTICKID1, &joyinfo) != JOYERR_UNPLUGGED) {
-		if (joyStickCaptured) {
-			joyReleaseCapture(JOYSTICKID1);
+		if (joyStickCaptured == false) {
+			joySetCapture(*mainDlg, JOYSTICKID1, 1000, false);
+			joyStickCaptured = true;
 		}
 	} else {
-		if (joyStickCaptured == false) {
-			joySetCapture(*mainDlg, JOYSTICKID1,1000,false);
+		if (joyStickCaptured) {
+			joyReleaseCapture(JOYSTICKID1);
+			joyStickCaptured = false;
 		}
 	}
 }

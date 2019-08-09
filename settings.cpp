@@ -460,6 +460,22 @@ void AccountSettings::Init()
 	str.ReleaseBuffer();
 	singleMode = _wtoi(str);
 
+	ptr = telnumjoy1.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy1"), _T(""), ptr, 256, iniFile);
+	telnumjoy1.ReleaseBuffer();
+
+	ptr = telnumjoy2.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy2"), _T(""), ptr, 256, iniFile);
+	telnumjoy2.ReleaseBuffer();
+
+	ptr = telnumjoy3.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy3"), _T(""), ptr, 256, iniFile);
+	telnumjoy3.ReleaseBuffer();
+
+	ptr = telnumjoy4.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy4"), _T(""), ptr, 256, iniFile);
+	telnumjoy4.ReleaseBuffer();
+
 	hidden = 0;
 
 	ptr = str.GetBuffer(255);
@@ -751,6 +767,11 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("enableSTUN"), enableSTUN ? _T("1") : _T("0"), iniFile);
 
 	WritePrivateProfileString(section, _T("singleMode"), singleMode ? _T("1") : _T("0"), iniFile);
+
+	WritePrivateProfileString(section, _T("telnumjoy1"), telnumjoy1, iniFile);
+	WritePrivateProfileString(section, _T("telnumjoy2"), telnumjoy2, iniFile);
+	WritePrivateProfileString(section, _T("telnumjoy3"), telnumjoy3, iniFile);
+	WritePrivateProfileString(section, _T("telnumjoy4"), telnumjoy4, iniFile);
 
 	WritePrivateProfileString(section, _T("rport"), rport ? _T("1") : _T("0"), iniFile);
 	str.Format(_T("%d"), sourcePort);
