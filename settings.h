@@ -74,6 +74,11 @@ struct AccountSettings {
 	CString userAgent;
 	CString portKnockerHost;
 	CString portKnockerPorts;
+	CString telnumjoy1;
+	CString telnumjoy2;
+	CString telnumjoy3;
+	CString telnumjoy4;
+
 
 	CString lastCallNumber;
 	bool lastCallHasVideo;

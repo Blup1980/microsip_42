@@ -118,11 +118,11 @@ void AccountSettings::Init()
 						if (!pathInstaller.IsEmpty()) {
 							pathInstaller.TrimRight('\\');
 						} else {
-							pathInstaller = pathExe;
-						}
+				pathInstaller = pathExe;
+			}
 						break;
-					}
-				}
+			}
+		}
 				i++;
 			}
 		}
@@ -335,7 +335,7 @@ void AccountSettings::Init()
 	recordingFormat.ReleaseBuffer();
 
 	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
+		GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	autoRecording = _wtoi(str);
 
@@ -634,6 +634,24 @@ void AccountSettings::Init()
 	ptr = lastCallNumber.GetBuffer(255);
 	GetPrivateProfileString(section, _T("lastCallNumber"), NULL, ptr, 256, iniFile);
 	lastCallNumber.ReleaseBuffer();
+
+	ptr = telnumjoy1.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy1"), _T(""), ptr, 256, iniFile);
+	telnumjoy1.ReleaseBuffer();
+
+	ptr = telnumjoy2.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy2"), _T(""), ptr, 256, iniFile);
+	telnumjoy2.ReleaseBuffer();
+
+	ptr = telnumjoy3.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy3"), _T(""), ptr, 256, iniFile);
+	telnumjoy3.ReleaseBuffer();
+
+	ptr = telnumjoy4.GetBuffer(255);
+	GetPrivateProfileString(section, _T("telnumjoy4"), _T(""), ptr, 256, iniFile);
+	telnumjoy4.ReleaseBuffer();
+	hidden = 0;
+
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("lastCallHasVideo"), NULL, ptr, 256, iniFile);
