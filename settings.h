@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,87 +20,11 @@
 
 #include "global.h"
 
-struct Account {
-	CString label;
-	CString server;
-	CString proxy;
-	CString username;
-	CString domain;
-	int port;
-	CString authID;
-	CString password;
-	bool rememberPassword;
-	CString displayName;
-	CString dialingPrefix;
-	CString voicemailNumber;
-	CString srtp;
-	CString transport;
-	CString publicAddr;
-	bool publish;
-	bool ice;
-	bool allowRewrite;
-	bool disableSessionTimer;
-	bool operator==(const Account& a) const	{
-		if (
-			label == a.label
-			&& server == a.server
-			&& proxy == a.proxy
-			&& username == a.username
-			&& domain == a.domain
-			&& port == a.port
-			&& authID == a.authID
-			&& password == a.password
-			&& displayName == a.displayName
-			&& dialingPrefix == a.dialingPrefix
-			&& voicemailNumber == a.voicemailNumber
-			&& srtp == a.srtp
-			&& transport == a.transport
-			&& publicAddr == a.publicAddr
-			&& publish == a.publish
-			&& ice == a.ice
-			&& allowRewrite == a.allowRewrite
-			&& disableSessionTimer == a.disableSessionTimer
-			)
-			return true;
-		return false;
-	};
-	bool operator!=(const Account& a) const {
-		return !(*this == a);
-	}
-	void operator=(const Account& a)
-	{
-		label = a.label;
-		server = a.server;
-		proxy = a.proxy;
-		username = a.username;
-		domain = a.domain;
-		port = a.port;
-		authID = a.authID;
-		password = a.password;
-		displayName = a.displayName;
-		dialingPrefix = a.dialingPrefix;
-		voicemailNumber = a.voicemailNumber;
-		srtp = a.srtp;
-		transport = a.transport;
-		publicAddr = a.publicAddr;
-		publish = a.publish;
-		ice = a.ice;
-		allowRewrite = a.allowRewrite;
-		disableSessionTimer = a.disableSessionTimer;
-	};
-	Account() : port(0)
-		, rememberPassword(false)
-		, publish(false)
-		, ice(false)
-		, allowRewrite(false)
-		, disableSessionTimer(false)
-	{}
-};
-
 struct AccountSettings {
 
 	int accountId;
 	Account account;
+	Account accountLocal;
 	bool singleMode;
 	CString ringtone;
 	CString audioRingDevice;
@@ -113,6 +37,7 @@ struct AccountSettings {
 	bool ec;
 	bool forceCodec;
 	CString recordingPath;
+	CString recordingFormat;
 	bool autoRecording;
 	CString videoCaptureDevice;
 	CString videoCodec;
@@ -130,8 +55,10 @@ struct AccountSettings {
 	bool enableSTUN;
 	int DTMFMethod;
 	bool AA;
+	bool AC;
 	bool DND;
 	CString autoAnswer;
+	int autoAnswerDelay;
 	CString denyIncoming;
 	CString usersDirectory;
 	CString defaultAction;
@@ -178,6 +105,7 @@ struct AccountSettings {
 	int contactsWidth1;
 	int contactsWidth2;
 
+	int volumeRing;
 	int volumeOutput;
 	int volumeInput;
 	
@@ -195,6 +123,8 @@ struct AccountSettings {
 	
 	int autoHangUpTime;
 	int maxConcurrentCalls;
+	bool callWaiting;
+	bool noIgnoreCall;
 
 	CString cmdOutgoingCall;
 	CString cmdIncomingCall; 

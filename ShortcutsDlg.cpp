@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ static CString defaultActionItems[] = {
 	MSIP_SHORTCUT_MESSAGE,
 	MSIP_SHORTCUT_DTMF,
 	MSIP_SHORTCUT_TRANSFER,
+	MSIP_SHORTCUT_CONFERENCE,
 	MSIP_SHORTCUT_RUNBATCH,
 	MSIP_SHORTCUT_CALL_URL,
 	MSIP_SHORTCUT_POP_URL,
@@ -42,6 +43,7 @@ static CString defaultActionValues[] = {
 	_T("Message"),
 	_T("DTMF"),
 	_T("Call Transfer"),
+	_T("Conference"),
 	_T("Run Batch"),
 	_T("Call URL"),
 	_T("Pop URL"),

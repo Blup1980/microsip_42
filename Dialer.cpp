@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,10 +25,13 @@
 #include "Strsafe.h"
 #include "langpack.h"
 
+#include "afxbutton.h"
+
 Dialer::Dialer(CWnd* pParent /*=NULL*/)
 	: CBaseDialog(Dialer::IDD, pParent)
 {
 	Create(IDD, pParent);
+	delayedDTMF = false;
 }
 
 Dialer::~Dialer(void)
@@ -128,6 +131,9 @@ void Dialer::RebuildShortcuts(bool init)
 				AutoMove(button->m_hWnd, 100, i * moveFactor, 0, moveFactor);
 				shortcutsRect.top += buttonHeight;
 			}
+			
+			//button->SetIcon((HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_AWAY), IMAGE_ICON, 0, 0, 0));//!!
+
 			button->SetFont(font);
 			shortcutButtons.AddTail(button);
 		}
@@ -141,9 +147,15 @@ BOOL Dialer::OnInitDialog()
 {
 	CBaseDialog::OnInitDialog();
 
+	if (langPack.rtl) {
+		m_SliderCtrlOutput.ModifyStyleEx(0, WS_EX_LAYOUTRTL);
+		m_SliderCtrlInput.ModifyStyleEx(0, WS_EX_LAYOUTRTL);
+		GetDlgItem(IDC_NUMBER)->ModifyStyleEx(0, WS_EX_LAYOUTRTL);
+	}
+	
 	m_hCursorHand = ::LoadCursor(NULL, IDC_HAND);
 	CFont* font = this->GetFont();
-	
+
 	CRect windowRect;
 	GetWindowRect(windowRect);
 	windowSize.x = windowRect.Width();
@@ -165,6 +177,7 @@ BOOL Dialer::OnInitDialog()
 	RebuildButtons(true);
 
 	AutoMove(IDC_NUMBER, 0, 0, 100, 0);
+	AutoMove(IDC_DIALER_DTMF, 100, 0, 0, 0);
 
 	int height = 17;
 	int height4 = height * 4;
@@ -280,13 +293,16 @@ BOOL Dialer::OnInitDialog()
 
 	UpdateCallButton();
 
-	return TRUE;
+return TRUE;
 }
 
 int Dialer::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 	if (mainDlg->widthAdd || mainDlg->heightAdd) {
 		SetWindowPos(NULL, 0, 0, lpCreateStruct->cx + mainDlg->widthAdd, lpCreateStruct->cy + mainDlg->heightAdd, SWP_NOMOVE | SWP_NOZORDER);
+	}
+	if (langPack.rtl) {
+		ModifyStyleEx(WS_EX_LAYOUTRTL, 0);
 	}
 	return CBaseDialog::OnCreate(lpCreateStruct);
 }
@@ -309,6 +325,8 @@ BEGIN_MESSAGE_MAP(Dialer, CBaseDialog)
 	ON_WM_SETCURSOR()
 	ON_BN_CLICKED(IDC_DIALER_DND, &Dialer::OnBnClickedDND)
 	ON_BN_CLICKED(IDC_DIALER_AA, &Dialer::OnBnClickedAA)
+	ON_BN_CLICKED(IDC_DIALER_AC, &Dialer::OnBnClickedAC)
+	ON_BN_CLICKED(IDC_DIALER_CONF, &Dialer::OnBnClickedConf)
 	ON_BN_CLICKED(IDC_DIALER_REC, &Dialer::OnBnClickedRec)
 	ON_BN_CLICKED(IDC_DIALER_VOICEMAIL, OnBnClickedVoicemail)
 	ON_BN_CLICKED(IDC_BUTTON_PLUS_INPUT, &Dialer::OnBnClickedPlusInput)
@@ -323,6 +341,7 @@ BEGIN_MESSAGE_MAP(Dialer, CBaseDialog)
 	ON_WM_MOUSEMOVE()
 
 	ON_BN_CLICKED(IDC_CALL, OnBnClickedCall)
+	ON_BN_CLICKED(IDC_DIALER_DTMF, OnBnClickedDTMF)
 #ifdef _GLOBAL_VIDEO
 	ON_BN_CLICKED(IDC_VIDEO_CALL, OnBnClickedVideoCall)
 #endif
@@ -392,6 +411,18 @@ void Dialer::RebuildButtons(bool init)
 		}
 		m_ButtonAA.DestroyWindow();
 	}
+	if (IsChild(&m_ButtonAC)) {
+		if (m_ToolTip) {
+			m_ToolTip.DelTool(&m_ButtonAC);
+		}
+		m_ButtonAC.DestroyWindow();
+	}
+	if (IsChild(&m_ButtonConf)) {
+		if (m_ToolTip) {
+			m_ToolTip.DelTool(&m_ButtonConf);
+		}
+		m_ButtonConf.DestroyWindow();
+	}
 	if (IsChild(&m_ButtonRec)) {
 		if (m_ToolTip) {
 			m_ToolTip.DelTool(&m_ButtonRec);
@@ -400,9 +431,11 @@ void Dialer::RebuildButtons(bool init)
 	}
 	bool addDND = accountSettings.denyIncoming == _T("button");
 	bool addAA = accountSettings.autoAnswer == _T("button");
+	bool addAC = !accountSettings.singleMode;
+	bool addConf = !accountSettings.singleMode;
 	bool addRec = !accountSettings.recordingPath.IsEmpty();
 
-	if (addDND || addAA || addRec) {
+	if (addDND || addAA || addAC || addConf|| addRec) {
 		CRect windowRect;
 		if (!init) {
 			GetWindowRect(windowRect);
@@ -418,6 +451,7 @@ void Dialer::RebuildButtons(bool init)
 		//rect.right += 2;
 
 		CRect mapRect;
+		mapRect.top = 5;
 		mapRect.bottom = 2;
 		MapDialogRect(&mapRect);
 		int stepPx = mapRect.bottom + rect.Width();
@@ -437,6 +471,18 @@ void Dialer::RebuildButtons(bool init)
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
+		if (addConf) {
+			rect.left -= mapRect.top;
+			m_ButtonConf.Create(Translate(_T("CONF")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHLIKE | WS_DISABLED, rect, this, IDC_DIALER_CONF);
+			rect.right -= mapRect.top;
+			m_ButtonConf.SetFont(GetFont());
+			AutoMove(m_ButtonConf.m_hWnd, 100, 100, 0, 0);
+			if (m_ToolTip) {
+				m_ToolTip.AddTool(&m_ButtonConf, Translate(_T("Conference")));
+			}
+			rect.left -= stepPx;
+			rect.right -= stepPx;
+		}
 		if (addAA) {
 			m_ButtonAA.Create(Translate(_T("AA")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_DIALER_AA);
 			m_ButtonAA.SetFont(GetFont());
@@ -444,6 +490,17 @@ void Dialer::RebuildButtons(bool init)
 			AutoMove(m_ButtonAA.m_hWnd, 100, 100, 0, 0);
 			if (m_ToolTip) {
 				m_ToolTip.AddTool(&m_ButtonAA, Translate(_T("Auto Answer")));
+			}
+			rect.left -= stepPx;
+			rect.right -= stepPx;
+		}
+		if (addAC) {
+			m_ButtonAC.Create(Translate(_T("AC")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_DIALER_AC);
+			m_ButtonAC.SetFont(GetFont());
+			m_ButtonAC.SetCheck(accountSettings.AC ? BST_CHECKED : BST_UNCHECKED);
+			AutoMove(m_ButtonAC.m_hWnd, 100, 100, 0, 0);
+			if (m_ToolTip) {
+				m_ToolTip.AddTool(&m_ButtonAC, Translate(_T("Auto Conference")));
 			}
 			rect.left -= stepPx;
 			rect.right -= stepPx;
@@ -699,14 +756,57 @@ void Dialer::OnBnClickedCancel()
 	mainDlg->ShowWindow(SW_HIDE);
 }
 
-void Dialer::DTMF(CString digits)
+void Dialer::DTMF(CString digits, bool force)
 {
+	bool delayed = false;
+	if (digits.Right(1) == _T("?")) {
+		digits = digits.Left(digits.GetLength() - 1);
+		delayed = true;
+	}
 	pjsua_call_id call_id = PJSUA_INVALID_ID;
 	MessagesContact*  messagesContact = mainDlg->messagesDlg->GetMessageContact();
 	if (messagesContact && messagesContact->callId != -1) {
 		call_id = messagesContact->callId;
+		if (delayed) {
+			SetDTMF(digits);
+		}
 	}
-	msip_call_dial_dtmf(call_id, digits);
+	if (!delayed) {
+		if (GetDlgItem(IDC_DIALER_DTMF)->IsWindowVisible() && !force) {
+			return;
+		}
+		msip_call_dial_dtmf(call_id, digits);
+	}
+}
+
+void Dialer::SetDTMF(CString digits)
+{
+	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
+	CRect rect;
+	combobox->GetWindowRect(rect);
+	
+	CRect mapRect;
+	mapRect.bottom = 45;
+	MapDialogRect(&mapRect);
+
+	if (!digits.IsEmpty()) {
+		SetNumber(digits);
+		if (!GetDlgItem(IDC_DIALER_DTMF)->IsWindowVisible()) {
+			GetDlgItem(IDC_DIALER_DTMF)->ShowWindow(SW_SHOW);
+			combobox->SetWindowPos(NULL, 0, 0, rect.Width() - mapRect.bottom, rect.Height(), SWP_NOZORDER | SWP_NOMOVE);
+		}
+	}
+	else {
+		CString old;
+		combobox->GetWindowText(old);
+		if (!old.IsEmpty()) {
+			SetNumber(_T(""));
+		}
+		if (GetDlgItem(IDC_DIALER_DTMF)->IsWindowVisible()) {
+			GetDlgItem(IDC_DIALER_DTMF)->ShowWindow(SW_HIDE);
+			combobox->SetWindowPos(NULL, 0, 0, rect.Width() + mapRect.bottom, rect.Height(), SWP_NOZORDER | SWP_NOMOVE);
+		}
+	}
 }
 
 void Dialer::Input(CString digits, BOOL disableDTMF)
@@ -764,6 +864,24 @@ void Dialer::DialedSave(CComboBox *combobox)
 	}
 }
 
+void Dialer::DialedAdd(CString number)
+{
+	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
+	int pos = combobox->FindStringExact(-1, number);
+	if (pos == CB_ERR || pos > 0) {
+		if (pos > 0) {
+			combobox->DeleteString(pos);
+		}
+		else if (combobox->GetCount() >= 10)
+		{
+			combobox->DeleteString(combobox->GetCount() - 1);
+		}
+		combobox->InsertString(0, number);
+		combobox->SetCurSel(0);
+	}
+	DialedSave(combobox);
+}
+
 void Dialer::SetNumber(CString  number, int callsCount)
 {
 	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
@@ -773,6 +891,7 @@ void Dialer::SetNumber(CString  number, int callsCount)
 		combobox->SetWindowText(number);
 	}
 	UpdateCallButton(0, callsCount);
+	delayedDTMF = false;
 }
 
 void Dialer::UpdateCallButton(BOOL forse, int callsCount)
@@ -839,6 +958,9 @@ void Dialer::UpdateCallButton(BOOL forse, int callsCount)
 		buttonRedial->ShowWindow(SW_HIDE);
 		buttonDelete->ShowWindow(SW_SHOW);
 	}
+	if (!len) {
+		SetDTMF(_T(""));
+	}
 }
 
 void Dialer::Action(DialerActions action)
@@ -857,19 +979,7 @@ void Dialer::Action(DialerActions action)
 		}
 		if (res) {
 			//-- save dialed in combobox
-			int pos = combobox->FindStringExact(-1, number);
-			if (pos == CB_ERR || pos > 0) {
-				if (pos > 0) {
-					combobox->DeleteString(pos);
-				}
-				else if (combobox->GetCount() >= 10)
-				{
-					combobox->DeleteString(combobox->GetCount() - 1);
-				}
-				combobox->InsertString(0, number);
-				combobox->SetCurSel(0);
-			}
-			DialedSave(combobox);
+			DialedAdd(number);
 			if (!accountSettings.singleMode) {
 				Clear();
 			}
@@ -890,6 +1000,18 @@ void Dialer::Clear(bool update)
 void Dialer::OnBnClickedCall()
 {
 	Action(ACTION_CALL);
+}
+
+void Dialer::OnBnClickedDTMF()
+{
+	CString number;
+	CComboBox *combobox = (CComboBox*)GetDlgItem(IDC_NUMBER);
+	combobox->GetWindowText(number);
+	number.Trim();
+	if (!number.IsEmpty()) {
+		DTMF(number, true);
+		SetDTMF(_T(""));
+	}
 }
 
 #ifdef _GLOBAL_VIDEO
@@ -1173,7 +1295,7 @@ void Dialer::TimerVuMeter()
 	unsigned tx_level = 0, rx_level = 0;
 	pjsua_conf_port_id ids[PJSUA_MAX_CONF_PORTS];
 	unsigned count = PJSUA_MAX_CONF_PORTS;
-	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_enum_conf_ports(ids, &count) == PJ_SUCCESS && count > 1) {
+	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_call_get_count() && pjsua_enum_conf_ports(ids, &count) == PJ_SUCCESS && count > 1) {
 		for (unsigned i = 0; i < count; i++) {
 			unsigned tx_level_curr, rx_level_curr;
 			pjsua_conf_port_info conf_port_info;
@@ -1231,6 +1353,19 @@ void Dialer::OnBnClickedAA()
 	accountSettings.AA = button->GetCheck() == BST_CHECKED;
 	accountSettings.SettingsSave();
 	mainDlg->UpdateWindowText();
+}
+
+void Dialer::OnBnClickedAC()
+{
+	CButton *button = (CButton*)GetDlgItem(IDC_DIALER_AC);
+	accountSettings.AC = button->GetCheck() == BST_CHECKED;
+	accountSettings.SettingsSave();
+	mainDlg->UpdateWindowText();
+}
+
+void Dialer::OnBnClickedConf()
+{
+	mainDlg->messagesDlg->OnBnClickedConference();
 }
 
 void Dialer::OnBnClickedRec()

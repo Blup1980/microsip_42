@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -74,7 +74,15 @@ BOOL SettingsDlg::OnInitDialog()
 	TranslateDialog(this->m_hWnd);
 
 	GetDlgItem(IDC_SETTINGS_RINGTONE)->SetWindowText(accountSettings.ringtone);
+	((CSliderCtrl*)GetDlgItem(IDC_SETTINGS_VOLUME_RING))->SetRange(0, 100);
+	((CSliderCtrl*)GetDlgItem(IDC_SETTINGS_VOLUME_RING))->SetPos(accountSettings.volumeRing);
 	GetDlgItem(IDC_SETTINGS_RECORDING)->SetWindowText(accountSettings.recordingPath);
+	if (accountSettings.recordingFormat == _T("wav")) {
+		CheckRadioButton(IDC_SETTINGS_RECORDING_MP3, IDC_SETTINGS_RECORDING_WAV, IDC_SETTINGS_RECORDING_WAV);
+	}
+	else {
+		CheckRadioButton(IDC_SETTINGS_RECORDING_MP3, IDC_SETTINGS_RECORDING_WAV, IDC_SETTINGS_RECORDING_MP3);
+	}
 	((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->SetCheck(accountSettings.autoRecording);
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_MICROPHONE);
 	combobox->AddString(Translate(_T("Default")));
@@ -244,6 +252,9 @@ BOOL SettingsDlg::OnInitDialog()
 		}
 	}
 
+	str.Format(_T("%d"), accountSettings.autoAnswerDelay);
+	GetDlgItem(IDC_SETTINGS_AUTO_ANSWER_DELAY)->SetWindowText(str);
+
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_DENY_INCOMING);
 	combobox->AddString(Translate(_T("No")));
 	denyIncomingValues.Add(_T(""));
@@ -273,7 +284,7 @@ BOOL SettingsDlg::OnInitDialog()
 	n = sizeof(defaultActionItems)/sizeof(defaultActionItems[0]);
 	found = false;
 	for (int i=0;i<n;i++) {
-		combobox->AddString(defaultActionValues[i]);
+		combobox->AddString(Translate(defaultActionValues[i].GetBuffer()));
 		if (accountSettings.defaultAction==defaultActionItems[i]) {
 			combobox->SetCurSel(i);
 			found = true;
@@ -283,12 +294,14 @@ BOOL SettingsDlg::OnInitDialog()
 		combobox->SetCurSel(0);
 	}
 
+
 	((CButton*)GetDlgItem(IDC_SETTINGS_MEDIA_BUTTONS))->SetCheck(accountSettings.enableMediaButtons);
 	((CButton*)GetDlgItem(IDC_SETTINGS_LOCAL_DTMF))->SetCheck(accountSettings.localDTMF);
 	((CButton*)GetDlgItem(IDC_SETTINGS_SINGLE_MODE))->SetCheck(accountSettings.singleMode);
 	((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->SetCheck(accountSettings.enableLog);
 	((CButton*)GetDlgItem(IDC_SETTINGS_BRING_TO_FRONT))->SetCheck(accountSettings.bringToFrontOnIncoming);
 	((CButton*)GetDlgItem(IDC_SETTINGS_ANSWER_BOX_RANDOM))->SetCheck(accountSettings.randomAnswerBox);
+	((CButton*)GetDlgItem(IDC_SETTINGS_CALL_WAITING))->SetCheck(accountSettings.callWaiting);
 	((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOCAL))->SetCheck(accountSettings.enableLocalAccount);
 
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_UPDATES_INTERVAL);
@@ -373,6 +386,7 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_BN_CLICKED(IDC_SETTINGS_BROWSE, &SettingsDlg::OnBnClickedBrowse)
 	ON_EN_CHANGE(IDC_SETTINGS_RINGTONE, &SettingsDlg::OnChangeRingtone)
 	ON_BN_CLICKED(IDC_SETTINGS_DEFAULT, &SettingsDlg::OnBnClickedDefault)
+	ON_WM_HSCROLL()
 	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_BROWSE, &SettingsDlg::OnBnClickedRecordingBrowse)
 	ON_EN_CHANGE(IDC_SETTINGS_RECORDING, &SettingsDlg::OnEnChangeRecording)
 	ON_BN_CLICKED(IDC_SETTINGS_RECORDING_DEFAULT, &SettingsDlg::OnBnClickedRecordingDefault)
@@ -387,6 +401,7 @@ void SettingsDlg::OnClose()
 
 void SettingsDlg::OnBnClickedCancel()
 {
+	mainDlg->PlayerStop();
 	OnClose();
 }
 
@@ -426,6 +441,7 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	accountSettings.vad = ((CButton*)GetDlgItem(IDC_SETTINGS_VAD))->GetCheck();
 	accountSettings.ec = ((CButton*)GetDlgItem(IDC_SETTINGS_EC))->GetCheck();
 	accountSettings.forceCodec = ((CButton*)GetDlgItem(IDC_SETTINGS_FORCE_CODEC))->GetCheck();
+
 
 	bool hasStereo = false;
 	accountSettings.audioCodecs = _T("");
@@ -500,6 +516,8 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_AUTO_ANSWER);
 	accountSettings.autoAnswer = autoAnswerValues.GetAt(combobox->GetCurSel());
+	GetDlgItem(IDC_SETTINGS_AUTO_ANSWER_DELAY)->GetWindowText(str);
+	accountSettings.autoAnswerDelay = _wtoi(str);
 
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_DENY_INCOMING);
 	accountSettings.denyIncoming = denyIncomingValues.GetAt(combobox->GetCurSel());
@@ -515,9 +533,12 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	accountSettings.enableLog = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->GetCheck();
 	accountSettings.bringToFrontOnIncoming = ((CButton*)GetDlgItem(IDC_SETTINGS_BRING_TO_FRONT))->GetCheck();
 	accountSettings.randomAnswerBox = ((CButton*)GetDlgItem(IDC_SETTINGS_ANSWER_BOX_RANDOM))->GetCheck();
+	accountSettings.callWaiting = ((CButton*)GetDlgItem(IDC_SETTINGS_CALL_WAITING))->GetCheck();
 	GetDlgItem(IDC_SETTINGS_RINGTONE)->GetWindowText(accountSettings.ringtone);
+	accountSettings.volumeRing = ((CSliderCtrl*)GetDlgItem(IDC_SETTINGS_VOLUME_RING))->GetPos();
 	GetDlgItem(IDC_SETTINGS_RECORDING)->GetWindowText(accountSettings.recordingPath);
 	accountSettings.recordingPath.Trim();
+	accountSettings.recordingFormat = IsDlgButtonChecked(IDC_SETTINGS_RECORDING_MP3) ? _T("mp3") : _T("wav");
 	accountSettings.autoRecording = ((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->GetCheck();
 	accountSettings.enableLocalAccount = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOCAL))->GetCheck();
 
@@ -541,6 +562,11 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	}
 
 	accountSettings.SettingsSave();
+
+	if (accountSettings.singleMode) {
+		mainDlg->messagesDlg->OnClose();
+	}
+
 	mainDlg->pageDialer->RebuildButtons();
 	mainDlg->PJCreate();
 	mainDlg->PJAccountAdd();
@@ -577,6 +603,20 @@ void SettingsDlg::OnChangeRingtone()
 void SettingsDlg::OnBnClickedDefault()
 {
 	GetDlgItem(IDC_SETTINGS_RINGTONE)->SetWindowText(_T(""));
+}
+
+void SettingsDlg::OnHScroll(UINT nSBCode, UINT, CScrollBar* sender)
+{
+	if (sender == GetDlgItem(IDC_SETTINGS_VOLUME_RING)) {
+		if (nSBCode == SB_ENDSCROLL) {
+			int volumeRingOld = accountSettings.volumeRing;
+			accountSettings.volumeRing = ((CSliderCtrl*)GetDlgItem(IDC_SETTINGS_VOLUME_RING))->GetPos();
+			CString ringtone;
+			GetDlgItem(IDC_SETTINGS_RINGTONE)->GetWindowText(ringtone);
+			mainDlg->PlayerPlay(ringtone.IsEmpty() ? _T("ringtone.wav") : ringtone, true, false);
+			accountSettings.volumeRing = volumeRingOld;
+		}
+	}
 }
 
 void SettingsDlg::OnBnClickedRecordingBrowse()

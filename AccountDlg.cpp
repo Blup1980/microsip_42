@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 AccountDlg::AccountDlg(CWnd* pParent /*=NULL*/)
 : CDialog(AccountDlg::IDD, pParent)
 {
-	accountId = 0;
+	accountId = -1;
 	Create (IDD, pParent);
 
 }
@@ -73,8 +73,6 @@ BOOL AccountDlg::OnInitDialog()
 	combobox->AddString(str);
 	combobox->SetCurSel(0);
 
-	((CButton*)GetDlgItem(IDC_ICE))->SetCheck(m_Account.ice);
-
 	CEdit* edit;
 
 	combobox= (CComboBox*)GetDlgItem(IDC_PUBLIC_ADDR);
@@ -119,6 +117,7 @@ void AccountDlg::PostNcDestroy()
 
 BEGIN_MESSAGE_MAP(AccountDlg, CDialog)
 	ON_WM_CREATE()
+	ON_WM_SYSCOMMAND()
 	ON_WM_CLOSE()
 	ON_WM_DESTROY()
 	ON_BN_CLICKED(IDCANCEL, &AccountDlg::OnBnClickedCancel)
@@ -131,6 +130,7 @@ BEGIN_MESSAGE_MAP(AccountDlg, CDialog)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_PASSWORD, &AccountDlg::OnNMClickSyslinkPassword)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_NAME, &AccountDlg::OnNMClickSyslinkName)
 	ON_NOTIFY(NM_CLICK, IDC_ACCOUNT_HELP_DIALING_PREFIX, &AccountDlg::OnNMClickSyslinkDialingPrefix)
+	ON_NOTIFY(NM_CLICK, IDC_ACCOUNT_HELP_DIAL_PLAN, &AccountDlg::OnNMClickSyslinkDialPlan)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_VOICEMAIL, &AccountDlg::OnNMClickSyslinkVoicemail)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_ENCRYPTION, &AccountDlg::OnNMClickSyslinkEncryption)
 	ON_NOTIFY(NM_CLICK, IDC_SYSLINK_TRANSPORT, &AccountDlg::OnNMClickSyslinkTransport)
@@ -146,6 +146,10 @@ BEGIN_MESSAGE_MAP(AccountDlg, CDialog)
 	
 END_MESSAGE_MAP()
 
+void AccountDlg::OnSysCommand(UINT nID, LPARAM lParam)
+{
+	__super::OnSysCommand(nID, lParam);
+}
 
 void AccountDlg::OnClose() 
 {
@@ -161,16 +165,27 @@ void AccountDlg::Load(int id)
 {
 	CEdit* edit;
 	CComboBox *combobox;
+	CString str;
+
+	int show = id ? SW_SHOW : SW_HIDE;
+	GetDlgItem(IDC_ACCOUNT_REQUIRED_USERNAME)->ShowWindow(show);
+	GetDlgItem(IDC_ACCOUNT_REQUIRED_DOMAIN)->ShowWindow(show);
+	GetDlgItem(IDC_EDIT_SERVER)->EnableWindow(id);
+	GetDlgItem(IDC_PUBLISH)->EnableWindow(id);
+	GetDlgItem(IDC_ACCOUNT_REGISTER_REFRESH)->EnableWindow(id);
+	GetDlgItem(IDC_ACCOUNT_KEEP_ALIVE)->EnableWindow(id);
+	GetDlgItem(IDC_REWRITE)->EnableWindow(id);
+
 	accountId = id;
 	if (accountSettings.AccountLoad(id,&m_Account)) {
 		accountId = id;
-		if (accountSettings.accountId == id && !accountSettings.account.rememberPassword) {
+		if (accountId  && accountSettings.accountId == accountId && !accountSettings.account.rememberPassword) {
 			m_Account.username = accountSettings.account.username;
 			m_Account.password = accountSettings.account.password;
 			m_Account.rememberPassword = false;
 		}
 	} else {
-		accountId = 0;
+		accountId = -1;
 	}
 
 	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_LABEL);
@@ -200,6 +215,11 @@ void AccountDlg::Load(int id)
 
 	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_DIALING_PREFIX);
 	edit->SetWindowText(m_Account.dialingPrefix);
+
+	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_DIAL_PLAN);
+	edit->SetWindowText(m_Account.dialPlan);
+
+	((CButton*)GetDlgItem(IDC_ACCOUNT_HIDE_CID))->SetCheck(m_Account.hideCID);
 
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_VOICEMAIL);
 	edit->SetWindowText(m_Account.voicemailNumber);
@@ -233,6 +253,14 @@ int i;
 		combobox->SetCurSel(i);
 	}
 
+	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_REGISTER_REFRESH);
+	str.Format(_T("%d"), m_Account.registerRefresh);
+	edit->SetWindowText(str);
+
+	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_KEEP_ALIVE);
+	str.Format(_T("%d"), m_Account.keepAlive);
+	edit->SetWindowText(str);
+
 	combobox= (CComboBox*)GetDlgItem(IDC_PUBLIC_ADDR);
 	if (combobox->IsWindowEnabled()) {
 		if (m_Account.publicAddr.GetLength()) {
@@ -243,6 +271,9 @@ int i;
 	((CButton*)GetDlgItem(IDC_PUBLISH))->SetCheck(m_Account.publish);
 
 	((CButton*)GetDlgItem(IDC_REWRITE))->SetCheck(m_Account.allowRewrite);
+
+	((CButton*)GetDlgItem(IDC_ICE))->SetCheck(m_Account.ice);
+
 	((CButton*)GetDlgItem(IDC_SESSION_TIMER))->SetCheck(m_Account.disableSessionTimer);
 	if (accountId>0 && (!m_Account.username.IsEmpty() || accountId>1)) {
 		GetDlgItem(IDC_ACCOUNT_REMOVE)->ShowWindow(SW_SHOW);
@@ -294,6 +325,12 @@ void AccountDlg::OnBnClickedOk()
 	edit->GetWindowText(str);
 	m_Account.dialingPrefix=str.Trim();
 
+	edit = (CEdit*)GetDlgItem(IDC_ACCOUNT_DIAL_PLAN);
+	edit->GetWindowText(str);
+	m_Account.dialPlan = str.Trim();
+
+	m_Account.hideCID = ((CButton*)GetDlgItem(IDC_ACCOUNT_HIDE_CID))->GetCheck();
+
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_VOICEMAIL);
 	edit->GetWindowText(str);
 	m_Account.voicemailNumber=str.Trim();
@@ -329,7 +366,17 @@ void AccountDlg::OnBnClickedOk()
 			m_Account.srtp=_T("");
 	}
 
-	m_Account.ice = ((CButton*)GetDlgItem(IDC_ICE))->GetCheck();
+	GetDlgItem(IDC_ACCOUNT_REGISTER_REFRESH)->GetWindowText(str);
+	m_Account.registerRefresh = _wtoi(str);
+	if (m_Account.registerRefresh <= 0) {
+		m_Account.registerRefresh = PJSUA_REG_INTERVAL;
+	}
+
+	GetDlgItem(IDC_ACCOUNT_KEEP_ALIVE)->GetWindowText(str);
+	m_Account.keepAlive = _wtoi(str);
+	if (m_Account.keepAlive < 0) {
+		m_Account.keepAlive = 15;
+	}
 
 	m_Account.publish = ((CButton*)GetDlgItem(IDC_PUBLISH))->GetCheck();
 
@@ -345,27 +392,31 @@ void AccountDlg::OnBnClickedOk()
 		}
 	}
 
+	m_Account.ice = ((CButton*)GetDlgItem(IDC_ICE))->GetCheck();
+
 	m_Account.disableSessionTimer = ((CButton*)GetDlgItem(IDC_SESSION_TIMER))->GetCheck();
 
 	if (
 		m_Account.domain.IsEmpty() ||
 		m_Account.username.IsEmpty()) {
-		CString str;
-		str.Append(Translate(_T("Please fill out at least the required fields marked with *.")));
-		str.AppendFormat(_T(" %s"),Translate(_T("Ask your SIP provider how to configure the account correctly.")));
-		AfxMessageBox(str);
-		return;
+		if (accountId != 0) {
+			CString str;
+			str.Append(Translate(_T("Please fill out at least the required fields marked with *.")));
+			str.AppendFormat(_T(" %s"), Translate(_T("Ask your SIP provider how to configure the account correctly.")));
+			AfxMessageBox(str);
+			return;
+		}
 	}
 
 
 	this->ShowWindow(SW_HIDE);
 	mainDlg->accountDlg = NULL;
 
-	if (!accountId) {
+	if (accountId == -1) { // find id for new account
 		Account dummy;
 		int i = 1;
 		while (true) {
-			if (!accountSettings.AccountLoad(i,&dummy)) {
+			if (!accountSettings.AccountLoad(i, &dummy)) {
 				break;
 			}
 			i++;
@@ -375,19 +426,26 @@ void AccountDlg::OnBnClickedOk()
 
 	accountSettings.AccountSave(accountId, &m_Account);
 
-	mainDlg->PJAccountDelete(true);
+	if (accountId) {
+		mainDlg->PJAccountDelete(true);
 
-	accountSettings.accountId = accountId;
-	accountSettings.account = m_Account;
-	accountSettings.AccountLoad(accountSettings.accountId,&accountSettings.account);
-	if (!m_Account.rememberPassword) {
-		accountSettings.account.username = m_Account.username;
-		accountSettings.account.password = m_Account.password;
-		accountSettings.account.rememberPassword = false;
+		accountSettings.accountId = accountId;
+		accountSettings.account = m_Account;
+		accountSettings.AccountLoad(accountSettings.accountId, &accountSettings.account);
+		if (!m_Account.rememberPassword) {
+			accountSettings.account.username = m_Account.username;
+			accountSettings.account.password = m_Account.password;
+			accountSettings.account.rememberPassword = false;
+		}
+		mainDlg->OnAccountChanged();
+		accountSettings.SettingsSave();
+		mainDlg->PJAccountAdd();
+	} else {
+		// local account
+		mainDlg->PJAccountDeleteLocal();
+		accountSettings.AccountLoad(0, &accountSettings.accountLocal);
+		mainDlg->PJAccountAddLocal();
 	}
-	mainDlg->OnAccountChanged();
-	accountSettings.SettingsSave();
-	mainDlg->PJAccountAdd();
 	OnClose();
 }
 
@@ -436,6 +494,12 @@ void AccountDlg::OnNMClickSyslinkName(NMHDR *pNMHDR, LRESULT *pResult)
 void AccountDlg::OnNMClickSyslinkDialingPrefix(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	OpenHelp(_T("dialingPrefix"));
+	*pResult = 0;
+}
+
+void AccountDlg::OnNMClickSyslinkDialPlan(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	OpenHelp(_T("dialPlan"));
 	*pResult = 0;
 }
 

@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ protected:
 	virtual void PostNcDestroy();
 	DECLARE_MESSAGE_MAP()
 public:
+	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnClose();
 	afx_msg void OnBnClickedCancel();
@@ -55,6 +56,7 @@ public:
 	afx_msg void OnNMClickSyslinkPassword(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkName(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkDialingPrefix(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMClickSyslinkDialPlan(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkVoicemail(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkEncryption(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkTransport(NMHDR *pNMHDR, LRESULT *pResult);

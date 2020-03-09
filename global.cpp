@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include "utf.h"
 #include "langpack.h"
 #include <afxinet.h>
+#include "atlrx.h"
 #include "addons.h"
 
 #ifdef UNICODE
@@ -35,7 +36,6 @@ struct call_tonegen_data *tone_gen = NULL;
 int transport;
 pjsua_acc_id account;
 pjsua_acc_id account_local;
-CString lastTransferNumber;
 pjsua_conf_port_id msip_conf_port_id;
 pjsua_call_id msip_conf_port_call_id;
 
@@ -419,25 +419,99 @@ CString FormatNumber(CString number, CString *commands) {
 			numberFormated.Remove('(');
 			numberFormated.Remove(')');
 			numberFormated.Remove(' ');
-			if (!accountSettings.account.dialingPrefix.IsEmpty()) {
-				if (accountSettings.account.dialingPrefix.Left(1) == _T("+") || accountSettings.account.dialingPrefix.Left(2) == _T("00")) {
-					if (numberFormated.Left(1) != _T("+") && numberFormated.Left(2) != _T("00")) {
-						addPrefix = true;
-					}
+			if (!accountSettings.account.dialingPrefix.IsEmpty() && numberFormated.GetLength() > 3) {
+				if (numberFormated.Left(1) == _T("+")) {
+					numberFormated = numberFormated.Mid(1);
 				}
-				else {
-					addPrefix = true;
-				}
-			}
-		}
-		else {
-			if (!accountSettings.account.dialingPrefix.IsEmpty()) {
 				addPrefix = true;
 			}
 		}
 		if (addPrefix) {
 			numberFormated = accountSettings.account.dialingPrefix + numberFormated;
 		}
+
+		if (!accountSettings.account.dialPlan.IsEmpty()) {
+			CString dialPlan = accountSettings.account.dialPlan;
+			dialPlan.Trim(_T(" ()"));
+			pos = 0;
+			bool matched = false;
+			CString resToken = dialPlan.Tokenize(_T("|"), pos);
+			while (!resToken.IsEmpty()) {
+				CString newToken;
+				CString replaceGroup;
+				CStringList delayedReplaces;
+				bool group = false;
+				for (int i = 0; i < resToken.GetLength(); i++) {
+					TCHAR c = resToken.GetAt(i);
+					if (!group && c == '<') {
+						group = true;
+					} else if (group) {
+						if (c != '>') {
+							replaceGroup.AppendChar(c);
+						} else {
+							if (!replaceGroup.IsEmpty()) {
+								int p = replaceGroup.Find(':');
+								if (p == -1) {
+									newToken.Append(replaceGroup);
+								} else{
+									CString match = replaceGroup.Left(p);
+									CString replace = replaceGroup.Mid(p + 1, replaceGroup.GetLength() - p - 1);
+									if (replace.IsEmpty()) {
+										newToken.Append(match);
+									}
+									else {
+										newToken.AppendFormat(_T("{%s}"), match);
+										delayedReplaces.AddTail(replace);
+									}
+								}
+							}
+							replaceGroup.Empty();
+							group = false;
+						}
+					}
+					else {
+						newToken.AppendChar(c);
+					}
+				}
+				newToken.Replace('.', '*');
+				newToken.Replace('x', '.');
+				newToken.Replace('X', '.');
+				resToken.Format(_T("^%s$"), newToken);
+				CAtlRegExp<> regex;
+				REParseError parseStatus = regex.Parse(resToken, true);
+				if (parseStatus == REPARSE_ERROR_OK) {
+					CAtlREMatchContext<> mc;
+					if (regex.Match(numberFormated, &mc)) {
+						POSITION pos = delayedReplaces.GetHeadPosition();
+						if (pos) {
+							CString numberFormatedNew;
+							int i = 0;
+							const CAtlREMatchContext<>::RECHAR *szPrev = mc.m_Match.szStart;
+							while (pos) {
+								CString replace = delayedReplaces.GetNext(pos);
+								const CAtlREMatchContext<>::RECHAR *szStart, *szEnd;
+								mc.GetMatch(i, &szStart, &szEnd);
+								int m = szPrev - mc.m_Match.szStart;
+								int n = szStart - szPrev;
+								numberFormatedNew.Append(numberFormated.Mid(m, n));
+								numberFormatedNew.Append(replace);
+								szPrev = szEnd;
+								i++;
+							}
+							numberFormatedNew.Append(numberFormated.Right(mc.m_Match.szEnd - szPrev - 1));
+							numberFormated = numberFormatedNew;
+						}
+						matched = true;
+						break;
+					}
+				}
+				resToken = dialPlan.Tokenize(_T("|"), pos);
+			}
+			if (!matched) {
+				numberFormated.Empty();
+			}
+		}
+
 	}
 	return GetSIPURI(numberFormated, true, isLocal);
 }
@@ -491,16 +565,16 @@ struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id)
 	if (status != PJ_SUCCESS) {
 		return NULL;
 	}
-
 	pjsua_conf_add_port(cd->pool, cd->tonegen, &cd->toneslot);
-
 	if (call_id != -1) {
 		pjsua_conf_connect(cd->toneslot, ci.conf_slot);
 	}
-	if (accountSettings.localDTMF || call_id == -1) {
-		pjsua_conf_connect(cd->toneslot, 0);
+	else {
+		if (accountSettings.localDTMF) {
+			pjsua_conf_adjust_rx_level(cd->toneslot, 0.4);
+			pjsua_conf_connect(cd->toneslot, 0);
+		}
 	}
-
 	if (call_id != -1) {
 		call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
 		if (!user_data) {
@@ -782,7 +856,7 @@ void call_hangup_all_noincoming(bool onHold)
 				if (onHold && call_info.media_status == PJSUA_CALL_MEDIA_LOCAL_HOLD) {
 					continue;
 				}
-				msip_call_hangup_fast(call_ids[i]);
+				msip_call_hangup_fast(call_ids[i], &call_info);
 			}
 		}
 	}
@@ -886,10 +960,14 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 				CString strHeaders;
 				CStringA strFormData;
 				if (data->post) {
-					int pos = strObject.Find(_T("?"));
-					if (pos != -1) {
-						strFormData = Utf8EncodeUcs2(strObject.Mid(pos + 1));
-						strObject = strObject.Left(pos);
+					if (!data->postData.IsEmpty()) {
+						strFormData = data->postData;
+					} else {
+						int pos = strObject.Find(_T("?"));
+						if (pos != -1) {
+							strFormData = Utf8EncodeUcs2(strObject.Mid(pos + 1));
+							strObject = strObject.Left(pos);
+						}
 					}
 					strHeaders = _T("Content-Type: application/x-www-form-urlencoded");
 				}
@@ -952,7 +1030,7 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 	return 0;
 }
 
-void URLGetAsync(CString url, HWND hWnd, UINT message, bool post, CString username, CString password)
+void URLGetAsync(CString url, HWND hWnd, UINT message, bool post, CString postData, CString username, CString password)
 {
 	HANDLE hThread;
 	URLGetAsyncData *data = new URLGetAsyncData();
@@ -963,6 +1041,7 @@ void URLGetAsync(CString url, HWND hWnd, UINT message, bool post, CString userna
 	data->username = username;
 	data->password = password;
 	data->post = post;
+	data->postData = postData;
 	if (!CreateThread(NULL, 0, URLGetAsyncThread, data, 0, NULL)) {
 		data->url.Empty();
 		URLGetAsyncThread(data);
@@ -1073,13 +1152,18 @@ CString get_account_server()
 	return res;
 }
 
-CString get_account_proxy()
+void get_account_proxy(Account *account, CStringList &proxies)
 {
-	CString res = accountSettings.account.proxy;
-	return res;
+	proxies.RemoveAll();
+	int pos = 0;
+	CString resToken = account->proxy.Tokenize(_T(" "), pos);
+	while (!resToken.IsEmpty()) {
+		proxies.AddTail(resToken);
+		resToken = account->proxy.Tokenize(_T(" "), pos);
+	}
 }
 
-CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc)
+CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc, call_user_data *user_data)
 {
 	//-- replace server
 	CString str;
@@ -1267,6 +1351,10 @@ void msip_conference_join(pjsua_call_info *call_info)
 					}
 				}
 			}
+			CWnd *hWnd = AfxGetApp()->m_pMainWnd;
+			if (hWnd) {
+				hWnd->PostMessage(UM_TAB_ICON_UPDATE, (WPARAM)call_info->id, NULL);
+			}
 		}
 		user_data->CS.Unlock();
 	}
@@ -1425,7 +1513,9 @@ void msip_call_unhold(pjsua_call_info *call_info)
 					else {
 						// hold
 						if (call_info_curr.media_status != PJSUA_CALL_MEDIA_LOCAL_HOLD && call_info_curr.media_status != PJSUA_CALL_MEDIA_NONE) {
-							pjsua_call_set_hold(call_ids[i], NULL);
+							if (accountSettings.singleMode || !accountSettings.AC) {
+								pjsua_call_set_hold(call_ids[i], NULL);
+							}
 						}
 					}
 				}
@@ -1507,7 +1597,13 @@ void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_
 				for (int i = 0; i < sizeof(spec); i++) {
 					filename.Replace(spec[i], '_');
 				}
-				filename = recordingPath + filename + _T(".wav");
+				filename = recordingPath + filename;
+				if (accountSettings.recordingFormat == _T("wav")) {
+					filename.Append(_T(".wav"));
+				}
+				else {
+					filename.Append(_T(".mp3"));
+				}
 				//--
 				char *buf = WideCharToPjStr(filename);
 				if (pjsua_recorder_create(&pj_str(buf), 0, NULL, -1, 0, &user_data->recorder_id) == PJ_SUCCESS) {
@@ -1659,3 +1755,13 @@ pj_status_t msip_verify_sip_url(const char *url)
 {
 	return strlen(url) > 900 ? PJSIP_EURITOOLONG : pjsua_verify_sip_url(url);
 }
+
+int msip_get_duration(pj_time_val *time_val)
+{
+	int res = time_val->sec;
+	if (time_val->msec >= 500) {
+		res++;
+	}
+	return res;
+}
+

@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ class Dialer :
 
 	CButton m_ButtonDND;
 	CButton m_ButtonAA;
+	CButton m_ButtonAC;
 	CButtonDialer m_ButtonDialer1;
 	CButtonDialer m_ButtonDialer2;
 	CButtonDialer m_ButtonDialer3;
@@ -69,8 +70,11 @@ class Dialer :
 
 	CPoint windowSize;
 
+	BOOL delayedDTMF;
+
 public:
 	CButton m_ButtonRec;
+	CButton m_ButtonConf;
 
 	CBitmapButton m_ButtonVoicemail;
 	HICON m_hIconHold;
@@ -88,11 +92,13 @@ public:
 
 	void SetName(CString str = _T(""));
 	void UpdateVoicemailButton(bool hasMail);
-	void DTMF(CString digits);
+	void DTMF(CString digits, bool force = false);
+	void SetDTMF(CString digits);
 	void Input(CString digits, BOOL disableDTMF = FALSE);
 	void DialedClear();
 	void DialedLoad();
 	void DialedSave(CComboBox *combobox);
+	void DialedAdd(CString number);
 	void SetNumber(CString  number, int callsCount = -1);
 	void UpdateCallButton(BOOL forse = FALSE, int callsCount = -1);
 	void Action(DialerActions action);
@@ -118,10 +124,13 @@ public:
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnBnClickedDND(); 
 	afx_msg void OnBnClickedAA();
+	afx_msg void OnBnClickedAC();
+	afx_msg void OnBnClickedConf();
 	afx_msg void OnBnClickedRec();
 	afx_msg void OnBnClickedVoicemail();
 
 	afx_msg void OnBnClickedCall();
+	afx_msg void OnBnClickedDTMF();
 #ifdef _GLOBAL_VIDEO
 	afx_msg void OnBnClickedVideoCall();
 #endif

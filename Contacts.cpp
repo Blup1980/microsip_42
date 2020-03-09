@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -288,11 +288,10 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 			tracker->EnableMenuItem(ID_CHAT, FALSE);
 			tracker->EnableMenuItem(ID_COPY, FALSE);
 			tracker->EnableMenuItem(ID_EDIT, FALSE);
-			if (!pContact->directory) {
-				tracker->EnableMenuItem(ID_DELETE, FALSE);
-			}
-			else {
+			if (pContact->directory && mainDlg->usersDirectoryLoaded) {
 				tracker->EnableMenuItem(ID_DELETE, TRUE);
+			} else {
+				tracker->EnableMenuItem(ID_DELETE, FALSE);
 			}
 		} else {
 			tracker->EnableMenuItem(ID_CALL, TRUE);
@@ -335,10 +334,11 @@ void Contacts::MessageDlgOpen(BOOL isCall, BOOL hasVideo)
 	if (pos) {
 		int i = list->GetNextSelectedItem(pos);
 		Contact *pContact = (Contact *) list->GetItemData(i);
+		CString number = pContact->number;
 		if (isCall) {
-			mainDlg->MakeCall(pContact->number, hasVideo);
+			mainDlg->MakeCall(number, hasVideo);
 		} else {
-			mainDlg->MessagesOpen(pContact->number);
+			mainDlg->MessagesOpen(number, pContact->name);
 		}
 	}
 }
@@ -384,7 +384,8 @@ void Contacts::OnMenuAdd()
 {
 	if (!addDlg->IsWindowVisible()) {
 		addDlg->ShowWindow(SW_SHOW);
-	} else {
+	}
+	else {
 		addDlg->SetForegroundWindow();
 	}
 	addDlg->listIndex = -1;
@@ -481,6 +482,7 @@ void Contacts::OnMenuImportCSV()
 				else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex && arr.GetCount() > presenceIndex && arr.GetCount() > directoryIndex) {
 					CString number = arr.GetAt(numberIndex);
 					CString name = arr.GetAt(nameIndex);
+					CString hint;
 					CString presence;
 					if (presenceIndex != -1) {
 						presence = arr.GetAt(presenceIndex);
@@ -489,7 +491,7 @@ void Contacts::OnMenuImportCSV()
 					if (directoryIndex != -1) {
 						directory = arr.GetAt(directoryIndex);
 					}
-					if (!number.IsEmpty() && ContactAdd(number, name, presence == _T("1") ? 1 : 0, directory == _T("1") ? 1 : 0, FALSE, TRUE) && !changed) {
+					if (!number.IsEmpty() && ContactAdd(number, name, _T(""), hint, presence == _T("1") ? 1 : 0, directory == _T("1") ? 1 : 0, FALSE, FALSE) && !changed) {
 						changed = true;
 					}
 				}
@@ -534,7 +536,7 @@ void Contacts::OnMenuImportGoogle()
 				else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex) {
 					CString number = arr.GetAt(numberIndex);
 					CString name = arr.GetAt(nameIndex);
-					if (!number.IsEmpty() && ContactAdd(number, name, 0, 0, FALSE, TRUE) && !changed) {
+					if (!number.IsEmpty() && ContactAdd(number, name, _T(""), _T(""), 0, 0, FALSE, FALSE) && !changed) {
 						changed = true;
 					}
 				}
@@ -590,7 +592,7 @@ void Contacts::ContactDelete(int i)
 	delete pContact;
 }
 
-bool Contacts::ContactAdd(CString number, CString name, char presence, char directory, BOOL save, BOOL fromDirectory)
+bool Contacts::ContactAdd(CString number, CString name, CString info, CString hint, char presence, char directory, BOOL save, BOOL fromDirectory, BOOL load)
 {
 	if (save) {
 		if (isFiltered()) {
@@ -598,7 +600,7 @@ bool Contacts::ContactAdd(CString number, CString name, char presence, char dire
 		}
 	}
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
-	if (fromDirectory || save) {
+	if (!load) {
 		int count = list->GetItemCount();
 		for (int i=0;i<count;i++) {
 			Contact *pContact = (Contact *) list->GetItemData(i);
@@ -618,6 +620,10 @@ bool Contacts::ContactAdd(CString number, CString name, char presence, char dire
 							PresenceSubsribeOne(pContact);
 						}
 						changed = true;
+					}
+					if (!pContact->presence) {
+						pContact->presenceNote = info;
+						list->SetItemText(i, 2, info);
 					}
 					if (!fromDirectory && directory != -1 && directory != pContact->directory) {
 						pContact->directory = directory;
@@ -659,13 +665,14 @@ bool Contacts::ContactAdd(CString number, CString name, char presence, char dire
 	pContact->name = name;
 	pContact->presence = presence>0;
 	pContact->directory = directory>0;
+	pContact->presenceNote = info;
 	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,0,name,0,0,pContact->image,(LPARAM)pContact);
-	list->SetItemText(i,1,number);
-
+	list->SetItemText(i, 1, number);
+		list->SetItemText(i, 2, info);
 	if (save) {
 		ContactsSave();
 	}
-	if (save || fromDirectory) {
+	if (!load) {
 		PresenceSubsribeOne(pContact);
 	}
 	return true;
@@ -736,6 +743,7 @@ void Contacts::ContactsLoad()
 						CXMLElement *xmlAttr = xmlContact->GetFirstChild();
 						CString number;
 						CString name;
+						CString hint;
 						BOOL presence = FALSE;
 						BOOL directory = FALSE;
 						CString rab;
@@ -744,14 +752,17 @@ void Contacts::ContactsLoad()
 								CString attrName = xmlAttr->GetElementName();
 								if (attrName == _T("number")) {
 									number = XMLEntityDecode(Utf8DecodeUni(UnicodeToAnsi(xmlAttr->GetValue())));
-								} else if (attrName == _T("name")) {
+								}
+								else if (attrName == _T("name")) {
 									name = XMLEntityDecode(Utf8DecodeUni(UnicodeToAnsi(xmlAttr->GetValue())));
-								} else if (attrName == _T("presence")) {
+								}
+								else if (attrName == _T("presence")) {
 									rab = xmlAttr->GetValue();
-									presence = rab==_T("1");
-								} else if (attrName == _T("directory")) {
+									presence = rab == _T("1");
+								}
+								else if (attrName == _T("directory")) {
 									rab = xmlAttr->GetValue();
-									directory = rab==_T("1");
+									directory = rab == _T("1");
 								}
 							}
 							xmlAttr = xmlContact->GetNextChild();
@@ -761,7 +772,7 @@ void Contacts::ContactsLoad()
 							contact.name = name;
 							contact.number = number;
 							if (!isFiltered(&contact)) {
-								ContactAdd(number, name, presence, directory, FALSE);
+								ContactAdd(number, name, _T(""), hint, presence, directory, FALSE, FALSE, TRUE);
 							}
 						}
 					}
@@ -771,6 +782,7 @@ void Contacts::ContactsLoad()
 			xmlContacts = xmlRoot->GetNextChild();
 		}
 	} else {
+		// old
 		CString key;
 		CString val;
 		LPTSTR ptr = val.GetBuffer(255);
@@ -783,7 +795,7 @@ void Contacts::ContactsLoad()
 				BOOL presence;
 				BOOL directory;
 				ContactDecode(ptr, number, name, presence, directory);
-				ContactAdd(number, name, presence, directory, FALSE);
+				ContactAdd(number, name, _T(""), _T(""), presence, directory, FALSE, FALSE, TRUE);
 			} else {
 				break;
 			}
@@ -853,16 +865,14 @@ CString Contacts::GetNameByNumber(CString number)
 	if (isFiltered()) {
 		filterReset();
 	}
-
 	CString name;
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
-
-	CString sipURI = GetSIPURI(number);
 	int n = list->GetItemCount();
 	for (int i=0; i<n; i++) {
 		Contact* pContact = (Contact *) list->GetItemData(i);
-		if (GetSIPURI(pContact->number) == sipURI)
-		{
+		CString commands;
+		CString numberFormated = FormatNumber(pContact->number, &commands);
+		if (number == numberFormated) {
 			name = pContact->name;
 			break;
 		}

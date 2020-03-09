@@ -60,7 +60,7 @@ void CLevelsSliderCtrl::OnCustomDraw(NMHDR *pNotifyStruct, LRESULT *result)
 				pDC->ExcludeClipRect(rect);
 			}
 			else {
-				hot = selmax >= 100;
+				hot = selmax >= GetRangeMax();
 				// fix windows bug
 				if (rect.bottom > rect.right) {
 					rect.left ^= rect.top ^= rect.left ^= rect.top; // swap left and top values

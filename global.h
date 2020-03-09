@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ IDS_STATUSBAR2,
 enum {MSIP_MESSAGE_TYPE_LOCAL, MSIP_MESSAGE_TYPE_REMOTE, MSIP_MESSAGE_TYPE_SYSTEM};
 enum {MSIP_TRANSPORT_AUTO, MSIP_TRANSPORT_TCP, MSIP_TRANSPORT_TLS};
 enum {MSIP_CALL_OUT, MSIP_CALL_IN, MSIP_CALL_MISS};
-enum { MSIP_SOUND_CUSTOM, MSIP_SOUND_MESSAGE_IN, MSIP_SOUND_MESSAGE_OUT, MSIP_SOUND_HANGUP, MSIP_SOUND_RINGTONE, MSIP_SOUND_RINGIN2, MSIP_SOUND_RINGING };
+enum { MSIP_SOUND_CUSTOM, MSIP_SOUND_CUSTOM_NOLOOP, MSIP_SOUND_MESSAGE_IN, MSIP_SOUND_MESSAGE_OUT, MSIP_SOUND_HANGUP, MSIP_SOUND_RINGTONE, MSIP_SOUND_RINGIN2, MSIP_SOUND_RINGING };
 enum msip_srtp_type { MSIP_SRTP_DISABLED, MSIP_SRTP };
 
 #define MSIP_SHORTCUT_CALL _T("call")
@@ -90,6 +90,7 @@ enum msip_srtp_type { MSIP_SRTP_DISABLED, MSIP_SRTP };
 #define MSIP_SHORTCUT_MESSAGE _T("message")
 #define MSIP_SHORTCUT_DTMF _T("dtmf")
 #define MSIP_SHORTCUT_TRANSFER _T("transfer")
+#define MSIP_SHORTCUT_CONFERENCE _T("conference")
 #define MSIP_SHORTCUT_RUNBATCH _T("runBatch")
 #define MSIP_SHORTCUT_CALL_URL _T("callURL")
 #define MSIP_SHORTCUT_POP_URL _T("popURL")
@@ -103,6 +104,93 @@ enum {
 	MSIP_CONTACT_ICON_BLANK,
 	MSIP_CONTACT_ICON_BUSY,
 	MSIP_CONTACT_ICON_DEFAULT
+};
+
+struct Account {
+	CString label;
+	CString server;
+	CString proxy;
+	CString username;
+	CString domain;
+	int port;
+	CString authID;
+	CString password;
+	bool rememberPassword;
+	CString displayName;
+	CString dialingPrefix;
+	CString dialPlan;
+	bool hideCID;
+	CString voicemailNumber;
+	CString srtp;
+	CString transport;
+	CString publicAddr;
+	int registerRefresh;
+	int keepAlive;
+	bool publish;
+	bool ice;
+	bool allowRewrite;
+	bool disableSessionTimer;
+	bool operator==(const Account& a) const {
+		if (
+			label == a.label
+			&& server == a.server
+			&& proxy == a.proxy
+			&& username == a.username
+			&& domain == a.domain
+			&& port == a.port
+			&& authID == a.authID
+			&& password == a.password
+			&& displayName == a.displayName
+			&& dialingPrefix == a.dialingPrefix
+			&& dialPlan == a.dialPlan
+			&& hideCID == a.hideCID
+			&& voicemailNumber == a.voicemailNumber
+			&& srtp == a.srtp
+			&& transport == a.transport
+			&& publicAddr == a.publicAddr
+			&& publish == a.publish
+			&& ice == a.ice
+			&& allowRewrite == a.allowRewrite
+			&& disableSessionTimer == a.disableSessionTimer
+			)
+			return true;
+		return false;
+	};
+	bool operator!=(const Account& a) const {
+		return !(*this == a);
+	}
+	void operator=(const Account& a)
+	{
+		label = a.label;
+		server = a.server;
+		proxy = a.proxy;
+		username = a.username;
+		domain = a.domain;
+		port = a.port;
+		authID = a.authID;
+		password = a.password;
+		displayName = a.displayName;
+		dialingPrefix = a.dialingPrefix;
+		dialPlan = a.dialPlan;
+		hideCID = a.hideCID;
+		voicemailNumber = a.voicemailNumber;
+		srtp = a.srtp;
+		transport = a.transport;
+		publicAddr = a.publicAddr;
+		publish = a.publish;
+		ice = a.ice;
+		allowRewrite = a.allowRewrite;
+		disableSessionTimer = a.disableSessionTimer;
+	};
+	Account() : port(0)
+		, rememberPassword(false)
+		, registerRefresh(0)
+		, keepAlive(0)
+		, publish(false)
+		, ice(false)
+		, allowRewrite(false)
+		, disableSessionTimer(false)
+	{}
 };
 
 struct Shortcut {
@@ -144,12 +232,14 @@ struct MessagesContact {
 	CString messages;
 	CString message;
 	bool hasNewMessages;
+	bool fromCommandLine;
 	CString lastSystemMessage;
 	CTime lastSystemMessageTime;
 	pjsua_call_id callId;
 	int mediaStatus;
 	MessagesContact():mediaStatus(PJSUA_CALL_MEDIA_ERROR)
 		,hasNewMessages(false)
+		,fromCommandLine(false)
 	{}
 };
 
@@ -182,15 +272,18 @@ struct call_user_data
 	CString name;
 	CString userAgent;
 	CString diversion;
+	CString callerID;
 	CString commands;
 	bool inConference;
 	bool autoAnswer;
 	bool hidden;
+	int holdFrom;
 	call_user_data(pjsua_call_id call_id): tonegen_data(NULL)
 		,recorder_id(PJSUA_INVALID_ID)
 		,inConference(false)
 		,autoAnswer(false)
 		,hidden(false)
+		,holdFrom(-1)
 		,srtp(MSIP_SRTP_DISABLED)
 		{
 			this->call_id = call_id;
@@ -203,7 +296,6 @@ extern struct call_tonegen_data *tone_gen;
 extern int transport;
 extern pjsua_acc_id account;
 extern pjsua_acc_id account_local;
-extern CString lastTransferNumber;
 extern pjsua_conf_port_id msip_conf_port_id;
 extern pjsua_call_id msip_conf_port_call_id;
 
@@ -249,7 +341,7 @@ CString get_account_username();
 CString get_account_password();
 CString get_account_domain();
 CString get_account_server();
-CString get_account_proxy();
+void get_account_proxy(Account *account, CStringList &proxies);
 
 struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id);
 BOOL call_play_digit(pjsua_call_id call_id, const char *digits, int duration = 160);
@@ -280,18 +372,19 @@ typedef struct {
 	CString username;
 	CString password;
 	bool post;
+	CString postData;
 	DWORD statusCode;
 	CString headers;
 	CStringA body;
 } URLGetAsyncData;
-void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false, CString username = _T(""), CString password = _T(""));
+void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false, CString postData = _T(""), CString username = _T(""), CString password = _T(""));
 URLGetAsyncData URLGetSync(CString url);
 
 CStringA urldecode(CStringA str);
 CStringA urlencode(CStringA str);
 CStringA char2hex(char dec);
 
-CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc);
+CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc, call_user_data *user_data = NULL);
 HICON LoadImageIcon(int i);
 
 void msip_set_sound_device(int outDev, bool forse = 0);
@@ -312,3 +405,4 @@ CString msip_url_mask(CString url);
 void msip_audio_input_set_volume(int val, bool mute = false);
 void msip_audio_conf_set_volume(int val, bool mute);
 pj_status_t msip_verify_sip_url(const char *url);
+int msip_get_duration(pj_time_val *time_val);

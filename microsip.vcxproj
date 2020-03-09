@@ -112,7 +112,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>hid.lib;vpxmt.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>hid.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib\;..\third_party\lib\;..\third_party\openssl\$(Platform)\lib\;..\third_party\ipp\$(Platform)\;..\third_party\opus\$(Platform)\;..\third_party\silk\$(Platform)\$(Configuration)\;..\third_party\ffmpeg\$(Platform)\;..\third_party\vpx\$(Platform)\;..\third_party\sdl\$(Platform)\;..\third_party\opencore-amrnb\$(Platform)\;..\third_party\vo-amrwbenc\$(Platform)\;..\third_party\opencore-amrwb\$(Platform)\;..\third_party\hid\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
@@ -144,7 +144,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>hid.lib;vpxmt.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>hid.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib\;..\third_party\lib\;..\third_party\openssl\$(Platform)\lib\;..\third_party\ipp\$(Platform)\;..\third_party\opus\$(Platform)\;..\third_party\silk\$(Platform)\$(Configuration)\;..\third_party\ffmpeg\$(Platform)\;..\third_party\vpx\$(Platform)\;..\third_party\sdl\$(Platform)\;..\third_party\opencore-amrnb\$(Platform)\;..\third_party\vo-amrwbenc\$(Platform)\;..\third_party\opencore-amrwb\$(Platform)\;..\third_party\hid\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <AdditionalOptions>/OPT:NOLBR %(AdditionalOptions)</AdditionalOptions>
@@ -174,7 +174,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>hid.lib;vpxmt.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>hid.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib\;..\third_party\lib\;..\third_party\openssl\$(Platform)\lib\;..\third_party\ipp\$(Platform)\;..\third_party\opus\$(Platform)\;..\third_party\silk\$(Platform)\$(Configuration)\;..\third_party\ffmpeg\$(Platform)\;..\third_party\vpx\$(Platform)\;..\third_party\sdl\$(Platform)\;..\third_party\opencore-amrnb\$(Platform)\;..\third_party\vo-amrwbenc\$(Platform)\;..\third_party\opencore-amrwb\$(Platform)\;..\third_party\hid\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -206,7 +206,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>hid.lib;vpxmt.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>hid.lib;opus.lib;Wtsapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib\;..\third_party\lib\;..\third_party\openssl\$(Platform)\lib\;..\third_party\ipp\$(Platform)\;..\third_party\opus\$(Platform)\;..\third_party\silk\$(Platform)\$(Configuration)\;..\third_party\ffmpeg\$(Platform)\;..\third_party\vpx\$(Platform)\;..\third_party\sdl\$(Platform)\;..\third_party\opencore-amrnb\$(Platform)\;..\third_party\vo-amrwbenc\$(Platform)\;..\third_party\opencore-amrwb\$(Platform)\;..\third_party\hid\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

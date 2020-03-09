@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
 
 
 #include "StdAfx.h"
-#include "atlrx.h"
 #include "MessagesDlg.h"
 #include "microsip.h"
 #include "mainDlg.h"
@@ -329,7 +328,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	//-- incoming call
 	if (call_info && call_info->role == PJSIP_ROLE_UAS) {
 		//-- fix wrong domain
-		if (accountSettings.accountId && account == call_info->acc_id) {
+		if (accountSettings.accountId) {
 			if (IsIP(RemovePort(sipuri.domain))) {
 				sipuri.domain = get_account_domain();
 			}
@@ -371,7 +370,7 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	//--name
 	if (name.IsEmpty()) {
 		if (exists == -1 || messagesContact->callId == -1 || isNewCall) {
-			name = mainDlg->pageContacts->GetNameByNumber(number);
+			name = mainDlg->pageContacts->GetNameByNumber(GetSIPURI(number, true));
 			if (name.IsEmpty()) {
 				CString numberLocal = number;
 				name = sipuri.name;
@@ -578,7 +577,9 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 		return PJSUA_INVALID_ID;
 	}
 	if (accountSettings.singleMode) {
-		call_hangup_all_noincoming();
+		if (!user_data || !user_data->inConference) {
+			call_hangup_all_noincoming();
+		}
 	}
 #ifdef _GLOBAL_VIDEO
 	if (hasVideo) {
@@ -608,6 +609,21 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 	pjsip_generic_string_hdr_init2 (&subject, &hname, &hvalue);
 	pj_list_push_back(&msg_data.hdr_list, &subject);
 	//*/
+	if ((acc_id == account_local && accountSettings.accountLocal.hideCID) || (acc_id == account && accountSettings.account.hideCID)) {
+		pjsip_generic_string_hdr subject;
+		pj_str_t hvalue, hname;
+		hname = pj_str("Privacy");
+		hvalue = pj_str("id");
+		pjsip_generic_string_hdr_init2 (&subject, &hname, &hvalue);
+		pj_list_push_back(&msg_data.hdr_list, &subject);
+
+		pjsip_generic_string_hdr subject2;
+		pj_str_t hvalue2, hname2;
+		hname2 = pj_str("From");
+		hvalue2 = pj_str("\"Anonymous\" <sip:anonymous@anonymous.invalid>");
+		pjsip_generic_string_hdr_init2(&subject2, &hname2, &hvalue2);
+		pj_list_push_back(&msg_data.hdr_list, &subject2);
+	}
 	pj_status_t status = pjsua_call_make_call(
 		acc_id,
 		&pj_uri,
@@ -632,7 +648,11 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 	pj_status_t status = PJSIP_EINVALIDREQURI;
 	pjsua_call_id call_id = PJSUA_INVALID_ID;
 	CString numberWithParams = messagesContact->number + messagesContact->numberParameters;
-	call_id = CallMake(numberWithParams, hasVideo, &status, user_data);
+	bool allow;
+	allow = true;
+	if (allow) {
+		call_id = CallMake(numberWithParams, hasVideo, &status, user_data);
+	}
 	accountSettings.lastCallNumber = numberWithParams;
 	accountSettings.lastCallHasVideo = hasVideo;
 	if (call_id != PJSUA_INVALID_ID) {
@@ -680,6 +700,7 @@ void MessagesDlg::OnEndCall(pjsua_call_info *call_info)
 			break;
 		}
 	}
+	OnGoToLastTab();
 }
 
 void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info, call_user_data *user_data)
@@ -742,6 +763,9 @@ void MessagesDlg::UpdateHoldButton(pjsua_call_info *call_info)
 		buttonTransfer->ShowWindow(SW_HIDE);
 		buttonConference->ShowWindow(SW_HIDE);
 		buttonTransferDialer->EnableWindow(FALSE);
+	}
+	if (mainDlg->pageDialer->IsChild(&mainDlg->pageDialer->m_ButtonConf)) {
+		mainDlg->pageDialer->m_ButtonConf.EnableWindow(hasActions);
 	}
 	//--
 	if (hasHold) {
@@ -1055,7 +1079,7 @@ void MessagesDlg::Merge(pjsua_call_id call_id)
 	if (!messagesContact || messagesContact->callId == -1) {
 		return;
 	}
-	if (!pjsua_call_is_active(call_id)) {
+	if (messagesContact->callId == call_id || !pjsua_call_is_active(call_id)) {
 		return;
 	}
 	call_user_data *user_data;
@@ -1128,6 +1152,7 @@ void MessagesDlg::CallAction(int action, CString number)
 				xfer = true;
 			}
 			if (xfer) {
+
 				pjsua_call_xfer(messagesContactSelected->callId, &pj_uri, NULL);
 			}
 		}
@@ -1144,9 +1169,15 @@ void MessagesDlg::CallAction(int action, CString number)
 				user_data->CS.Lock();
 				user_data->inConference = true;
 				user_data->CS.Unlock();
-				user_data = new call_user_data(PJSUA_INVALID_ID);
-				user_data->inConference = true;
-				mainDlg->messagesDlg->CallStart(false, user_data);
+				call_user_data *user_data_new = new call_user_data(PJSUA_INVALID_ID);
+				user_data_new->inConference = true;
+				mainDlg->messagesDlg->CallStart(false, user_data_new);
+				if (messagesContact->callId == -1) {
+					user_data->CS.Lock();
+					user_data->inConference = false;
+					user_data->CS.Unlock();
+					delete user_data_new;
+				}
 			}
 		}
 	}
@@ -1445,6 +1476,12 @@ void MessagesDlg::OnGoToLastTab()
 		}
 		i++;
 	}
+	if (found) {
+		CButton* buttonHold = (CButton*)GetDlgItem(IDC_HOLD);
+		if (buttonHold->IsWindowVisible() && buttonHold->GetCheck()) {
+			OnBnClickedHold();
+		}
+	}
 	if (!found && lastCallIndex != -1) {
 		if (tab->GetCurSel() != lastCallIndex) {
 			LONG_PTR result;
@@ -1466,7 +1503,7 @@ int MessagesDlg::GetCallDuration(pjsua_call_id *call_id)
 		if (messagesContact->callId != -1) {
 			if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_call_get_info(messagesContact->callId, &call_info) == PJ_SUCCESS) {
 				if (call_info.state == PJSIP_INV_STATE_CONFIRMED) {
-					duration = call_info.connect_duration.sec;
+					duration = msip_get_duration(&call_info.connect_duration);
 					*call_id = messagesContact->callId;
 					count++;
 				}

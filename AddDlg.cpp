@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,6 +71,7 @@ void AddDlg::OnBnClickedOk()
 {
 	CString number;
 	CString name;
+	CString hint;
 	BOOL presence;
 			
 	GetDlgItem(IDC_EDIT_NUMBER)->GetWindowText(number);
@@ -83,7 +84,7 @@ void AddDlg::OnBnClickedOk()
 			mainDlg->pageContacts->ContactDelete(listIndex);
 		}
 		presence = ((CButton*)GetDlgItem(IDC_PRESENCE))->GetCheck();
-		mainDlg->pageContacts->ContactAdd(number, name, presence, -1, TRUE);
+		mainDlg->pageContacts->ContactAdd(number, name, _T(""), hint, presence, -1, TRUE);
 		OnClose();
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,15 +36,31 @@ BEGIN_MESSAGE_MAP(CBaseDialog, CDialog)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
+void CBaseDialog::WinHelp(DWORD dwData, UINT nCmd)
+{
+	OpenHelp();
+}
+
+void CBaseDialog::OpenHelp()
+{
+	OpenURL(_T(_GLOBAL_MENU_HELP));
+}
+
 BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 {
 	BOOL catched = FALSE;
+	int postCommand = 0;
 	if (!mainWnd) {
 		mainWnd = (CBaseDialog *)AfxGetApp()->GetMainWnd();
 	}
-	if (pMsg->message == WM_SYSKEYDOWN) {
-		if (pMsg->wParam == VK_F10 || pMsg->wParam == VK_MENU) {
-			if (mainWnd == this || mainWnd == this->GetParent()) {
+	if (
+		(pMsg->message == WM_SYSKEYDOWN && pMsg->wParam == VK_F10)
+		||
+		(pMsg->message == WM_SYSKEYUP && pMsg->wParam == VK_MENU)
+		) {
+		if (mainWnd == this || mainWnd == this->GetParent()) {
+			bool controlState = GetKeyState(VK_CONTROL) >> 7;
+			if (!controlState) {
 				CWnd *menuButton = mainWnd->GetDlgItem(IDC_MAIN_MENU);
 				if (mainWnd->GetFocus() == menuButton) {
 					if (pMsg->wParam == VK_F10) {
@@ -60,52 +76,66 @@ BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)
 	}
 	else
 		if (pMsg->message == WM_KEYDOWN) {
-			int postCommand = 0;
-			if (GetAsyncKeyState(VK_CONTROL)) {
-				if (pMsg->wParam == VK_TAB) {
-					if (mainWnd == this || mainWnd == this->GetParent()) {
-						if (!GetAsyncKeyState(VK_SHIFT)) {
-							mainWnd->GotoTab(-1);
-						}
-						else {
-							mainWnd->GotoTab(-2);
-						}
-						catched = TRUE;
-					}
-				}
-				if (pMsg->wParam == 'M') {
-					postCommand = ID_ACCOUNT_EDIT_RANGE;
-				}
-				//ctrl alt f11
-				if (pMsg->wParam == 'P') {
-					postCommand = ID_SETTINGS;
-				}
-				if (pMsg->wParam == 'S') {
-					postCommand = ID_SHORTCUTS;
-				}
-				if (pMsg->wParam == 'W') {
-					postCommand = ID_MENU_WEBSITE;
-				}
-				if (pMsg->wParam == 'Q') {
-					postCommand = ID_EXIT;
-				}
-			}
-			else {
-				if (pMsg->wParam == VK_ESCAPE) {
-					if (mainWnd == this || mainWnd == this->GetParent()) {
-						CWnd *menuButton = mainWnd->GetDlgItem(IDC_MAIN_MENU);
-						if (mainWnd->GetFocus() == menuButton) {
-							mainWnd->TabFocusSet();
+			bool controlState = GetKeyState(VK_CONTROL) >> 7;
+			bool altState = GetKeyState(VK_MENU) >> 7;
+				if (controlState && !altState) {
+					if (pMsg->wParam == VK_TAB) {
+						if (mainWnd == this || mainWnd == this->GetParent()) {
+							bool shiftState = GetKeyState(VK_SHIFT) >> 7;
+							if (!shiftState) {
+								mainWnd->GotoTab(-1);
+							}
+							else {
+								mainWnd->GotoTab(-2);
+							}
 							catched = TRUE;
 						}
 					}
+					if (pMsg->wParam == 'M') {
+						postCommand = ID_ACCOUNT_EDIT_RANGE;
+					}
+					if (pMsg->wParam == 'L') {
+						postCommand = ID_ACCOUNT_EDIT_LOCAL;
+					}
+					if (pMsg->wParam == 'P') {
+						postCommand = ID_SETTINGS;
+					}
+					if (pMsg->wParam == 'S') {
+						postCommand = ID_SHORTCUTS;
+					}
+					if (pMsg->wParam == 'W') {
+						postCommand = ID_MENU_WEBSITE;
+					}
+					if (pMsg->wParam == 'Q') {
+						postCommand = ID_EXIT;
+					}
 				}
-			}
-			if (mainWnd && postCommand) {
-				mainWnd->PostMessage(WM_COMMAND, postCommand, 0);
-				catched = TRUE;
-			}
+				else {
+					if (pMsg->wParam == VK_F2) {
+						//answer a call
+						msip_call_answer();
+						catched = TRUE;
+					}
+					if (pMsg->wParam == VK_F4) {
+						//hangup
+						pjsua_call_hangup_all();
+						catched = TRUE;
+					}
+					if (pMsg->wParam == VK_ESCAPE) {
+						if (mainWnd == this || mainWnd == this->GetParent()) {
+							CWnd *menuButton = mainWnd->GetDlgItem(IDC_MAIN_MENU);
+							if (mainWnd->GetFocus() == menuButton) {
+								mainWnd->TabFocusSet();
+								catched = TRUE;
+							}
+						}
+					}
+				}
 		}
+	if (mainWnd && postCommand) {
+		mainWnd->PostMessage(WM_COMMAND, postCommand, 0);
+		catched = TRUE;
+	}
 	if (!catched) {
 		return CDialog::PreTranslateMessage(pMsg);
 	}

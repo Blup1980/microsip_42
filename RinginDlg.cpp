@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,6 +82,9 @@ BOOL RinginDlg::OnInitDialog() {
 	m_font_ignore.CreateFontIndirect(&lf);
 	GetDlgItem(IDC_IGNORE)->SetFont(&m_font_ignore);
 	GetDlgItem(IDC_IGNORE)->EnableWindow(FALSE);
+	if (accountSettings.noIgnoreCall) {
+		GetDlgItem(IDC_IGNORE)->ShowWindow(SW_HIDE);
+	}
 	
 	lf.lfHeight = 24;
 	lf.lfWeight = FW_BOLD;
@@ -185,7 +188,12 @@ END_MESSAGE_MAP()
 
 void RinginDlg::OnClose() 
 {
-	Close();
+	if (accountSettings.noIgnoreCall) {
+		OnBnClickedDecline();
+	}
+	else {
+		Close();
+	}
 }
 
 void RinginDlg::OnAnswer()

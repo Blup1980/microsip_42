@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include <pjsua-lib/pjsua_internal.h>
 #include "mainDlg.h"
 #include "langpack.h"
+#include "utf.h"
 
 enum {
 	MSIP_CALLS_COL_NAME,
@@ -54,7 +55,6 @@ BOOL Calls::OnInitDialog()
 
 	TranslateDialog(this->m_hWnd);
 
-	nextKey = 0;
 	lastDay = 0;
 
 	imageList = new CImageList();
@@ -86,7 +86,7 @@ BOOL Calls::OnInitDialog()
 
 void Calls::OnCreated()
 {
-	m_SortItemsExListCtrl.SetSortColumn(1,false);
+	m_SortItemsExListCtrl.SetSortColumn(2,false);
 }
 
 void Calls::PostNcDestroy()
@@ -310,7 +310,7 @@ void Calls::MessageDlgOpen(BOOL isCall, BOOL hasVideo)
 		if (isCall) {
 			mainDlg->MakeCall(pCall->number, hasVideo);
 		} else {
-			mainDlg->MessagesOpen(pCall->number);
+			mainDlg->MessagesOpen(pCall->number, pCall->name);
 		}
 	}
 }
@@ -345,8 +345,7 @@ void Calls::OnMenuCopy()
 {
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
 	POSITION pos = list->GetFirstSelectedItemPosition();
-	if (pos)
-	{
+	if (pos) {
 		int i = list->GetNextSelectedItem(pos);
 		Call *pCall = (Call *) list->GetItemData(i);
 		mainDlg->CopyStringToClipboard(pCall->number);
@@ -363,6 +362,7 @@ void Calls::OnMenuDelete()
 	}
 }
 
+
 void Calls::Delete(int i)
 {
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
@@ -371,6 +371,12 @@ void Calls::Delete(int i)
 	CallSave(pCall);
 	delete pCall;
 	list->DeleteItem(i);
+}
+
+void Calls::DeleteAll()
+{
+	CallsClear();
+	WritePrivateProfileSection(_T("Calls"), NULL, accountSettings.iniFile);
 }
 
 void Calls::Add(pj_str_t id, CString number, CString name, int type)
@@ -393,17 +399,20 @@ void Calls::Add(pj_str_t id, CString number, CString name, int type)
 				} else {
 					pCall->number = sipuri.user+_T("@")+sipuri.domain+sipuri.parameters;
 				}
+				if (!accountSettings.account.dialingPrefix.IsEmpty()) {
+					if (pCall->number.Find(accountSettings.account.dialingPrefix) == 0) {
+						pCall->number = pCall->number.Mid(accountSettings.account.dialingPrefix.GetLength());
+					}
+				}
 			}
 			pCall->name = name;
 			pCall->type = type;
 			pCall->time = CTime::GetCurrentTime().GetTime();
 			pCall->duration = 0;
-			if (nextKey>=1000) {
-				nextKey = 0;
-			}
-			pCall->key = nextKey;
+			pCall->key = GetNextKey();
 			Insert(pCall);
 			CallSave(pCall);
+			SaveKey();
 		}
 	} else {
 		Call *pCall = (Call *) list->GetItemData(i);
@@ -523,9 +532,6 @@ void Calls::CallSave(Call *pCall)
 	CString data = !pCall->number.IsEmpty() ? CallEncode(pCall) : _T("null");
 	key.Format(_T("%d"), pCall->key);
 	WritePrivateProfileString(_T("Calls"), key, data, accountSettings.iniFile);
-	if (pCall->key == nextKey) {
-		nextKey++;
-	}
 }
 
 void Calls::CallsLoad()
@@ -536,14 +542,20 @@ void Calls::CallsLoad()
 	int prevTime = 0;
 	int pos = -1;
 	int inserted = 0;
-	nextKey=0;
+	lastKey=-1;
+	int maxTime = 0;
 	int i=0;
+	int callsLastKey = GetNextKey(true);
 	while (true) {
 		key.Format(_T("%d"),i);
 		if (GetPrivateProfileString(_T("Calls"), key, NULL, ptr, 256, accountSettings.iniFile)) {
 			if (val != _T("null")) {
 				Call *pCall =  new Call();
 				CallDecode(ptr, pCall);
+				if (pCall->time > maxTime) {
+					maxTime = pCall->time;
+					lastKey = i;
+				}
 				bool skip = false;
 				if (isFiltered(pCall)) {
 					skip = true;
@@ -559,7 +571,6 @@ void Calls::CallsLoad()
 					if (pos == -1) {
 						Insert(pCall);
 						prevTime = pCall->time;
-						nextKey = pCall->key;
 					} else {
 						Insert(pCall, pos);
 					}
@@ -567,13 +578,11 @@ void Calls::CallsLoad()
 				}
 			}
 		} else {
-			i--;
-			break;
+			if (callsLastKey <= i) {
+				break;
+			}
 		}
 		i++;
-	}
-	if (i!=-1) {
-		nextKey++;
 	}
 	m_SortItemsExListCtrl.SortColumn(m_SortItemsExListCtrl.GetSortColumn(),m_SortItemsExListCtrl.IsAscending());
 }
@@ -641,22 +650,37 @@ void Calls::CallDecode(CString str, Call *pCall)
 		}
 	}
 }
-/*
-CString Calls::GetNameByNumber(CString number)
-{
-	CString name;
-	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CALLS);
 
-	CString sipURI = GetSIPURI(number);
-	int n = list->GetItemCount();
-	for (int i=0; i<n; i++) {
-		Call* pCall = (Call *) list->GetItemData(i);
-		if (GetSIPURI(pCall->number) == sipURI)
-		{
-			name = pCall->name;
-			break;
+int Calls::GetNextKey(bool noInc)
+{
+	CString str;
+	LPTSTR ptr;
+	CString section;
+	section = _T("Settings");
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("callsLastKey"), _T("-1"), ptr, 256, accountSettings.iniFile);
+	str.ReleaseBuffer();
+	int key = _wtoi(str);
+	if (key != -1) {
+		lastKey = key;
+	}
+	if (!noInc) {
+		lastKey++;
+		if (lastKey >= 1000) {
+			lastKey = 0;
 		}
 	}
-	return name;
+	return lastKey;
 }
-*/
+
+void Calls::SaveKey()
+{
+	CString str;
+	LPTSTR ptr;  
+	CString section;
+	section = _T("Settings");
+
+	str.Format(_T("%d"), lastKey);
+	WritePrivateProfileString(section, _T("callsLastKey"), str, accountSettings.iniFile);
+}

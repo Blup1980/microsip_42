@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,12 +26,16 @@
 
 #define _GLOBAL_HEIGHT1 0
 #define _GLOBAL_HEIGHT2 _GLOBAL_HEIGHT1+16
-#define _GLOBAL_HEIGHT_FINAL _GLOBAL_HEIGHT2
-#define _GLOBAL_HEIGHT 211 + _GLOBAL_HEIGHT_FINAL
+
+#define _GLOBAL_HEIGHT3 _GLOBAL_HEIGHT2+23
+
+#define _GLOBAL_HEIGHT_FINAL _GLOBAL_HEIGHT3
+
+#define _GLOBAL_HEIGHT 192 + _GLOBAL_HEIGHT_FINAL
 
 #define _GLOBAL_TAB_WIDTH 47
 
-#define _GLOBAL_ACCOUNT_OFFSET_LEFT 0
+#define _GLOBAL_ACCT_OFFSET_LEFT 0
 
 #define IDD_CALLS_OFFSET_INITIAL _GLOBAL_HEIGHT - 17
 #define IDD_CALLS_OFFSET_LISTVIEW1 IDD_CALLS_OFFSET_INITIAL
@@ -42,13 +46,15 @@
 
 #define _GLOBAL_CODECS_ENABLED "PCMA/8000/1 PCMU/8000/1"
 
-#define _GLOBAL_DENY_INCOMING_DEFAULT "button"
-#define _GLOBAL_AUTO_ANSWER_DEFAULT "button"
+#define _GLOBAL_SETT_DENYINC_DEFAULT "button"
+#define _GLOBAL_SETT_AA_DEFAULT "button"
 
 #define _GLOBAL_BUSINESS_FEATURE "This feature can be added to a paid custom build."
 #define _GLOBAL_MENU_WEBSITE "http://www.microsip.org/"
 #define _GLOBAL_MENU_HELP "http://www.microsip.org/help"
 #define _GLOBAL_HELP_WEBSITE "http://www.microsip.org/help"
+
+#define _GLOBAL_EC_DEFAULT "1"
 
 #define _GLOBAL_NAME_NICE _GLOBAL_NAME
 

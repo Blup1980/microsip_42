@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,9 +67,6 @@ void Transfer::LoadFromContacts(Contact *selectedContact)
 	}
 	if (selectedIndex != -1) {
 		combobox->SetCurSel(selectedIndex);
-	}
-	else {
-		combobox->SetWindowText(lastTransferNumber);
 	}
 }
 
@@ -141,7 +138,6 @@ void Transfer::OnBnClickedOk()
 		number = * (CString *)combobox->GetItemData(i);
 	}
 	if (!number.IsEmpty()) {
-		lastTransferNumber = number;
 		mainDlg->messagesDlg->CallAction(action, number);
 		OnClose();
 	}

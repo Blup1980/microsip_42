@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -75,6 +75,7 @@ public:
 	afx_msg void OnBnClickedBrowse();
 	afx_msg void OnChangeRingtone();
 	afx_msg void OnBnClickedDefault();
+	afx_msg void OnHScroll( UINT nSBCode, UINT nPos, CScrollBar* );
 	afx_msg void OnBnClickedRecordingBrowse();
 	afx_msg void OnEnChangeRecording();
 	afx_msg void OnBnClickedRecordingDefault();

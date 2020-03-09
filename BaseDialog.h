@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,9 +30,11 @@ public:
 	void AutoMove(HWND hWnd, double dXMovePct, double dYMovePct, double dXSizePct, double dYSizePct);
 	void AutoUnmove(HWND hWnd);
 
+	void WinHelp(DWORD dwData, UINT nCmd);
+	void OpenHelp();
+
 	virtual void TabFocusSet() = 0;
 	virtual bool GotoTab(int i, CTabCtrl* tab = NULL) = 0;
-
 	// Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CBaseDialog)

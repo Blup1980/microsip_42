@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ public:
 	AddDlg* addDlg;
 	BOOL isSubscribed;
 
-	bool ContactAdd(CString number, CString name, char presence, char directory, BOOL save = FALSE, BOOL fromDirectory = FALSE);
+	bool ContactAdd(CString number, CString name, CString info, CString hint, char presence, char directory, BOOL save = FALSE, BOOL fromDirectory = FALSE, BOOL load = FALSE);
 
 	void ContactDelete(int i);
 	void ContactsSave();

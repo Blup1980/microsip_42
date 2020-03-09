@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -112,6 +112,7 @@ LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS *ExceptionInfo)
 struct MsipEnumWindowsProcData {
 	HINSTANCE hInst;
 	HWND hWnd;
+	int count;
 };
 
 BOOL CALLBACK MsipEnumWindowsProc(HWND hWnd, LPARAM lParam)
@@ -132,6 +133,7 @@ BOOL CALLBACK MsipEnumWindowsProc(HWND hWnd, LPARAM lParam)
 					if (GetModuleFileNameEx(hProcess, NULL, exeFilePath, MAX_PATH)) {
 						if (StrCmpI (exeFilePath, accountSettings.exeFile) == 0) {
 							data->hWnd = hWnd;
+							data->count++;
 							return FALSE;
 						}
 					}
@@ -149,8 +151,10 @@ BOOL CmicrosipApp::InitInstance()
 	SetUnhandledExceptionFilter(ExceptionFilter);
 	MsipEnumWindowsProcData data;
 	data.hInst = AfxGetInstanceHandle();
+	data.count = 0;
 	HWND hWndRunning = NULL;
-	if (!EnumWindows(MsipEnumWindowsProc, (LPARAM)&data)) {
+	EnumWindows(MsipEnumWindowsProc, (LPARAM)&data);
+	if (data.count) {
 		hWndRunning = data.hWnd;
 	}
 	if (hWndRunning) {
@@ -159,16 +163,17 @@ BOOL CmicrosipApp::InitInstance()
 		} else if ( lstrcmp(theApp.m_lpCmdLine, _T("/minimized"))==0) {
 		} else if ( lstrcmp(theApp.m_lpCmdLine, _T("/hidden"))==0) {
 		} else {
-			if (!accountSettings.silent) {
-				::ShowWindow(hWndRunning, SW_SHOW);
-				::SetForegroundWindow(hWndRunning);
-			}
+			bool activate = true;
 			if (lstrlen(theApp.m_lpCmdLine)) {
 				COPYDATASTRUCT cd;
 				cd.dwData = 1;
 				cd.lpData = theApp.m_lpCmdLine;
 				cd.cbData = sizeof(TCHAR) * (lstrlen(theApp.m_lpCmdLine) + 1);
-				::SendMessage(hWndRunning, WM_COPYDATA, NULL, (LPARAM)&cd);
+				activate = ::SendMessage(hWndRunning, WM_COPYDATA, NULL, (LPARAM)&cd);
+			}
+			if (activate && !accountSettings.hidden && !accountSettings.silent) {
+				::ShowWindow(hWndRunning, SW_SHOW);
+				::SetForegroundWindow(hWndRunning);
 			}
 		}
 		return FALSE;

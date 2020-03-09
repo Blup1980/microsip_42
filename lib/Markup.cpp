@@ -746,9 +746,9 @@ CString CMarkup::x_TextFromDoc( int nLeft, int nRight ) const
 	// ampersand escape codes replaced with special characters e.g. convert "6&gt;7" to "6>7"
 	// Conveniently the result is always the same or shorter in byte length
 	//
-	static _TCHAR* szaCode[] = { _T("lt;"),_T("amp;"),_T("gt;"),_T("apos;"),_T("quot;") };
-	static int anCodeLen[] = { 3,4,3,5,5 };
-	static _TCHAR* szSymbol = _T("<&>\'\"");
+	static _TCHAR* szaCode[] = { _T("lt;"),_T("amp;"),_T("gt;"),_T("apos;"),_T("quot;"),_T("#39;") };
+	static int anCodeLen[] = { 3,4,3,5,5,4 };
+	static _TCHAR* szSymbol = _T("<&>\'\"\'");
 	CString csText;
 	const _TCHAR* pSource = m_csDoc;
 	int nDestSize = nRight - nLeft + 1;
@@ -762,7 +762,7 @@ CString CMarkup::x_TextFromDoc( int nLeft, int nRight ) const
 		{
 			// Look for matching &code;
 			BOOL bCodeConverted = false;
-			for ( int nMatch = 0; nMatch < 5; ++nMatch )
+			for ( int nMatch = 0; nMatch < 6; ++nMatch )
 			{
 				if ( nChar <= nRight - anCodeLen[nMatch]
 					&& _tcsncmp(szaCode[nMatch],&pSource[nChar+1],anCodeLen[nMatch]) == 0 )

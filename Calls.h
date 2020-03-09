@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,8 +40,8 @@ public:
 	void SetDuration(pj_str_t id, int sec);
 	void SetInfo(pj_str_t id, CString str);
 	void Delete(int i);
+	void DeleteAll();
 	void UpdateCallButton();
-	//CString GetNameByNumber(CString number);
 
 	void CallsLoad();
 	void CallsClear();
@@ -56,13 +56,15 @@ private:
 	CToolTipCtrl m_ToolTip;
 	CImageList* imageList;
 	int lastDay;
-	int nextKey;
+	int lastKey;
 	void CallSave(Call *pCall);
 	void CallDecode(CString str, Call *pCall);
 	CString CallEncode(Call *pCall);
 	void Insert(Call *pCall, int pos = 0);
 	void MessageDlgOpen(BOOL isCall = FALSE, BOOL hasVideo = FALSE);
 	void DefaultItemAction(int i);
+	int GetNextKey(bool noInc = false);
+	void SaveKey();
 
 protected:
 	virtual BOOL OnInitDialog();

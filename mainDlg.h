@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -80,6 +80,7 @@ public:
 
 	Dialer* pageDialer;
 	Contacts* pageContacts;
+	bool usersDirectoryLoaded;
 	Calls* pageCalls;
 
 	BOOL notStopRinging;
@@ -106,16 +107,18 @@ public:
 	CList<int> confernceCalls;
 	
 	void InitUI();
+	void ShowTrayIcon();
 	void OnCreated();
 	void PJCreate();
 	void PJDestroy();
 	void PJAccountAdd();
+	void PJAccountAddRaw();
 	void PJAccountAddLocal();
 	void PJAccountDelete(bool deep = false);
 	void PJAccountDeleteLocal();
-	void PJAccountConfig(pjsua_acc_config *acc_cfg);
+	void PJAccountConfig(pjsua_acc_config *acc_cfg, Account *account);
 
-	void CommandLine(CString params);
+	bool CommandLine(CString params);
 	void TabFocusSet() override;
 	void UpdateWindowText(CString = CString(), int icon = IDI_DEFAULT, bool afterRegister = false);
 	void PublishStatus(bool online = true, bool init=false);
@@ -124,8 +127,8 @@ public:
 	bool GotoTab(int i, CTabCtrl* tab = NULL) override;
 	void DialNumberFromCommandLine(CString number);
 	void DialNumber(CString params);
-	bool MakeCall(CString number, bool hasVideo = false);
-	bool MessagesOpen(CString number);
+	bool MakeCall(CString number, bool hasVideo = false, bool fromCommandLine = false);
+	bool MessagesOpen(CString number, CString name=_T(""), CString *commands = NULL, bool forCall = false);
 	void AutoAnswer(pjsua_call_id call_id);
 	pjsua_call_id CurrentCallId();
 	void ShortcutAction(Shortcut *shortcut);
@@ -219,6 +222,7 @@ public:
 	afx_msg void OnMenuAccountAdd();
 	afx_msg void OnMenuAccountChange(UINT nID);
 	afx_msg void OnMenuAccountEdit(UINT nID);
+	afx_msg void OnMenuAccountLocalEdit();
 	afx_msg void OnMenuCustomRange(UINT nID);
 	afx_msg void OnMenuSettings();
 	afx_msg void OnMenuShortcuts();

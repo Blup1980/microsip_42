@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 MicroSIP (http://www.microsip.org)
+ * Copyright (C) 2011-2020 MicroSIP (http://www.microsip.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,8 +25,6 @@
 
 #include <Msi.h>
 #pragma comment(lib, "Msi.lib")
-
-using namespace MFC;
 
 AccountSettings accountSettings;
 bool firstRun;
@@ -87,15 +85,26 @@ void AccountSettings::Init()
 			regKey.Close();
 		}
 		if (pathInstaller.IsEmpty()) {
-			ptr = pathInstaller.GetBuffer(255);
-			DWORD bChars = 256;
-			UINT e = MsiGetProductInfo(_T("{F6560769-8A2F-4874-9E76-D86B016CBDFF}"), INSTALLPROPERTY_PRODUCTNAME, ptr, &bChars);
-			if (e == ERROR_SUCCESS) {
-				pathInstaller = pathExe;
-			}
-			else {
-				pathInstaller.ReleaseBuffer();
-				pathInstaller.Empty();
+			DWORD i = 0;
+			wchar_t lpProductBuf[39];
+			while (MsiEnumProducts(i, lpProductBuf) == ERROR_SUCCESS) {
+				wchar_t valueBuf[256];
+				DWORD cchValueBuf = 256;
+				if (MsiGetProductInfo(lpProductBuf, INSTALLPROPERTY_INSTALLEDPRODUCTNAME, valueBuf, &cchValueBuf) == ERROR_SUCCESS) {
+					if (StrCmp(valueBuf, _T(_GLOBAL_NAME)) == 0) {
+						cchValueBuf = 256;
+						if (MsiGetProductInfo(lpProductBuf, INSTALLPROPERTY_INSTALLLOCATION, valueBuf, &cchValueBuf) == ERROR_SUCCESS) {
+							pathInstaller = valueBuf;
+						}
+						if (!pathInstaller.IsEmpty()) {
+							pathInstaller.TrimRight('\\');
+						} else {
+							pathInstaller = pathExe;
+						}
+						break;
+					}
+				}
+				i++;
 			}
 		}
 		CString appDataRoaming;
@@ -130,24 +139,6 @@ void AccountSettings::Init()
 			isPortable = true;
 			pathRoaming = pathExe + _T("\\");
 			pathLocal = pathRoaming;
-			// for version <= 3.14.5 move ini file from currdir to exedir
-			CString pathCurrent;
-			ptr = pathCurrent.GetBuffer(MAX_PATH);
-			::GetCurrentDirectory(MAX_PATH, ptr);
-			pathCurrent.ReleaseBuffer();
-			if (pathCurrent.CompareNoCase(pathExe) != 0) {
-				pathCurrent.Append(_T("\\"));
-				if (CopyFile(pathCurrent + iniFile, pathRoaming + iniFile, TRUE)) {
-					DeleteFile(pathCurrent + iniFile);
-				}
-				if (CopyFile(pathCurrent + contactsFile, pathRoaming + contactsFile, TRUE)) {
-					DeleteFile(pathCurrent + contactsFile);
-				}
-				DeleteFile(pathCurrent + logFile);
-			}
-			// copy ini from installer path
-			CopyFile(appDataRoaming + iniFile, pathRoaming + iniFile, TRUE);
-			CopyFile(appDataRoaming + contactsFile, pathRoaming + contactsFile, TRUE);
 			logFile = pathLocal + logFile;
 		}
 
@@ -202,103 +193,22 @@ void AccountSettings::Init()
 	CString section;
 	section = _T("Settings");
 
-	ptr = updatesInterval.GetBuffer(255);
-	GetPrivateProfileString(section, _T("updatesInterval"), NULL, ptr, 256, iniFile);
-	updatesInterval.ReleaseBuffer();
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("checkUpdatesTime"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	checkUpdatesTime = _wtoi(str);
-
-	ptr = portKnockerHost.GetBuffer(255);
-	GetPrivateProfileString(section, _T("portKnockerHost"), NULL, ptr, 256, iniFile);
-	portKnockerHost.ReleaseBuffer();
-
-	ptr = portKnockerPorts.GetBuffer(255);
-	GetPrivateProfileString(section, _T("portKnockerPorts"), NULL, ptr, 256, iniFile);
-	portKnockerPorts.ReleaseBuffer();
-
-	ptr = lastCallNumber.GetBuffer(255);
-	GetPrivateProfileString(section, _T("lastCallNumber"), NULL, ptr, 256, iniFile);
-	lastCallNumber.ReleaseBuffer();
+	// load user settings
 
 	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("lastCallHasVideo"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("singleMode"), _T("1"), ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	lastCallHasVideo = (str == _T("1"));
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("enableLocalAccount"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	enableLocalAccount = str == _T("1") ? 1 : 0;
-
-	crashReport = 0;
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("DTMFMethod"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	DTMFMethod = _wtoi(str);
-	//--
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("AA"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	AA = _wtoi(str);
-	//--
-	ptr = autoAnswer.GetBuffer(255);
-	GetPrivateProfileString(section, _T("autoAnswer"), _T(_GLOBAL_AUTO_ANSWER_DEFAULT), ptr, 256, iniFile);
-	autoAnswer.ReleaseBuffer();
-	//--
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("DND"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	DND = _wtoi(str);
-	//--
-	ptr = denyIncoming.GetBuffer(255);
-	GetPrivateProfileString(section, _T("denyIncoming"), _T(_GLOBAL_DENY_INCOMING_DEFAULT), ptr, 256, iniFile);
-	denyIncoming.ReleaseBuffer();
-	//--
-	ptr = userAgent.GetBuffer(255);
-	GetPrivateProfileString(section, _T("userAgent"), NULL, ptr, 256, iniFile);
-	userAgent.ReleaseBuffer();
-
-	ptr = usersDirectory.GetBuffer(255);
-	GetPrivateProfileString(section, _T("usersDirectory"), NULL, ptr, 256, iniFile);
-	usersDirectory.ReleaseBuffer();
-
-	ptr = defaultAction.GetBuffer(255);
-	GetPrivateProfileString(section, _T("defaultAction"), NULL, ptr, 256, iniFile);
-	defaultAction.ReleaseBuffer();
-
-	ptr = dnsSrvNs.GetBuffer(255);
-	GetPrivateProfileString(section, _T("dnsSrvNs"), NULL, ptr, 256, iniFile);
-	dnsSrvNs.ReleaseBuffer();
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("dnsSrv"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	dnsSrv = str == "1" ? 1 : 0;
-
-	ptr = stun.GetBuffer(255);
-	GetPrivateProfileString(section, _T("STUN"), NULL, ptr, 256, iniFile);
-	stun.ReleaseBuffer();
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("enableSTUN"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	enableSTUN = str == "1" ? 1 : 0;
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("enableMediaButtons"), _T("0"), ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	enableMediaButtons = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("localDTMF"), _T("1"), ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	localDTMF = _wtoi(str);
+	singleMode = _wtoi(str);
 
 	ptr = ringtone.GetBuffer(255);
 	GetPrivateProfileString(section, _T("ringingSound"), NULL, ptr, 256, iniFile);
-
 	ringtone.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("volumeRing"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	volumeRing = str.IsEmpty() ? 100 : _wtoi(str);
+
 	ptr = audioRingDevice.GetBuffer(255);
 	GetPrivateProfileString(section, _T("audioRingDevice"), NULL, ptr, 256, iniFile);
 	audioRingDevice.ReleaseBuffer();
@@ -308,6 +218,7 @@ void AccountSettings::Init()
 	ptr = audioInputDevice.GetBuffer(255);
 	GetPrivateProfileString(section, _T("audioInputDevice"), NULL, ptr, 256, iniFile);
 	audioInputDevice.ReleaseBuffer();
+
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("micAmplification"), NULL, ptr, 256, iniFile);
@@ -322,64 +233,21 @@ void AccountSettings::Init()
 	ptr = audioCodecs.GetBuffer(255);
 	GetPrivateProfileString(section, _T("audioCodecs"), _T(_GLOBAL_CODECS_ENABLED), ptr, 256, iniFile);
 	audioCodecs.ReleaseBuffer();
-	if (isPortable) {
-		str = _T("Recordings");
-	}
-	else {
-		ptr = str.GetBuffer(MAX_PATH);
-		SHGetSpecialFolderPath(
-			0,
-			ptr,
-			CSIDL_DESKTOPDIRECTORY,
-			FALSE);
-		str.ReleaseBuffer();
-		str.Append(_T("\\Recordings"));
-	}
-	ptr = recordingPath.GetBuffer(255);
-	GetPrivateProfileString(section, _T("recordingPath"), str, ptr, 256, iniFile);
-	recordingPath.ReleaseBuffer();
-
-	ptr = str.GetBuffer(255);
-		GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	autoRecording = str == "1" ? 1 : 0;
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("rport"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	rport = str == "0" ? 0 : 1;
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("sourcePort"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	sourcePort = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("rtpPortMin"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	rtpPortMin = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("rtpPortMax"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	rtpPortMax = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("VAD"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	vad = str == "1" ? 1 : 0;
+	vad = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("EC"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("EC"), _T("1"), ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	ec = str == _T("1") ? 1 : 0;
+	ec = _wtoi(str);
 
-	//--
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("forceCodec"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	forceCodec = _wtoi(str);
-	//--
 
 #ifdef _GLOBAL_VIDEO
 	ptr = videoCaptureDevice.GetBuffer(255);
@@ -410,6 +278,212 @@ void AccountSettings::Init()
 #endif
 
 	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("rport"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	rport = str == "0" ? 0 : 1;
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("sourcePort"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	sourcePort = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("rtpPortMin"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	rtpPortMin = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("rtpPortMax"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	rtpPortMax = _wtoi(str);
+
+	ptr = dnsSrvNs.GetBuffer(255);
+	GetPrivateProfileString(section, _T("dnsSrvNs"), NULL, ptr, 256, iniFile);
+	dnsSrvNs.ReleaseBuffer();
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("dnsSrv"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	dnsSrv = str == "1" ? 1 : 0;
+
+	ptr = stun.GetBuffer(255);
+	GetPrivateProfileString(section, _T("STUN"), NULL, ptr, 256, iniFile);
+	stun.ReleaseBuffer();
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("enableSTUN"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	enableSTUN = str == "1" ? 1 : 0;
+
+	if (isPortable) {
+		str = _T("Recordings");
+	}
+	else {
+		ptr = str.GetBuffer(MAX_PATH);
+		SHGetSpecialFolderPath(
+			0,
+			ptr,
+			CSIDL_DESKTOPDIRECTORY,
+			FALSE);
+		str.ReleaseBuffer();
+		str.Append(_T("\\Recordings"));
+	}
+	ptr = recordingPath.GetBuffer(255);
+	GetPrivateProfileString(section, _T("recordingPath"), str, ptr, 256, iniFile);
+	recordingPath.ReleaseBuffer();
+
+	ptr = recordingFormat.GetBuffer(255);
+	GetPrivateProfileString(section, _T("recordingFormat"), NULL, ptr, 256, iniFile);
+	recordingFormat.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	autoRecording = str == "1" ? 1 : 0;
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("DTMFMethod"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	DTMFMethod = _wtoi(str);
+
+	ptr = autoAnswer.GetBuffer(255);
+	GetPrivateProfileString(section, _T("autoAnswer"), _T(_GLOBAL_SETT_AA_DEFAULT), ptr, 256, iniFile);
+	autoAnswer.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("autoAnswerDelay"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	autoAnswerDelay = _wtoi(str);
+
+	ptr = denyIncoming.GetBuffer(255);
+	GetPrivateProfileString(section, _T("denyIncoming"), _T(_GLOBAL_SETT_DENYINC_DEFAULT), ptr, 256, iniFile);
+	denyIncoming.ReleaseBuffer();
+
+	//--
+	ptr = usersDirectory.GetBuffer(255);
+	GetPrivateProfileString(section, _T("usersDirectory"), NULL, ptr, 256, iniFile);
+	usersDirectory.ReleaseBuffer();
+
+	ptr = defaultAction.GetBuffer(255);
+	GetPrivateProfileString(section, _T("defaultAction"), NULL, ptr, 256, iniFile);
+	defaultAction.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("enableMediaButtons"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	enableMediaButtons = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("localDTMF"), _T("1"), ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	localDTMF = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("enableLog"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	enableLog = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("bringToFrontOnIncoming"), _T("1"), ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	bringToFrontOnIncoming = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("enableLocalAccount"), NULL, ptr, 256, iniFile);
+
+	str.ReleaseBuffer();
+	enableLocalAccount = str == _T("1") ? 1 : 0;
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("randomAnswerBox"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	randomAnswerBox = _wtoi(str);
+
+	crashReport = 0;
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("callWaiting"), _T("1"), ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	callWaiting = _wtoi(str);
+
+	ptr = updatesInterval.GetBuffer(255);
+	GetPrivateProfileString(section, _T("updatesInterval"), NULL, ptr, 256, iniFile);
+	updatesInterval.ReleaseBuffer();
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("checkUpdatesTime"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	checkUpdatesTime = _wtoi(str);
+
+	// load ini settings
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("noResize"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	noResize = str == _T("1") ? 1 : 0;
+
+	ptr = userAgent.GetBuffer(255);
+	GetPrivateProfileString(section, _T("userAgent"), NULL, ptr, 256, iniFile);
+	userAgent.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("autoHangUpTime"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	autoHangUpTime = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("maxConcurrentCalls"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	maxConcurrentCalls = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("noIgnoreCall"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	noIgnoreCall = str == "1" ? 1 : 0;
+
+	ptr = cmdOutgoingCall.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdOutgoingCall"), NULL, ptr, 256, iniFile);
+	cmdOutgoingCall.ReleaseBuffer();
+
+	ptr = cmdIncomingCall.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdIncomingCall"), NULL, ptr, 256, iniFile);
+	cmdIncomingCall.ReleaseBuffer();
+
+	ptr = cmdCallRing.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallRing"), NULL, ptr, 256, iniFile);
+	cmdCallRing.ReleaseBuffer();
+
+	ptr = cmdCallAnswer.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallAnswer"), NULL, ptr, 256, iniFile);
+	cmdCallAnswer.ReleaseBuffer();
+
+	ptr = cmdCallBusy.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallBusy"), NULL, ptr, 256, iniFile);
+	cmdCallBusy.ReleaseBuffer();
+
+	ptr = cmdCallStart.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallStart"), NULL, ptr, 256, iniFile);
+	cmdCallStart.ReleaseBuffer();
+
+	ptr = cmdCallEnd.GetBuffer(255);
+	GetPrivateProfileString(section, _T("cmdCallEnd"), NULL, ptr, 256, iniFile);
+	cmdCallEnd.ReleaseBuffer();
+
+	hidden = 0;
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("silent"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	silent = str == "1" ? 1 : 0;
+
+	ptr = portKnockerHost.GetBuffer(255);
+	GetPrivateProfileString(section, _T("portKnockerHost"), NULL, ptr, 256, iniFile);
+	portKnockerHost.ReleaseBuffer();
+
+	ptr = portKnockerPorts.GetBuffer(255);
+	GetPrivateProfileString(section, _T("portKnockerPorts"), NULL, ptr, 256, iniFile);
+	portKnockerPorts.ReleaseBuffer();
+
+	// load system settings
+
+	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("mainX"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	mainX = _wtoi(str);
@@ -428,11 +502,6 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("mainH"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	mainH = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("noResize"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	noResize = str == _T("1") ? 1 : 0;
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("messagesX"), NULL, ptr, 256, iniFile);
@@ -518,90 +587,50 @@ void AccountSettings::Init()
 	activeTab = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("AA"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	AA = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("AC"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	AC = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("DND"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	DND = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("alwaysOnTop"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	alwaysOnTop = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("autoHangUpTime"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	autoHangUpTime = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("maxConcurrentCalls"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	maxConcurrentCalls = _wtoi(str);
-
-	ptr = cmdOutgoingCall.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdOutgoingCall"), NULL, ptr, 256, iniFile);
-	cmdOutgoingCall.ReleaseBuffer();
-
-	ptr = cmdIncomingCall.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdIncomingCall"), NULL, ptr, 256, iniFile);
-	cmdIncomingCall.ReleaseBuffer();
-
-	ptr = cmdCallRing.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallRing"), NULL, ptr, 256, iniFile);
-	cmdCallRing.ReleaseBuffer();
-
-	ptr = cmdCallAnswer.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallAnswer"), NULL, ptr, 256, iniFile);
-	cmdCallAnswer.ReleaseBuffer();
-
-	ptr = cmdCallBusy.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallBusy"), NULL, ptr, 256, iniFile);
-	cmdCallBusy.ReleaseBuffer();
-
-	ptr = cmdCallStart.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallStart"), NULL, ptr, 256, iniFile);
-	cmdCallStart.ReleaseBuffer();
-
-	ptr = cmdCallEnd.GetBuffer(255);
-	GetPrivateProfileString(section, _T("cmdCallEnd"), NULL, ptr, 256, iniFile);
-	cmdCallEnd.ReleaseBuffer();
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("enableLog"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	enableLog = _wtoi(str);
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("bringToFrontOnIncoming"), _T("1"), ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	bringToFrontOnIncoming = _wtoi(str);
-	//--
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("randomAnswerBox"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	randomAnswerBox = _wtoi(str);
-
-	//--
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("singleMode"), _T("1"), ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	singleMode = _wtoi(str);
-
-	hidden = 0;
-
-	ptr = str.GetBuffer(255);
-	GetPrivateProfileString(section, _T("silent"), NULL, ptr, 256, iniFile);
-	str.ReleaseBuffer();
-	silent = str == "1" ? 1 : 0;
-
+	
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("enableShortcuts"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	enableShortcuts = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("shortcutsBottom"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	shortcutsBottom = _wtoi(str);
+
+	ptr = lastCallNumber.GetBuffer(255);
+	GetPrivateProfileString(section, _T("lastCallNumber"), NULL, ptr, 256, iniFile);
+	lastCallNumber.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("lastCallHasVideo"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	lastCallHasVideo = (str == _T("1"));
 
 	//--
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("accountId"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	if (str.IsEmpty()) {
-		if (AccountLoad(-1, &account)) {
+		if (AccountLoad(-2, &account)) {
 			accountId = 1;
 			WritePrivateProfileString(section, _T("accountId"), _T("1"), iniFile);
 		}
@@ -617,6 +646,7 @@ void AccountSettings::Init()
 			}
 		}
 	}
+	AccountLoad(0, &accountLocal);
 }
 
 AccountSettings::AccountSettings()
@@ -628,7 +658,8 @@ void AccountSettings::AccountDelete(int id)
 {
 	CString section;
 	section.Format(_T("Account%d"), id);
-	WritePrivateProfileStruct(section, NULL, NULL, 0, iniFile);
+	//!!WritePrivateProfileStruct(section, NULL, NULL, 0, iniFile);
+	WritePrivateProfileString(section, NULL, NULL, iniFile);
 }
 
 bool AccountSettings::AccountLoad(int id, Account *account)
@@ -638,7 +669,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	LPTSTR ptr;
 
 	CString section;
-	if (id == -1) {
+	if (id == -2) {
 		section = _T("Settings");
 }
 	else {
@@ -646,7 +677,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	}
 
 	ptr = account->label.GetBuffer(255);
-	GetPrivateProfileString(section, _T("label"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("label"), id ? NULL : _T("Local"), ptr, 256, iniFile);
 	account->label.ReleaseBuffer();
 
 	ptr = account->server.GetBuffer(255);
@@ -662,15 +693,16 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	account->domain.ReleaseBuffer();
 
 	ptr = account->username.GetBuffer(255);
-	GetPrivateProfileString(section, _T("username"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("username"), id ? NULL : _T("user"), ptr, 256, iniFile);
 	account->username.ReleaseBuffer();
+
 	ptr = account->password.GetBuffer(1040);
 	GetPrivateProfileString(section, _T("password"), NULL, ptr, 1041, iniFile);
 	account->password.ReleaseBuffer();
 	if (!account->password.IsEmpty()) {
 		CByteArray arPassword;
 		String2Bin(account->password, &arPassword);
-		CCrypto crypto;
+		MFC::CCrypto crypto;
 		if (crypto.DeriveKey((LPCTSTR)_GLOBAL_KEY)) {
 			try {
 				if (!crypto.Decrypt(arPassword, account->password)) {
@@ -712,6 +744,15 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	GetPrivateProfileString(section, _T("dialingPrefix"), NULL, ptr, 256, iniFile);
 	account->dialingPrefix.ReleaseBuffer();
 
+	ptr = account->dialPlan.GetBuffer(255);
+	GetPrivateProfileString(section, _T("dialPlan"), NULL, ptr, 256, iniFile);
+	account->dialPlan.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("hideCID"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	account->hideCID = str == _T("1") ? 1 : 0;
+
 	ptr = account->voicemailNumber.GetBuffer(255);
 	GetPrivateProfileString(section, _T("voicemailNumber"), NULL, ptr, 256, iniFile);
 	account->voicemailNumber.ReleaseBuffer();
@@ -727,6 +768,24 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	ptr = account->publicAddr.GetBuffer(255);
 	GetPrivateProfileString(section, _T("publicAddr"), NULL, ptr, 256, iniFile);
 	account->publicAddr.ReleaseBuffer();
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("registerRefresh"), _T("300"), ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	account->registerRefresh = _wtoi(str);
+	if (account->registerRefresh <= 0) {
+		account->registerRefresh = 300;
+	}
+	else if (account->registerRefresh <= 10) {
+		account->registerRefresh = 10;
+	}
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("keepAlive"), _T("15"), ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	account->keepAlive = _wtoi(str);
+	if (account->keepAlive <= 0) {
+		account->keepAlive = 15;
+	}
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("publish"), NULL, ptr, 256, iniFile);
@@ -751,7 +810,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 
 	bool sectionExists = IniSectionExists(section, iniFile);
 
-	if (id == -1) {
+	if (id == -2) {
 		// delete old
 		WritePrivateProfileString(section, _T("server"), NULL, iniFile);
 		WritePrivateProfileString(section, _T("proxy"), NULL, iniFile);
@@ -776,6 +835,11 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	}
 				}
 	//return !account->domain.IsEmpty() && !account->username.IsEmpty();
+
+	if (id == 0) {
+		return true;// local account
+	}
+
 	return  sectionExists && !account->domain.IsEmpty();
 			}
 
@@ -799,7 +863,7 @@ void AccountSettings::AccountSave(int id, Account *account)
 	}
 	else {
 		WritePrivateProfileString(section, _T("username"), account->username, iniFile);
-		CCrypto crypto;
+		MFC::CCrypto crypto;
 		CByteArray arPassword;
 		if (!account->password.IsEmpty() && crypto.DeriveKey((LPCTSTR)_GLOBAL_KEY)
 			&& crypto.Encrypt(account->password, arPassword)
@@ -818,11 +882,19 @@ void AccountSettings::AccountSave(int id, Account *account)
 
 	WritePrivateProfileString(section, _T("dialingPrefix"), account->dialingPrefix, iniFile);
 
+	WritePrivateProfileString(section, _T("dialPlan"), account->dialPlan, iniFile);
+
+	WritePrivateProfileString(section, _T("hideCID"), account->hideCID ? _T("1") : _T("0"), iniFile);
+
 	WritePrivateProfileString(section, _T("voicemailNumber"), account->voicemailNumber, iniFile);
 
 	WritePrivateProfileString(section, _T("transport"), account->transport, iniFile);
 	WritePrivateProfileString(section, _T("publicAddr"), account->publicAddr, iniFile);
 	WritePrivateProfileString(section, _T("SRTP"), account->srtp, iniFile);
+	str.Format(_T("%d"), account->registerRefresh);
+	WritePrivateProfileString(section, _T("registerRefresh"), str, iniFile);
+	str.Format(_T("%d"), account->keepAlive);
+	WritePrivateProfileString(section, _T("keepAlive"), str, iniFile);
 	WritePrivateProfileString(section, _T("publish"), account->publish ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("ICE"), account->ice ? _T("1") : _T("0"), iniFile);
 
@@ -841,62 +913,12 @@ void AccountSettings::SettingsSave()
 	str.Format(_T("%d"), accountId);
 	WritePrivateProfileString(section, _T("accountId"), str, iniFile);
 
-	WritePrivateProfileString(section, _T("enableLocalAccount"), enableLocalAccount ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("enableLog"), enableLog ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("bringToFrontOnIncoming"), bringToFrontOnIncoming ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("randomAnswerBox"), randomAnswerBox ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("portKnockerHost"), portKnockerHost, iniFile);
-
-	WritePrivateProfileString(section, _T("portKnockerPorts"), portKnockerPorts, iniFile);
-
-	WritePrivateProfileString(section, _T("lastCallNumber"), lastCallNumber, iniFile);
-	WritePrivateProfileString(section, _T("lastCallHasVideo"), lastCallHasVideo ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("updatesInterval"), updatesInterval, iniFile);
-	str.Format(_T("%d"), checkUpdatesTime);
-	WritePrivateProfileString(section, _T("checkUpdatesTime"), str, iniFile);
-
-	WritePrivateProfileString(section, _T("DTMFMethod"), DTMFMethod == 1 ? _T("1") : (DTMFMethod == 2 ? _T("2") : (DTMFMethod == 3 ? _T("3") : _T("0"))), iniFile);
-
-	WritePrivateProfileString(section, _T("AA"), AA ? _T("1") : _T("0"), iniFile);
-	WritePrivateProfileString(section, _T("autoAnswer"), autoAnswer, iniFile);
-
-	WritePrivateProfileString(section, _T("DND"), DND ? _T("1") : _T("0"), iniFile);
-	WritePrivateProfileString(section, _T("denyIncoming"), denyIncoming, iniFile);
-
-	WritePrivateProfileString(section, _T("usersDirectory"), usersDirectory, iniFile);
-
-	WritePrivateProfileString(section, _T("defaultAction"), defaultAction, iniFile);
-
-	WritePrivateProfileString(section, _T("dnsSrvNs"), dnsSrvNs, iniFile);
-	WritePrivateProfileString(section, _T("dnsSrv"), dnsSrv ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("STUN"), stun, iniFile);
-
-	WritePrivateProfileString(section, _T("enableSTUN"), enableSTUN ? _T("1") : _T("0"), iniFile);
+// save user settings
 
 	WritePrivateProfileString(section, _T("singleMode"), singleMode ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("rport"), rport ? _T("1") : _T("0"), iniFile);
-	str.Format(_T("%d"), sourcePort);
-	WritePrivateProfileString(section, _T("sourcePort"), str, iniFile);
-	str.Format(_T("%d"), rtpPortMin);
-	WritePrivateProfileString(section, _T("rtpPortMin"), str, iniFile);
-	str.Format(_T("%d"), rtpPortMax);
-	WritePrivateProfileString(section, _T("rtpPortMax"), str, iniFile);
-
-	WritePrivateProfileString(section, _T("silent"), silent ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("enableShortcuts"), enableShortcuts ? _T("1") : _T("0"), iniFile);
-	WritePrivateProfileString(section, _T("shortcutsBottom"), shortcutsBottom ? _T("1") : _T("0"), iniFile);
-
-	WritePrivateProfileString(section, _T("enableMediaButtons"), enableMediaButtons ? _T("1") : _T("0"), iniFile);
-	WritePrivateProfileString(section, _T("localDTMF"), localDTMF ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("ringingSound"), ringtone, iniFile);
+	str.Format(_T("%d"), volumeRing);
+	WritePrivateProfileString(section, _T("volumeRing"), str, iniFile);
 	WritePrivateProfileString(section, _T("audioRingDevice"), _T("\"") + audioRingDevice + _T("\""), iniFile);
 	WritePrivateProfileString(section, _T("audioOutputDevice"), _T("\"") + audioOutputDevice + _T("\""), iniFile);
 	WritePrivateProfileString(section, _T("audioInputDevice"), _T("\"") + audioInputDevice + _T("\""), iniFile);
@@ -906,8 +928,6 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("VAD"), vad ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("EC"), ec ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("forceCodec"), forceCodec ? _T("1") : _T("0"), iniFile);
-	WritePrivateProfileString(section, _T("recordingPath"), recordingPath, iniFile);
-	WritePrivateProfileString(section, _T("autoRecording"), autoRecording ? _T("1") : _T("0"), iniFile);
 #ifdef _GLOBAL_VIDEO
 	WritePrivateProfileString(section, _T("videoCaptureDevice"), _T("\"") + videoCaptureDevice + _T("\""), iniFile);
 	WritePrivateProfileString(section, _T("videoCodec"), videoCodec, iniFile);
@@ -917,7 +937,66 @@ void AccountSettings::SettingsSave()
 	str.Format(_T("%d"), videoBitrate);
 	WritePrivateProfileString(section, _T("videoBitrate"), str, iniFile);
 #endif
+	WritePrivateProfileString(section, _T("rport"), rport ? _T("1") : _T("0"), iniFile);
+	str.Format(_T("%d"), sourcePort);
+	WritePrivateProfileString(section, _T("sourcePort"), str, iniFile);
+	str.Format(_T("%d"), rtpPortMin);
+	WritePrivateProfileString(section, _T("rtpPortMin"), str, iniFile);
+	str.Format(_T("%d"), rtpPortMax);
+	WritePrivateProfileString(section, _T("rtpPortMax"), str, iniFile);
+	WritePrivateProfileString(section, _T("dnsSrvNs"), dnsSrvNs, iniFile);
+	WritePrivateProfileString(section, _T("dnsSrv"), dnsSrv ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("STUN"), stun, iniFile);
+	WritePrivateProfileString(section, _T("enableSTUN"), enableSTUN ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("recordingPath"), recordingPath, iniFile);
+	WritePrivateProfileString(section, _T("recordingFormat"), recordingFormat, iniFile);
+	WritePrivateProfileString(section, _T("autoRecording"), autoRecording ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("DTMFMethod"), DTMFMethod == 1 ? _T("1") : (DTMFMethod == 2 ? _T("2") : (DTMFMethod == 3 ? _T("3") : _T("0"))), iniFile);
+	WritePrivateProfileString(section, _T("autoAnswer"), autoAnswer, iniFile);
+	str.Format(_T("%d"), autoAnswerDelay);
+	WritePrivateProfileString(section, _T("autoAnswerDelay"), str, iniFile);
+	WritePrivateProfileString(section, _T("denyIncoming"), denyIncoming, iniFile);
+	WritePrivateProfileString(section, _T("usersDirectory"), usersDirectory, iniFile);
+	WritePrivateProfileString(section, _T("defaultAction"), defaultAction, iniFile);
+	WritePrivateProfileString(section, _T("enableMediaButtons"), enableMediaButtons ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("localDTMF"), localDTMF ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("enableLog"), enableLog ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("bringToFrontOnIncoming"), bringToFrontOnIncoming ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("enableLocalAccount"), enableLocalAccount ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("randomAnswerBox"), randomAnswerBox ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("callWaiting"), callWaiting ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("updatesInterval"), updatesInterval, iniFile);
+	str.Format(_T("%d"), checkUpdatesTime);
+	WritePrivateProfileString(section, _T("checkUpdatesTime"), str, iniFile);
 
+	// save ini settings
+
+	str.Format(_T("%d"), noResize);
+	WritePrivateProfileString(section, _T("noResize"), str, iniFile);
+
+	WritePrivateProfileString(section, _T("userAgent"), userAgent, iniFile);
+
+	str.Format(_T("%d"), autoHangUpTime);
+	WritePrivateProfileString(section, _T("autoHangUpTime"), str, iniFile);
+
+	str.Format(_T("%d"), maxConcurrentCalls);
+	WritePrivateProfileString(section, _T("maxConcurrentCalls"), str, iniFile);
+	WritePrivateProfileString(section, _T("noIgnoreCall"), noIgnoreCall ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("cmdOutgoingCall"), cmdOutgoingCall, iniFile);
+	WritePrivateProfileString(section, _T("cmdIncomingCall"), cmdIncomingCall, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallRing"), cmdCallRing, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallAnswer"), cmdCallAnswer, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallBusy"), cmdCallBusy, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallStart"), cmdCallStart, iniFile);
+	WritePrivateProfileString(section, _T("cmdCallEnd"), cmdCallEnd, iniFile);
+	WritePrivateProfileString(section, _T("silent"), silent ? _T("1") : _T("0"), iniFile);
+
+	WritePrivateProfileString(section, _T("portKnockerHost"), portKnockerHost, iniFile);
+
+	WritePrivateProfileString(section, _T("portKnockerPorts"), portKnockerPorts, iniFile);
+
+	// save system settings
+	
 	str.Format(_T("%d"), mainX);
 	WritePrivateProfileString(section, _T("mainX"), str, iniFile);
 
@@ -929,9 +1008,6 @@ void AccountSettings::SettingsSave()
 
 	str.Format(_T("%d"), mainH);
 	WritePrivateProfileString(section, _T("mainH"), str, iniFile);
-
-	str.Format(_T("%d"), noResize);
-	WritePrivateProfileString(section, _T("noResize"), str, iniFile);
 
 	str.Format(_T("%d"), messagesX);
 	WritePrivateProfileString(section, _T("messagesX"), str, iniFile);
@@ -982,22 +1058,17 @@ void AccountSettings::SettingsSave()
 	str.Format(_T("%d"), activeTab);
 	WritePrivateProfileString(section, _T("activeTab"), str, iniFile);
 
+	WritePrivateProfileString(section, _T("AA"), AA ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("AC"), AC ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("DND"), DND ? _T("1") : _T("0"), iniFile);
+
 	str.Format(_T("%d"), alwaysOnTop);
 	WritePrivateProfileString(section, _T("alwaysOnTop"), str, iniFile);
 
-	str.Format(_T("%d"), autoHangUpTime);
-	WritePrivateProfileString(section, _T("autoHangUpTime"), str, iniFile);
-
-	str.Format(_T("%d"), maxConcurrentCalls);
-	WritePrivateProfileString(section, _T("maxConcurrentCalls"), str, iniFile);
-
-	WritePrivateProfileString(section, _T("cmdOutgoingCall"), cmdOutgoingCall, iniFile);
-	WritePrivateProfileString(section, _T("cmdIncomingCall"), cmdIncomingCall, iniFile);
-	WritePrivateProfileString(section, _T("cmdCallRing"), cmdCallRing, iniFile);
-	WritePrivateProfileString(section, _T("cmdCallAnswer"), cmdCallAnswer, iniFile);
-	WritePrivateProfileString(section, _T("cmdCallBusy"), cmdCallBusy, iniFile);
-	WritePrivateProfileString(section, _T("cmdCallStart"), cmdCallStart, iniFile);
-	WritePrivateProfileString(section, _T("cmdCallEnd"), cmdCallEnd, iniFile);
+	WritePrivateProfileString(section, _T("enableShortcuts"), enableShortcuts ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("shortcutsBottom"), shortcutsBottom ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("lastCallNumber"), lastCallNumber, iniFile);
+	WritePrivateProfileString(section, _T("lastCallHasVideo"), lastCallHasVideo ? _T("1") : _T("0"), iniFile);
 }
 
 CString ShortcutEncode(Shortcut *pShortcut)
