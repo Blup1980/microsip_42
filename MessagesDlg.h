@@ -56,18 +56,19 @@ public:
 	void TabFocusSet() override {};
 	bool GotoTab(int i, CTabCtrl* tab) { return false; };
 
-	MessagesContact* AddTab(CString number, CString name = CString(), BOOL activate = FALSE, pjsua_call_info *call_info = NULL, call_user_data *user_data = NULL, BOOL notShowWindow = FALSE, BOOL ifExists = FALSE);
+	MessagesContact* AddTab(CString number, BOOL activate = FALSE, pjsua_call_info *call_info = NULL, call_user_data *user_data = NULL, BOOL notShowWindow = FALSE, BOOL ifExists = FALSE, CString numberOriginal = _T(""));
 	void OnChangeTab(pjsua_call_info *p_call_info = NULL, call_user_data *user_data = NULL);
-	void OnEndCall(pjsua_call_info *call_info);
+	void OnEndCall(pjsua_call_info *call_info, call_user_data *user_data);
 	bool CallCheck();
 	pjsua_call_id CurrentCallId();
-	void Call(BOOL hasVideo = FALSE, CString commands=_T(""));
+	void Call(BOOL hasVideo = FALSE);
 	pjsua_call_id CallMake(CString number, bool hasVideo = false, pj_status_t *pStatus = NULL, call_user_data *user_data = NULL);
 	void CallStart(bool hasVideo = false, call_user_data *user_data = NULL);
 	void AddMessage(MessagesContact* messagesContact, CString message, int type = MSIP_MESSAGE_TYPE_SYSTEM, BOOL blockForeground = FALSE);
 	MessagesContact* GetMessageContact(int i = -1);
 	MessagesContact* GetMessageContactInCall();
 	int GetCallDuration(pjsua_call_id *call_id = NULL);
+	int GetCallsCount(bool withIncoming = false);
 	BOOL SendInstantMessage(MessagesContact *messagesContact, CString message, CString number = _T(""));
 	void UpdateHoldButton(pjsua_call_info *call_info);	
 	void UpdateRecButton(call_user_data *user_data = NULL);

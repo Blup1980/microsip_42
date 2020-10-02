@@ -1,10 +1,18 @@
 #ifndef jumplist_h__
 #define jumplist_h__
 
+
 #include <string>
+
+#undef _WIN32_WINNT
+#define _WIN32_WINNT_OLD _WIN32_WINNT
+#define _WIN32_WINNT _WIN32_WINNT_WIN7
 #include <shobjidl.h>
 #include <propkey.h>
 #include <propvarutil.h>
+#undef _WIN32_WINNT 
+#define _WIN32_WINNT _WIN32_WINNT_OLD
+#undef _WIN32_WINNT_OLD 
 
 class JumpList
 {

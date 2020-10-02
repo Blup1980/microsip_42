@@ -23,6 +23,7 @@
 #include "utf.h"
 #include "langpack.h"
 #include <afxinet.h>
+#include <Psapi.h>
 #include "atlrx.h"
 #include "addons.h"
 
@@ -32,9 +33,14 @@
 #define CF_TEXT_T CF_TEXT
 #endif
 
+pjsua_transport_id transport_udp_local;
+pjsua_transport_id transport_udp;
+pjsua_transport_id transport_tcp;
+pjsua_transport_id transport_tls;
+
 struct call_tonegen_data *tone_gen = NULL;
-int transport;
 pjsua_acc_id account;
+CString password;
 pjsua_acc_id account_local;
 pjsua_conf_port_id msip_conf_port_id;
 pjsua_call_id msip_conf_port_call_id;
@@ -46,276 +52,133 @@ int msip_audio_ring;
 CList<pjmedia_port*, pjmedia_port*> DTMFTonegens;
 
 
-CString GetErrorMessage(pj_status_t status)
-{
-	CStringA str;
-	char *buf = str.GetBuffer(PJ_ERR_MSG_SIZE - 1);
-	pj_strerror(status, buf, PJ_ERR_MSG_SIZE);
-	str.ReleaseBuffer();
-	int i = str.ReverseFind('(');
-	if (i != -1) {
-		str = str.Left(i - 1);
+CString FormatNumber(CString number, CString *commands, bool noTransform) {
+	int pos = number.Find(',');
+	if (pos > 0 && pos < number.GetLength() - 1) {
+		if (commands) {
+			*commands = number.Mid(pos);
+		}
+		number = number.Mid(0, pos);
 	}
-	if (str == "Invalid Request URI" || str == "Invalid URI") {
-		str = "Invalid number";
-	}
-	return Translate(CString(str).GetBuffer());
-}
+	CString numberFormated = number;
+	pjsua_acc_id acc_id;
+	pj_str_t pj_uri;
+	bool isLocal = SelectSIPAccount(number, acc_id, pj_uri) && acc_id == account_local;
+	if (!noTransform) {
+		if (number.Find('<') == -1 || number.Find('>') == -1) {
+			if (!isLocal) {
+				bool addPrefix = false;
+				if (MSIP::IsPSTNNnmber(number)) {
+					numberFormated.Remove('.');
+					numberFormated.Remove('-');
+					numberFormated.Remove('(');
+					numberFormated.Remove(')');
+					numberFormated.Remove(' ');
+					if (!accountSettings.account.dialingPrefix.IsEmpty() && numberFormated.GetLength() > 3) {
+						if (numberFormated.Left(1) == _T("+")) {
+							numberFormated = numberFormated.Mid(1);
+						}
+						addPrefix = true;
+					}
+				}
+				if (addPrefix) {
+					numberFormated = accountSettings.account.dialingPrefix + numberFormated;
+				}
 
-BOOL ShowErrorMessage(pj_status_t status)
-{
-	if (status != PJ_SUCCESS) {
-		AfxMessageBox(GetErrorMessage(status));
-		return TRUE;
-	}
-	else {
-		return FALSE;
-	}
-}
-
-CString RemovePort(CString domain)
-{
-	int pos = domain.Find(_T(":"));
-	if (pos != -1) {
-		return domain.Mid(0, pos);
-	}
-	else {
-		return domain;
-	}
-}
-
-BOOL IsIP(CString host)
-{
-	CStringA hostA(host);
-	char *pHost = hostA.GetBuffer();
-	unsigned long ulAddr = inet_addr(pHost);
-	if (ulAddr != INADDR_NONE && ulAddr != INADDR_ANY) {
-		struct in_addr antelope;
-		antelope.S_un.S_addr = ulAddr;
-		if (strcmp(inet_ntoa(antelope), pHost) == 0) {
-			return TRUE;
+				if (!accountSettings.account.dialPlan.IsEmpty()) {
+					CString dialPlan = accountSettings.account.dialPlan;
+					dialPlan.Trim(_T(" ()"));
+					pos = 0;
+					bool matched = false;
+					CString resToken = dialPlan.Tokenize(_T("|"), pos);
+					while (!resToken.IsEmpty()) {
+						CString newToken;
+						CString replaceGroup;
+						CStringList delayedReplaces;
+						bool group = false;
+						for (int i = 0; i < resToken.GetLength(); i++) {
+							TCHAR c = resToken.GetAt(i);
+							if (!group && c == '<') {
+								group = true;
+							}
+							else if (group) {
+								if (c != '>') {
+									replaceGroup.AppendChar(c);
+								}
+								else {
+									if (!replaceGroup.IsEmpty()) {
+										int p = replaceGroup.Find(':');
+										if (p == -1) {
+											newToken.Append(replaceGroup);
+										}
+										else {
+											CString match = replaceGroup.Left(p);
+											CString replace = replaceGroup.Mid(p + 1, replaceGroup.GetLength() - p - 1);
+											newToken.AppendFormat(_T("{%s}"), match);
+											delayedReplaces.AddTail(replace);
+										}
+									}
+									replaceGroup.Empty();
+									group = false;
+								}
+							}
+							else {
+								newToken.AppendChar(c);
+							}
+						}
+						newToken.Replace('.', '*');
+						newToken.Replace('x', '.');
+						newToken.Replace('X', '.');
+						resToken.Format(_T("^%s$"), newToken);
+						CAtlRegExp<> regex;
+						REParseError parseStatus = regex.Parse(resToken, true);
+						if (parseStatus == REPARSE_ERROR_OK) {
+							CAtlREMatchContext<> mc;
+							if (regex.Match(numberFormated, &mc)) {
+								POSITION pos = delayedReplaces.GetHeadPosition();
+								if (pos) {
+									CString numberFormatedNew;
+									int i = 0;
+									const CAtlREMatchContext<>::RECHAR *szPrev = mc.m_Match.szStart;
+									while (pos) {
+										CString replace = delayedReplaces.GetNext(pos);
+										const CAtlREMatchContext<>::RECHAR *szStart, *szEnd;
+										mc.GetMatch(i, &szStart, &szEnd);
+										int m = szPrev - mc.m_Match.szStart;
+										int n = szStart - szPrev;
+										numberFormatedNew.Append(numberFormated.Mid(m, n));
+										numberFormatedNew.Append(replace);
+										szPrev = szEnd;
+										i++;
+									}
+									numberFormatedNew.Append(numberFormated.Right(mc.m_Match.szEnd - szPrev - 1));
+									numberFormated = numberFormatedNew;
+								}
+								matched = true;
+								break;
+							}
+						}
+						resToken = dialPlan.Tokenize(_T("|"), pos);
+					}
+					if (!matched) {
+						numberFormated.Empty();
+					}
+				}
+			}
 		}
 	}
-	return FALSE;
+	return GetSIPURI(numberFormated, true, isLocal);
 }
 
-void ParseSIPURI(CString in, SIPURI* out)
+void AddTransportSuffix(CString &str, Account *account)
 {
-	//	tone_gen.toneslot = -1;
-	//	tone_gen = NULL;
-
-	// "WEwewew rewewe" <sip:qqweqwe@qwerer.com;rrrr=tttt;qweqwe=rrr?qweqwr=rqwrqwr>
-	// sip:qqweqwe@qwerer.com;rrrr=tttt;qweqwe=rrr?qweqwr=rqwrqwr
-	if (in.Right(1) == _T(">")) {
-		in = in.Left(in.GetLength() - 1);
-	}
-	out->name = _T("");
-	out->user = _T("");
-	out->domain = _T("");
-	out->parameters = _T("");
-
-	int start = in.Find(_T("sip:"));
-	int end;
-	if (start > 0)
-	{
-		out->name = in.Left(start);
-		out->name.Trim(_T(" \" <"));
-		if (!out->name.CompareNoCase(_T("unknown")))
-		{
-			out->name = _T("");
+	if (account) {
+		if (account->transport == _T("tcp") && transport_tcp != -1) {
+			str.Append(_T(";transport=tcp"));
 		}
-	}
-	if (start >= 0)
-	{
-		start += 4;
-	}
-	else {
-		start = 0;
-	}
-	end = in.Find(_T("@"), start);
-	if (end >= 0)
-	{
-		out->user = in.Mid(start, end - start);
-		start = end + 1;
-	}
-	end = in.Find(_T(";"), start);
-	if (end >= 0) {
-		out->domain = in.Mid(start, end - start);
-		start = end;
-		out->parameters = in.Mid(start);
-	}
-	else {
-		end = in.Find(_T("?"), start);
-		if (end >= 0) {
-			out->domain = in.Mid(start, end - start);
-			start = end;
-			out->parameters = in.Mid(start);
+		else if (account->transport == _T("tls") && transport_tls != -1) {
+			str.Append(_T(";transport=tls"));
 		}
-		else {
-			out->domain = in.Mid(start);
-		}
-	}
-}
-
-CString PjToStr(const pj_str_t* str, BOOL utf)
-{
-	CStringA rab;
-	rab.Format("%.*s", str->slen, str->ptr);
-	if (utf)
-	{
-#ifdef _UNICODE
-		WCHAR* msg;
-		Utf8DecodeCP(rab.GetBuffer(), CP_ACP, &msg);
-		return msg;
-#else
-		return Utf8DecodeCP(rab.GetBuffer(), CP_ACP, NULL);
-#endif
-	}
-	else
-	{
-		return CString(rab);
-	}
-}
-
-pj_str_t StrToPjStr(CString str)
-{
-	return pj_str(StrToPj(str));
-}
-
-char* StrToPj(CString str)
-{
-#ifdef _UNICODE
-	return Utf8EncodeUcs2(str.GetBuffer());
-#else
-	return Utf8EncodeCP(str.GetBuffer(), CP_ACP);
-#endif
-}
-
-CString Utf8DecodeUni(CStringA str)
-{
-#ifdef _UNICODE
-	LPTSTR msg;
-	Utf8DecodeCP(str.GetBuffer(), CP_ACP, &msg);
-	return msg;
-#else
-	return Utf8DecodeCP(str.GetBuffer(), CP_ACP, NULL);
-#endif
-}
-
-CStringA UnicodeToAnsi(CString str)
-{
-	CStringA res;
-	int nCount = str.GetLength();
-	for (int nIdx = 0; nIdx < nCount; nIdx++)
-	{
-		res += str[nIdx];
-	}
-	return res;
-}
-
-CString AnsiToUnicode(CStringA str)
-{
-	CString res;
-	int nCount = str.GetLength();
-	for (int nIdx = 0; nIdx < nCount; nIdx++)
-	{
-		res += str[nIdx];
-	}
-	return res;
-}
-
-CString AnsiToWideChar(char* str)
-{
-	CString res;
-	int iNeeded = MultiByteToWideChar(CP_ACP, 0, str, -1, 0, 0);
-	wchar_t *wlocal = res.GetBuffer((iNeeded + 1) * sizeof(wchar_t));
-	MultiByteToWideChar(CP_ACP, 0, str, -1, wlocal, iNeeded);
-	res.ReleaseBuffer();
-	return res;
-}
-
-CStringA StringToPjString(CString str)
-{
-	CStringA res;
-	int len = str.GetLength() * 4;
-	char *buf = res.GetBuffer(len);
-	pj_unicode_to_ansi(str.GetBuffer(), -1, buf, len + 1);
-	res.ReleaseBuffer();
-	return res;
-}
-
-char *WideCharToPjStr(CString str)
-{
-	int len = str.GetLength() * 4;
-	char *buf = (char *)malloc(len + 1);
-	pj_unicode_to_ansi(str.GetBuffer(), -1, buf, len + 1);
-	return buf;
-}
-
-CString PjStrToWideChar(char *str)
-{
-	CString res;
-	int len = strlen(str) * 2;
-	wchar_t *buf = res.GetBuffer(len);
-	pj_ansi_to_unicode(str, -1, buf, len + 1);
-	return res;
-}
-
-CString XMLEntityDecode(CString str)
-{
-	str.Replace(_T("&lt;"), _T("<"));
-	str.Replace(_T("&gt;"), _T(">"));
-	str.Replace(_T("&quot;"), _T("\""));
-	str.Replace(_T("&amp;"), _T("&"));
-	return str;
-}
-
-CString XMLEntityEncode(CString str)
-{
-	str.Replace(_T("&"), _T("&amp;"));
-	str.Replace(_T("<"), _T("&lt;"));
-	str.Replace(_T(">"), _T("&gt;"));
-	str.Replace(_T("\""), _T("&quot;"));
-	return str;
-}
-
-void OpenURL(CString url)
-{
-	CString param;
-	param.Format(_T("url.dll,FileProtocolHandler %s"), url);
-	ShellExecute(NULL, NULL, _T("rundll32.exe"), param, NULL, SW_SHOWNORMAL);
-}
-
-CString GetDuration(int sec, bool zero)
-{
-	CString duration;
-	if (sec || zero) {
-		int h, m, s;
-		s = sec;
-		h = s / 3600;
-		s = s % 3600;
-		m = s / 60;
-		s = s % 60;
-		if (h) {
-			duration.Format(_T("%d:%02d:%02d"), h, m, s);
-		}
-		else {
-			duration.Format(_T("%d:%02d"), m, s);
-		}
-	}
-	return duration;
-}
-
-void AddTransportSuffix(CString &str)
-{
-	switch (transport)
-	{
-	case MSIP_TRANSPORT_TCP:
-		str.Append(_T(";transport=tcp"));
-		break;
-	case MSIP_TRANSPORT_TLS:
-		str.Append(_T(";transport=tls"));
-		break;
 	}
 }
 
@@ -328,27 +191,28 @@ CString GetSIPURI(CString str, bool isSimple, bool isLocal, CString domain)
 	{
 		str = _T("sip:") + str;
 	}
+	pos = str.Find(_T("@"));
 	if (!isLocal) {
-		pos = str.Find(_T("@"));
 		if (accountSettings.accountId && pos == -1) {
 			str.Append(_T("@") + (!domain.IsEmpty() ? domain : get_account_domain()));
+		}
+	}
+	else {
+		if (pos == -1 && !accountSettings.accountLocal.domain.IsEmpty()) {
+			str.Append(_T("@") + accountSettings.accountLocal.domain);
 		}
 	}
 	if (str.GetAt(str.GetLength() - 1) == '>')
 	{
 		str = str.Left(str.GetLength() - 1);
 		if (!isSimple) {
-			if (!isLocal || !accountSettings.accountId) {
-				AddTransportSuffix(str);
-			}
+			AddTransportSuffix(str, isLocal ? &accountSettings.accountLocal : &accountSettings.account);
 		}
 		str += _T(">");
 	}
 	else {
 		if (!isSimple) {
-			if (!isLocal || !accountSettings.accountId) {
-				AddTransportSuffix(str);
-			}
+			AddTransportSuffix(str, isLocal ? &accountSettings.accountLocal : &accountSettings.account);
 		}
 		str = _T("<") + str + _T(">");
 	}
@@ -361,13 +225,13 @@ bool SelectSIPAccount(CString number, pjsua_acc_id &acc_id, pj_str_t &pj_uri)
 		return false;
 	}
 	SIPURI sipuri;
-	ParseSIPURI(number, &sipuri);
+	MSIP::ParseSIPURI(number, &sipuri);
 	if (pjsua_acc_is_valid(account) && pjsua_acc_is_valid(account_local)) {
 		acc_id = account;
 		if (get_account_domain() != sipuri.domain) {
 			int pos = sipuri.domain.Find(_T(":"));
-			CString domainWithoutPort = RemovePort(sipuri.domain);
-			if (domainWithoutPort.CompareNoCase(_T("localhost")) == 0 || IsIP(domainWithoutPort)) {
+			CString domainWithoutPort = MSIP::RemovePort(sipuri.domain);
+			if (domainWithoutPort.CompareNoCase(_T("localhost")) == 0 || MSIP::IsIP(domainWithoutPort)) {
 				acc_id = account_local;
 			}
 		}
@@ -381,163 +245,15 @@ bool SelectSIPAccount(CString number, pjsua_acc_id &acc_id, pj_str_t &pj_uri)
 	else {
 		return false;
 	}
-	pj_uri = StrToPjStr(GetSIPURI(number, acc_id == account_local, acc_id == account_local));
+	pj_uri = MSIP::StrToPjStr(GetSIPURI(number, false, acc_id == account_local));
 	return true;
-}
-
-bool IsPSTNNnmber(CString number)
-{
-	bool isDigits = true;
-	for (int i = 0; i < number.GetLength(); i++)
-	{
-		if ((number[i] > '9' || number[i] < '0') && number[i] != '*' && number[i] != '#' && number[i] != '.' && number[i] != '-' && number[i] != '(' && number[i] != ')' && number[i] != ' ' && number[0] != '+')
-		{
-			isDigits = false;
-			break;
-		}
-	}
-	return isDigits;
-}
-
-CString FormatNumber(CString number, CString *commands) {
-	int pos = number.Find(',');
-	if (pos > 0 && pos < number.GetLength() - 1) {
-		if (commands) {
-			*commands = number.Mid(pos + 1);
-		}
-		number = number.Mid(0, pos);
-	}
-	CString numberFormated = number;
-	pjsua_acc_id acc_id;
-	pj_str_t pj_uri;
-	bool isLocal = SelectSIPAccount(number, acc_id, pj_uri) && acc_id == account_local;
-	if (!isLocal) {
-		bool addPrefix = false;
-		if (IsPSTNNnmber(number)) {
-			numberFormated.Remove('.');
-			numberFormated.Remove('-');
-			numberFormated.Remove('(');
-			numberFormated.Remove(')');
-			numberFormated.Remove(' ');
-			if (!accountSettings.account.dialingPrefix.IsEmpty() && numberFormated.GetLength() > 3) {
-				if (numberFormated.Left(1) == _T("+")) {
-					numberFormated = numberFormated.Mid(1);
-				}
-				addPrefix = true;
-			}
-		}
-		if (addPrefix) {
-			numberFormated = accountSettings.account.dialingPrefix + numberFormated;
-		}
-
-		if (!accountSettings.account.dialPlan.IsEmpty()) {
-			CString dialPlan = accountSettings.account.dialPlan;
-			dialPlan.Trim(_T(" ()"));
-			pos = 0;
-			bool matched = false;
-			CString resToken = dialPlan.Tokenize(_T("|"), pos);
-			while (!resToken.IsEmpty()) {
-				CString newToken;
-				CString replaceGroup;
-				CStringList delayedReplaces;
-				bool group = false;
-				for (int i = 0; i < resToken.GetLength(); i++) {
-					TCHAR c = resToken.GetAt(i);
-					if (!group && c == '<') {
-						group = true;
-					} else if (group) {
-						if (c != '>') {
-							replaceGroup.AppendChar(c);
-						} else {
-							if (!replaceGroup.IsEmpty()) {
-								int p = replaceGroup.Find(':');
-								if (p == -1) {
-									newToken.Append(replaceGroup);
-								} else{
-									CString match = replaceGroup.Left(p);
-									CString replace = replaceGroup.Mid(p + 1, replaceGroup.GetLength() - p - 1);
-									if (replace.IsEmpty()) {
-										newToken.Append(match);
-									}
-									else {
-										newToken.AppendFormat(_T("{%s}"), match);
-										delayedReplaces.AddTail(replace);
-									}
-								}
-							}
-							replaceGroup.Empty();
-							group = false;
-						}
-					}
-					else {
-						newToken.AppendChar(c);
-					}
-				}
-				newToken.Replace('.', '*');
-				newToken.Replace('x', '.');
-				newToken.Replace('X', '.');
-				resToken.Format(_T("^%s$"), newToken);
-				CAtlRegExp<> regex;
-				REParseError parseStatus = regex.Parse(resToken, true);
-				if (parseStatus == REPARSE_ERROR_OK) {
-					CAtlREMatchContext<> mc;
-					if (regex.Match(numberFormated, &mc)) {
-						POSITION pos = delayedReplaces.GetHeadPosition();
-						if (pos) {
-							CString numberFormatedNew;
-							int i = 0;
-							const CAtlREMatchContext<>::RECHAR *szPrev = mc.m_Match.szStart;
-							while (pos) {
-								CString replace = delayedReplaces.GetNext(pos);
-								const CAtlREMatchContext<>::RECHAR *szStart, *szEnd;
-								mc.GetMatch(i, &szStart, &szEnd);
-								int m = szPrev - mc.m_Match.szStart;
-								int n = szStart - szPrev;
-								numberFormatedNew.Append(numberFormated.Mid(m, n));
-								numberFormatedNew.Append(replace);
-								szPrev = szEnd;
-								i++;
-							}
-							numberFormatedNew.Append(numberFormated.Right(mc.m_Match.szEnd - szPrev - 1));
-							numberFormated = numberFormatedNew;
-						}
-						matched = true;
-						break;
-					}
-				}
-				resToken = dialPlan.Tokenize(_T("|"), pos);
-			}
-			if (!matched) {
-				numberFormated.Empty();
-			}
-		}
-
-	}
-	return GetSIPURI(numberFormated, true, isLocal);
-}
-
-bool IniSectionExists(CString section, CString iniFile)
-{
-	CString str;
-	LPTSTR ptr = str.GetBuffer(3);
-	int result = GetPrivateProfileString(section, NULL, NULL, ptr, 3, iniFile);
-	str.ReleaseBuffer();
-	return result;
 }
 
 void OpenHelp(CString code)
 {
 	CString url = _T(_GLOBAL_HELP_WEBSITE);
 	url.Append(_T("#"));
-	OpenURL(url + code);
-}
-
-void MSIP::GetScreenRect(CRect *rect)
-{
-	rect->left = GetSystemMetrics(SM_XVIRTUALSCREEN);
-	rect->top = GetSystemMetrics(SM_YVIRTUALSCREEN);
-	rect->right = GetSystemMetrics(SM_CXVIRTUALSCREEN) - rect->left;
-	rect->bottom = GetSystemMetrics(SM_CYVIRTUALSCREEN) - rect->top;
+	MSIP::OpenURL(url + code);
 }
 
 struct call_tonegen_data *call_init_tonegen(pjsua_call_id call_id)
@@ -677,6 +393,59 @@ void msip_set_sound_device(int outDev, bool forse) {
 	}
 }
 
+bool msip_call_statistics(call_user_data *user_data, float *MOS)
+{
+	if (pjsua_var.state != PJSUA_STATE_RUNNING) {
+		return false;
+	}
+	if (!pjsua_call_has_media(user_data->call_id)) {
+		return false;
+	}
+	pjsua_stream_stat stat;
+	pj_status_t status = pjsua_call_get_stream_stat(user_data->call_id, 0, &stat);
+	if (status != PJ_SUCCESS) {
+		return false;
+	}
+
+	int LOCAL_DELAY = 30;
+	float R;
+	float a = 0.0f;
+	float b = 19.8f;
+	float c = 29.7f;
+	float rx_loss = 0.0;
+	float rx_jit = 0.0;
+	float avg_latency = 0.0;
+
+	int pkt_last = stat.rtcp.rx.pkt - user_data->rx_pkt_prev;
+	int loss_last = stat.rtcp.rx.loss - user_data->rx_loss_prev;
+	rx_loss = (pkt_last == 0) ? 1.0f : ((float)loss_last / (float)(pkt_last + loss_last));
+	user_data->rx_pkt_prev = stat.rtcp.rx.pkt;
+	user_data->rx_loss_prev = stat.rtcp.rx.loss;
+
+	rx_jit = (float)stat.rtcp.rx.jitter.last / 1000;
+
+	avg_latency = (stat.rtcp.rtt.last / 2000.0f) + LOCAL_DELAY + pjsua_var.media_cfg.snd_play_latency +
+		pjsua_var.media_cfg.snd_rec_latency + rx_jit;
+
+	{
+		float d = avg_latency;
+		float d2 = d - 177.3f;
+		float Id = 0.024f * d + 0.11f * (d - 177.3f) * (d2 < 0 ? 0 : 1);
+		float P = rx_loss;
+		float Ie = a + b * (float)log(1 + c * P);
+		R = 94.2f - Id - Ie;
+	}
+	if (R < 0) {
+		*MOS = 1;
+	}
+	else if (R > 100) {
+		*MOS = 4.5;
+	}
+	else {
+		*MOS = 1 + 0.035f * R + 7.10f / 1000000 * R * (R - 60) * (100 - R);
+	}
+	return true;
+}
 
 void msip_call_dial_dtmf(pjsua_call_id call_id, CString digits)
 {
@@ -688,10 +457,10 @@ void msip_call_dial_dtmf(pjsua_call_id call_id, CString digits)
 		pjsua_call_info call_info;
 		pjsua_call_get_info(call_id, &call_info);
 		if (call_info.media_status == PJSUA_CALL_MEDIA_ACTIVE) {
-			pj_str_t pj_digits = StrToPjStr(digits);
+			pj_str_t pj_digits = MSIP::StrToPjStr(digits);
 			if (accountSettings.DTMFMethod == 1) {
 				// in-band
-				simulate = !call_play_digit(call_id, StrToPj(digits));
+				simulate = !call_play_digit(call_id, MSIP::StrToPj(digits));
 			}
 			else if (accountSettings.DTMFMethod == 2) {
 				// RFC2833
@@ -704,14 +473,14 @@ void msip_call_dial_dtmf(pjsua_call_id call_id, CString digits)
 			else {
 				// auto
 				if (pjsua_call_dial_dtmf(call_id, &pj_digits) != PJ_SUCCESS) {
-					simulate = !call_play_digit(call_id, StrToPj(digits));
+					simulate = !call_play_digit(call_id, MSIP::StrToPj(digits));
 				}
 			}
 		}
 	}
 	if (simulate && accountSettings.localDTMF) {
 		msip_set_sound_device(msip_audio_output);
-		call_play_digit(-1, StrToPj(digits));
+		call_play_digit(-1, MSIP::StrToPj(digits));
 	}
 }
 
@@ -827,25 +596,9 @@ void call_deinit_tonegen(pjsua_call_id call_id)
 	}
 }
 
-unsigned call_get_count_noincoming()
+bool call_hangup_all_noincoming(bool onHold)
 {
-	unsigned noincoming_count = 0;
-	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
-	unsigned count = PJSUA_MAX_CALLS;
-	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
-		for (unsigned i = 0; i < count; ++i) {
-			pjsua_call_info call_info;
-			pjsua_call_get_info(call_ids[i], &call_info);
-			if (call_info.role != PJSIP_ROLE_UAS || (call_info.state != PJSIP_INV_STATE_INCOMING && call_info.state != PJSIP_INV_STATE_EARLY)) {
-				noincoming_count++;
-			}
-		}
-	}
-	return noincoming_count;
-}
-
-void call_hangup_all_noincoming(bool onHold)
-{
+	bool res = false;
 	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
 	unsigned count = PJSUA_MAX_CALLS;
 	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
@@ -857,7 +610,35 @@ void call_hangup_all_noincoming(bool onHold)
 					continue;
 				}
 				msip_call_hangup_fast(call_ids[i], &call_info);
+				res = true;
 			}
+		}
+	}
+	return res;
+}
+
+void call_hangup_calling()
+{
+	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+	unsigned count = PJSUA_MAX_CALLS;
+	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
+		for (unsigned i = 0; i < count; ++i) {
+			pjsua_call_info call_info;
+			pjsua_call_get_info(call_ids[i], &call_info);
+			if (call_info.role == PJSIP_ROLE_UAC && call_info.state != PJSIP_INV_STATE_CONFIRMED) {
+				msip_call_hangup_fast(call_ids[i], &call_info);
+			}
+		}
+	}
+}
+
+void call_hangup_all()
+{
+	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
+	unsigned count = PJSUA_MAX_CALLS;
+	if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
+		for (unsigned i = 0; i < count; ++i) {
+			msip_call_end(call_ids[i]);
 		}
 	}
 }
@@ -957,8 +738,8 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 					strPassword = data->password;
 				}
 				pHttp = session.GetHttpConnection(strServer, (dwServiceType == AFX_INET_SERVICE_HTTPS ? INTERNET_FLAG_SECURE : 0), nPort);
-				CString strHeaders;
 				CStringA strFormData;
+				CString requestHeaders;
 				if (data->post) {
 					if (!data->postData.IsEmpty()) {
 						strFormData = data->postData;
@@ -969,9 +750,11 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 							strObject = strObject.Left(pos);
 						}
 					}
-					strHeaders = _T("Content-Type: application/x-www-form-urlencoded");
+					if (requestHeaders.IsEmpty()) {
+						requestHeaders = _T("Content-Type: application/x-www-form-urlencoded");
+					}
 				}
-				pFile = pHttp->OpenRequest(data->post ? CHttpConnection::HTTP_VERB_POST : CHttpConnection::HTTP_VERB_GET, strObject, 0, 1, 0, 0,
+				pFile = pHttp->OpenRequest(data->post || !data->postData.IsEmpty() ? CHttpConnection::HTTP_VERB_POST : CHttpConnection::HTTP_VERB_GET, strObject, 0, 1, 0, 0,
 					INTERNET_FLAG_TRANSFER_BINARY |
 					INTERNET_FLAG_RELOAD |
 					INTERNET_FLAG_DONT_CACHE |
@@ -991,7 +774,8 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 					pFile->SetOption(INTERNET_OPTION_PASSWORD, strPassword.GetBuffer(), strPassword.GetLength());
 				}
 				pFile->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 10000);
-				if (pFile->SendRequest(strHeaders, (LPVOID)strFormData.GetBuffer(), strFormData.GetLength())) {
+				bool status = pFile->SendRequest(requestHeaders, (LPVOID)strFormData.GetBuffer(), strFormData.GetLength());
+				if (status) {
 					pFile->QueryInfoStatusCode(data->statusCode);
 					CStringA buf;
 					int i;
@@ -1030,7 +814,7 @@ static DWORD WINAPI URLGetAsyncThread(LPVOID lpParam)
 	return 0;
 }
 
-void URLGetAsync(CString url, HWND hWnd, UINT message, bool post, CString postData, CString username, CString password)
+void URLGetAsync(CString url, HWND hWnd, UINT message, bool post, CString postData, CString username, CString password, void* userData)
 {
 	HANDLE hThread;
 	URLGetAsyncData *data = new URLGetAsyncData();
@@ -1042,6 +826,7 @@ void URLGetAsync(CString url, HWND hWnd, UINT message, bool post, CString postDa
 	data->password = password;
 	data->post = post;
 	data->postData = postData;
+	data->userData = userData;
 	if (!CreateThread(NULL, 0, URLGetAsyncThread, data, 0, NULL)) {
 		data->url.Empty();
 		URLGetAsyncThread(data);
@@ -1059,75 +844,6 @@ URLGetAsyncData URLGetSync(CString url)
 	return data;
 }
 
-CString Bin2String(CByteArray *ca)
-{
-	CString res;
-	int k = ca->GetSize();
-	for (int i = 0; i < k; i++) {
-		unsigned char ch = ca->GetAt(i);
-		res.AppendFormat(_T("%02x"), ca->GetAt(i));
-	}
-	return res;
-}
-
-void String2Bin(CString str, CByteArray *res)
-{
-	res->RemoveAll();
-	int k = str.GetLength();
-	CStringA rab;
-	for (int i = 0; i < str.GetLength(); i += 2) {
-		rab = CStringA(str.Mid(i, 2));
-		char *p = NULL;
-		unsigned long bin = strtoul(rab.GetBuffer(), &p, 16);
-		res->Add(bin);
-	}
-}
-
-void CommandLineToShell(CString cmd, CString &command, CString &params)
-{
-	cmd.Trim();
-	command.Empty();
-	params.Empty();
-	int nArgs;
-	LPWSTR *szArglist = CommandLineToArgvW(cmd, &nArgs);
-	if (NULL == szArglist) {
-		AfxMessageBox(_T("Wrong command: ") + cmd);
-	}
-	else for (int i = 0; i < nArgs; i++) {
-		if (!i) {
-			command = szArglist[i];
-		}
-		else {
-			params.AppendFormat(_T("%s "), szArglist[i]);
-		}
-	}
-	params.TrimRight();
-	LocalFree(szArglist);
-}
-
-void RunCmd(CString cmdLine, CString addParams, bool noWait)
-{
-	CString command, params;
-	CommandLineToShell(cmdLine, command, params);
-	params.AppendFormat(_T(" %s"), addParams);
-	params.TrimLeft();
-	SHELLEXECUTEINFO ShExecInfo = { 0 };
-	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
-	ShExecInfo.hwnd = NULL;
-	ShExecInfo.lpVerb = NULL;
-	ShExecInfo.lpFile = command;
-	ShExecInfo.lpParameters = params;
-	ShExecInfo.lpDirectory = NULL;
-	ShExecInfo.nShow = SW_HIDE;
-	ShExecInfo.hInstApp = NULL;
-	ShellExecuteEx(&ShExecInfo);
-	if (!noWait) {
-		DWORD res = WaitForSingleObject(ShExecInfo.hProcess, 10000);
-	}
-	CloseHandle(ShExecInfo.hProcess);
-}
-
 CString get_account_username()
 {
 	CString res = accountSettings.account.username;
@@ -1137,6 +853,9 @@ CString get_account_username()
 CString get_account_password()
 {
 	CString res = accountSettings.account.password;
+	if (!password.IsEmpty()) {
+		res = password;
+	}
 		return res;
 }
 
@@ -1167,13 +886,11 @@ CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc, call_user_data *u
 {
 	//-- replace server
 	CString str;
-	if (pjsua_acc_is_valid(acc) && !get_account_server().IsEmpty()) {
+	if (accountSettings.accountId) {
 		str = get_account_server();
 	}
-	else {
-		str = _T("localhost");
-	}
-	url.Replace(_T("{server}"), str);
+	url.Replace(_T("{server}"), str.IsEmpty() ? _T("localhost") : str);
+	url.Replace(_T("{extension}"), accountSettings.accountId ? get_account_username() : _T(""));
 	//--
 	CTime t = CTime::GetCurrentTime();
 	time_t time = t.GetTime();
@@ -1247,6 +964,10 @@ void msip_call_hangup_fast(pjsua_call_id call_id, pjsua_call_info *p_call_info)
 			p_call_info = &call_info;
 		}
 	}
+	if (p_call_info->conf_slot != PJSUA_INVALID_ID) {
+		pjsua_conf_disconnect(p_call_info->conf_slot, 0);
+		pjsua_conf_disconnect(0, p_call_info->conf_slot);
+	}
 	if (p_call_info) {
 		if (p_call_info->state == PJSIP_INV_STATE_CALLING
 			|| (p_call_info->role == PJSIP_ROLE_UAS && p_call_info->state == PJSIP_INV_STATE_CONNECTING)
@@ -1266,7 +987,10 @@ void msip_call_hangup_fast(pjsua_call_id call_id, pjsua_call_info *p_call_info)
 			return;
 		}
 	}
-	pjsua_call_hangup(call_id, 0, NULL, NULL);
+	if (pjsua_call_hangup(call_id, 0, NULL, NULL) == PJ_SUCCESS) {
+		call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
+		mainDlg->messagesDlg->OnEndCall(p_call_info, user_data);
+	}
 }
 
 void msip_call_end(pjsua_call_id call_id)
@@ -1277,6 +1001,7 @@ void msip_call_end(pjsua_call_id call_id)
 	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_id);
 	if (user_data) {
 		user_data->CS.Lock();
+		user_data->hangup = true;
 		if (user_data->inConference) {
 			pjsua_call_info call_info;
 			if (pjsua_call_get_info(call_id, &call_info) == PJ_SUCCESS && call_info.state == PJSIP_INV_STATE_CONFIRMED) {
@@ -1360,12 +1085,14 @@ void msip_conference_join(pjsua_call_info *call_info)
 	}
 }
 
-void msip_conference_leave(pjsua_call_info *call_info, bool hold)
+void msip_conference_leave(pjsua_call_info *call_info, call_user_data *user_data, bool hold)
 {
 	if (pjsua_var.state != PJSUA_STATE_RUNNING) {
 		return;
 	}
-	call_user_data *user_data = (call_user_data *)pjsua_call_get_user_data(call_info->id);
+	if (!user_data) {
+		user_data = (call_user_data *)pjsua_call_get_user_data(call_info->id);
+	}
 	if (user_data) {
 		user_data->CS.Lock();
 		if (user_data->inConference) {
@@ -1529,10 +1256,10 @@ void msip_call_unhold(pjsua_call_info *call_info)
 	}
 }
 
-void msip_call_answer(pjsua_call_id call_id)
+bool msip_call_answer(pjsua_call_id call_id)
 {
 	if (pjsua_var.state != PJSUA_STATE_RUNNING) {
-		return;
+		return false;
 	}
 	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
 	unsigned calls_count = PJSUA_MAX_CALLS;
@@ -1545,18 +1272,20 @@ void msip_call_answer(pjsua_call_id call_id)
 					CWnd *hWnd = AfxGetApp()->m_pMainWnd;
 					if (hWnd) {
 						hWnd->PostMessage(UM_CALL_ANSWER, (WPARAM)call_ids[i], NULL);
+						return true;
 					}
 					break;
 				}
 			}
 		}
 	}
+	return false;
 }
 
 void msip_call_busy(pjsua_call_id call_id, CString reason)
 {
 	if (!reason.IsEmpty()) {
-		pj_str_t pj_reason = StrToPjStr(reason);
+		pj_str_t pj_reason = MSIP::StrToPjStr(reason);
 		pjsua_call_hangup(call_id, 486, &pj_reason, NULL);
 	}
 	else {
@@ -1564,11 +1293,12 @@ void msip_call_busy(pjsua_call_id call_id, CString reason)
 	}
 }
 
-void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info)
+void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info, int id)
 {
 	if (user_data) {
 		user_data->CS.Lock();
-		if (user_data->recorder_id == PJSUA_INVALID_ID) {
+		pjsua_recorder_id *recorder_id = &user_data->recorder_id;
+		if (*recorder_id == PJSUA_INVALID_ID) {
 			pjsua_call_info call_info_loc;
 			if (!call_info) {
 				if (pjsua_call_get_info(user_data->call_id, &call_info_loc) == PJ_SUCCESS) {
@@ -1578,21 +1308,23 @@ void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_
 			if (call_info && call_info->conf_slot) {
 				CString filename;
 				SIPURI remoteURI;
-				ParseSIPURI(PjToStr(&call_info->remote_info, TRUE), &remoteURI);
+				MSIP::ParseSIPURI(MSIP::PjToStr(&call_info->remote_info, TRUE), &remoteURI);
 				CTime tm = CTime::GetCurrentTime();
 				CString recordingPath = accountSettings.recordingPath;
 				if (!recordingPath.IsEmpty() && recordingPath.Right(1) != _T("\\")) {
 					recordingPath.Append(_T("\\"));
 				}
 				SIPURI localURI;
-				ParseSIPURI(PjToStr(&call_info->local_info, TRUE), &localURI);
+				MSIP::ParseSIPURI(MSIP::PjToStr(&call_info->local_info, TRUE), &localURI);
 				filename.Format(_T("%s-%s-%s-%s"),
 					tm.Format(_T("%Y%m%d-%H%M%S")),
 					remoteURI.user,
 					call_info->role == PJSIP_ROLE_UAC ? _T("outgoing") : _T("incoming"),
 					accountSettings.accountId && !accountSettings.account.label.IsEmpty() ? accountSettings.account.label : localURI.user
 					);
-				CreateDirectory(recordingPath, NULL);
+				if (!recordingPath.IsEmpty()) {
+					CreateDirectory(recordingPath, NULL);
+				}
 				char spec[] = { '/','\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' ' };
 				for (int i = 0; i < sizeof(spec); i++) {
 					filename.Replace(spec[i], '_');
@@ -1605,9 +1337,9 @@ void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_
 					filename.Append(_T(".mp3"));
 				}
 				//--
-				char *buf = WideCharToPjStr(filename);
-				if (pjsua_recorder_create(&pj_str(buf), 0, NULL, -1, 0, &user_data->recorder_id) == PJ_SUCCESS) {
-					pjsua_conf_port_id rec_conf_port_id = pjsua_recorder_get_conf_port(user_data->recorder_id);
+				char *buf = MSIP::WideCharToPjStr(filename);
+				if (pjsua_recorder_create(&pj_str(buf), 0, NULL, -1, 0, recorder_id) == PJ_SUCCESS) {
+					pjsua_conf_port_id rec_conf_port_id = pjsua_recorder_get_conf_port(*recorder_id);
 					pjsua_conf_connect(call_info->conf_slot, rec_conf_port_id);
 					pjsua_conf_connect(0, rec_conf_port_id);
 				}
@@ -1619,36 +1351,17 @@ void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_
 	}
 }
 
-void msip_call_recording_stop(call_user_data *user_data)
+void msip_call_recording_stop(call_user_data *user_data, int id)
 {
 	if (user_data) {
 		user_data->CS.Lock();
-		if (user_data->recorder_id != PJSUA_INVALID_ID) {
-			pjsua_recorder_destroy(user_data->recorder_id);
-			user_data->recorder_id = PJSUA_INVALID_ID;
+		pjsua_recorder_id *recorder_id = &user_data->recorder_id;
+		if (*recorder_id != PJSUA_INVALID_ID) {
+			pjsua_recorder_destroy(*recorder_id);
+			*recorder_id = PJSUA_INVALID_ID;
 		}
 		user_data->CS.Unlock();
 	}
-}
-
-CStringA msip_md5sum(CString *str)
-{
-	CStringA md5sum;
-	CStringA utf8 = Utf8EncodeUcs2(str->GetBuffer());
-	DWORD cbContent = utf8.GetLength();
-	BYTE* pbContent = (BYTE*)utf8.GetBuffer(cbContent);
-	pj_md5_context ctx;
-	pj_uint8_t digest[16];
-	pj_md5_init(&ctx);
-	pj_md5_update(&ctx, (pj_uint8_t*)pbContent, cbContent);
-	pj_md5_final(&ctx, digest);
-	char *p = md5sum.GetBuffer(32);
-	for (int i = 0; i < 16; ++i) {
-		pj_val_to_hex_digit(digest[i], p);
-		p += 2;
-	}
-	md5sum.ReleaseBuffer();
-	return md5sum;
 }
 
 CString msip_url_mask(CString url)
@@ -1671,97 +1384,5 @@ CString msip_url_mask(CString url)
 		url.Replace(_T("{md5_password}"), _T(""));
 	}
 	return url;
-}
-
-//void msip_audio_output_set_volume(int val, bool mute)
-//{
-//	if (mute) {
-//		val = 0;
-//	} else {
-//		pj_status_t status = 
-//			pjsua_snd_set_setting(
-//			PJMEDIA_AUD_DEV_CAP_OUTPUT_VOLUME_SETTING,
-//			&val, PJ_TRUE);
-//		if (status == PJ_SUCCESS) {
-//			val = 100;
-//		}
-//	}
-//	pjsua_conf_adjust_tx_level(0, (float)val/100);
-//}
-
-void msip_audio_conf_set_volume(int val, bool mute)
-{
-	if (pjsua_var.state != PJSUA_STATE_RUNNING) {
-		return;
-	}
-	if (mute) {
-		val = 0;
-	}
-	pjsua_call_id call_ids[PJSUA_MAX_CALLS];
-	unsigned count = PJSUA_MAX_CALLS;
-	if (pjsua_enum_calls(call_ids, &count) == PJ_SUCCESS) {
-		for (unsigned i = 0; i < count; ++i) {
-			pjsua_conf_port_id conf_port_id = pjsua_call_get_conf_port(call_ids[i]);
-			if (conf_port_id != PJSUA_INVALID_ID) {
-				pjsua_conf_adjust_rx_level(conf_port_id, (float)val / 100);
-			}
-		}
-	}
-}
-
-void msip_audio_input_set_volume(int val, bool mute)
-{
-	if (pjsua_var.state != PJSUA_STATE_RUNNING) {
-		return;
-	}
-	if (mute) {
-		val = 0;
-	}
-	else {
-		pj_status_t status = -1;
-		if (!accountSettings.swLevelAdjustment) {
-			int valHW;
-			if (accountSettings.micAmplification) {
-				valHW = val >= 50 ? 100 : val * 2;
-			}
-			else {
-				valHW = val;
-			}
-			status =
-				pjsua_snd_set_setting(
-					PJMEDIA_AUD_DEV_CAP_INPUT_VOLUME_SETTING,
-					&valHW, PJ_TRUE);
-		}
-		if (status == PJ_SUCCESS) {
-			if (accountSettings.micAmplification && val > 50) {
-				val = 100 + pow((float)val - 50, 1.68f);
-			}
-			else {
-				val = 100;
-			}
-		}
-		else {
-			if (accountSettings.micAmplification) {
-				if (val > 50) {
-					val = 50 + pow((float)val - 50, 1.7f);
-				}
-			}
-		}
-	}
-	pjsua_conf_adjust_rx_level(0, (float)val / 100);
-}
-
-pj_status_t msip_verify_sip_url(const char *url)
-{
-	return strlen(url) > 900 ? PJSIP_EURITOOLONG : pjsua_verify_sip_url(url);
-}
-
-int msip_get_duration(pj_time_val *time_val)
-{
-	int res = time_val->sec;
-	if (time_val->msec >= 500) {
-		res++;
-	}
-	return res;
 }
 

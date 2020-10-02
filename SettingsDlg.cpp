@@ -84,6 +84,7 @@ BOOL SettingsDlg::OnInitDialog()
 		CheckRadioButton(IDC_SETTINGS_RECORDING_MP3, IDC_SETTINGS_RECORDING_WAV, IDC_SETTINGS_RECORDING_MP3);
 	}
 	((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->SetCheck(accountSettings.autoRecording);
+	((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_BUTTON))->SetCheck(accountSettings.recordingButton);
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_MICROPHONE);
 	combobox->AddString(Translate(_T("Default")));
 	combobox->SetCurSel(0);
@@ -94,7 +95,7 @@ BOOL SettingsDlg::OnInitDialog()
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (aud_dev_info[i].input_count) {
-			CString audDevName = PjStrToWideChar(aud_dev_info[i].name);
+			CString audDevName = MSIP::PjStrToWideChar(aud_dev_info[i].name);
 			combobox->AddString(audDevName);
 			if (!accountSettings.audioInputDevice.Compare(audDevName))
 			{
@@ -111,7 +112,7 @@ BOOL SettingsDlg::OnInitDialog()
 	for (unsigned i = 0; i < count; i++)
 	{
 		if (aud_dev_info[i].output_count) {
-			CString audDevName = PjStrToWideChar(aud_dev_info[i].name);
+			CString audDevName = MSIP::PjStrToWideChar(aud_dev_info[i].name);
 			combobox->AddString(audDevName);
 			combobox2->AddString(audDevName);
 			if (!accountSettings.audioOutputDevice.Compare(audDevName))
@@ -139,14 +140,16 @@ BOOL SettingsDlg::OnInitDialog()
 	for (unsigned i = 0; i < count; i++)
 	{
 			POSITION pos = mainDlg->audioCodecList.Find(
-				PjToStr(&codec_info[i].codec_id)
+				MSIP::PjToStr(&codec_info[i].codec_id)
 			);
 			CString key = mainDlg->audioCodecList.GetNext(pos);
 			CString value = mainDlg->audioCodecList.GetNext(pos);
 			if (codec_info[i].priority
 				&& (!accountSettings.audioCodecs.IsEmpty() || StrStr(_T(_GLOBAL_CODECS_ENABLED), key))
 				) {
-				listbox2->AddString(value);
+				if (listbox2->FindString(0, value)==-1) {
+					listbox2->AddString(value);
+				}
 			}
 			else {
 				disabledCodecsList.AddTail(key);
@@ -177,7 +180,7 @@ BOOL SettingsDlg::OnInitDialog()
 	{
 		if (vid_dev_info[i].fmt_cnt && (vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING || vid_dev_info[i].dir == PJMEDIA_DIR_ENCODING_DECODING))
 		{
-			CString vidDevName = PjStrToWideChar(vid_dev_info[i].name);
+			CString vidDevName = MSIP::PjStrToWideChar(vid_dev_info[i].name);
 			combobox->AddString(vidDevName);
 			if (!accountSettings.videoCaptureDevice.Compare(vidDevName))
 			{
@@ -193,8 +196,8 @@ BOOL SettingsDlg::OnInitDialog()
 	pjsua_vid_enum_codecs(codec_info, &count);
 	for (unsigned i = 0; i < count; i++)
 	{
-		combobox->AddString(PjToStr(&codec_info[i].codec_id));
-		if (!accountSettings.videoCodec.Compare(PjToStr(&codec_info[i].codec_id)))
+		combobox->AddString(MSIP::PjToStr(&codec_info[i].codec_id));
+		if (!accountSettings.videoCodec.Compare(MSIP::PjToStr(&codec_info[i].codec_id)))
 		{
 			combobox->SetCurSel(combobox->GetCount() - 1);
 		}
@@ -211,7 +214,6 @@ BOOL SettingsDlg::OnInitDialog()
 	}
 	str.Format(_T("%d"), accountSettings.videoBitrate);
 	GetDlgItem(IDC_SETTINGS_VIDEO_BITRATE)->SetWindowText(str);
-
 #endif
 
 	((CButton*)GetDlgItem(IDC_SETTINGS_RPORT))->SetCheck(accountSettings.rport);
@@ -294,8 +296,8 @@ BOOL SettingsDlg::OnInitDialog()
 		combobox->SetCurSel(0);
 	}
 
-
 	((CButton*)GetDlgItem(IDC_SETTINGS_MEDIA_BUTTONS))->SetCheck(accountSettings.enableMediaButtons);
+	((CButton*)GetDlgItem(IDC_SETTINGS_HID))->SetCheck(accountSettings.headsetSupport);
 	((CButton*)GetDlgItem(IDC_SETTINGS_LOCAL_DTMF))->SetCheck(accountSettings.localDTMF);
 	((CButton*)GetDlgItem(IDC_SETTINGS_SINGLE_MODE))->SetCheck(accountSettings.singleMode);
 	((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->SetCheck(accountSettings.enableLog);
@@ -367,6 +369,7 @@ BEGIN_MESSAGE_MAP(SettingsDlg, CDialog)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_DNS_SRV, &SettingsDlg::OnNMClickSyslinkDnsSrv)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_STUN_SERVER, &SettingsDlg::OnNMClickSyslinkStunServer)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_MEDIA_BUTTONS, &SettingsDlg::OnNMClickSyslinkMediaButtons)
+	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_MEDIA_BUTTONS, &SettingsDlg::OnNMClickSyslinkHeadsetSupport)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_LOCAL_DTMF, &SettingsDlg::OnNMClickSyslinkLocalDTMF)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_SINGLE_MODE, &SettingsDlg::OnNMClickSyslinkSingleMode)
 	ON_NOTIFY(NM_CLICK, IDC_SETTINGS_HELP_VAD, &SettingsDlg::OnNMClickSyslinkVAD)
@@ -526,8 +529,8 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	accountSettings.usersDirectory.Trim();
 	combobox= (CComboBox*)GetDlgItem(IDC_SETTINGS_DEFAULT_ACTION);
 	accountSettings.defaultAction = defaultActionItems[combobox->GetCurSel()];
-
 	accountSettings.enableMediaButtons = ((CButton*)GetDlgItem(IDC_SETTINGS_MEDIA_BUTTONS))->GetCheck();
+	accountSettings.headsetSupport = ((CButton*)GetDlgItem(IDC_SETTINGS_HID))->GetCheck();
 	accountSettings.localDTMF = ((CButton*)GetDlgItem(IDC_SETTINGS_LOCAL_DTMF))->GetCheck();
 	accountSettings.singleMode = ((CButton*)GetDlgItem(IDC_SETTINGS_SINGLE_MODE))->GetCheck();
 	accountSettings.enableLog = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOG))->GetCheck();
@@ -540,6 +543,7 @@ LRESULT SettingsDlg::OnUpdateSettings(WPARAM wParam, LPARAM lParam)
 	accountSettings.recordingPath.Trim();
 	accountSettings.recordingFormat = IsDlgButtonChecked(IDC_SETTINGS_RECORDING_MP3) ? _T("mp3") : _T("wav");
 	accountSettings.autoRecording = ((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_CHECKBOX))->GetCheck();
+	accountSettings.recordingButton = ((CButton*)GetDlgItem(IDC_SETTINGS_RECORDING_BUTTON))->GetCheck();
 	accountSettings.enableLocalAccount = ((CButton*)GetDlgItem(IDC_SETTINGS_ENABLE_LOCAL))->GetCheck();
 
 	combobox = (CComboBox*)GetDlgItem(IDC_SETTINGS_UPDATES_INTERVAL);
@@ -803,6 +807,12 @@ void SettingsDlg::OnNMClickSyslinkStunServer(NMHDR *pNMHDR, LRESULT *pResult)
 void SettingsDlg::OnNMClickSyslinkMediaButtons(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	OpenHelp(_T("handleMediaButtons"));
+	*pResult = 0;
+}
+
+void SettingsDlg::OnNMClickSyslinkHeadsetSupport(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	OpenHelp(_T("headsetSupport"));
 	*pResult = 0;
 }
 

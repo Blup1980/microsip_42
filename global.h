@@ -20,6 +20,7 @@
 
 #include "define.h"
 #include "stdafx.h"
+#include "MSIP.h"
 #include <afxmt.h>
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
@@ -40,19 +41,21 @@ enum EUserWndMessages
 	UM_ON_ACCOUNT,
 	UM_ON_REG_STATE2,
 	UM_ON_CALL_STATE,
+	UM_ON_INCOMING_CALL,
 	UM_ON_CALL_TRANSFER_STATUS,
 	UM_ON_MWI_INFO,
 	UM_ON_CALL_MEDIA_STATE,
 	UM_ON_PAGER,
 	UM_ON_PAGER_STATUS,
 	UM_ON_BUDDY_STATE,
-	UM_ON_PLAYER_PLAY,
 	UM_ON_PLAYER_STOP,
 	UM_SET_PANE_TEXT,
 	UM_REFRESH_LEVELS,
 	UM_USERS_DIRECTORY,
+	UM_CUSTOM,
 	UM_ON_BALANCE_PLAIN,
 	UM_ON_BALANCE_OPTIONS,
+	UM_ON_COMMAND_LINE,
 	
 	IDT_TIMER_IDLE,
 	IDT_TIMER_TONE,
@@ -61,6 +64,7 @@ enum EUserWndMessages
 	IDT_TIMER_CALL,
 	IDT_TIMER_CONTACTS_BLINK,
 	IDT_TIMER_DIRECTORY,
+	IDT_TIMER_CONTACTS,
 	IDT_TIMER_SAVE,
 	IDT_TIMER_SWITCH_DEVICES,
 	IDT_TIMER_HEADSET,
@@ -80,7 +84,6 @@ IDS_STATUSBAR2,
 };
 
 enum {MSIP_MESSAGE_TYPE_LOCAL, MSIP_MESSAGE_TYPE_REMOTE, MSIP_MESSAGE_TYPE_SYSTEM};
-enum {MSIP_TRANSPORT_AUTO, MSIP_TRANSPORT_TCP, MSIP_TRANSPORT_TLS};
 enum {MSIP_CALL_OUT, MSIP_CALL_IN, MSIP_CALL_MISS};
 enum { MSIP_SOUND_CUSTOM, MSIP_SOUND_CUSTOM_NOLOOP, MSIP_SOUND_MESSAGE_IN, MSIP_SOUND_MESSAGE_OUT, MSIP_SOUND_HANGUP, MSIP_SOUND_RINGTONE, MSIP_SOUND_RINGIN2, MSIP_SOUND_RINGING };
 enum msip_srtp_type { MSIP_SRTP_DISABLED, MSIP_SRTP };
@@ -148,6 +151,8 @@ struct Account {
 			&& srtp == a.srtp
 			&& transport == a.transport
 			&& publicAddr == a.publicAddr
+			&& registerRefresh == a.registerRefresh
+			&& keepAlive == a.keepAlive
 			&& publish == a.publish
 			&& ice == a.ice
 			&& allowRewrite == a.allowRewrite
@@ -177,6 +182,8 @@ struct Account {
 		srtp = a.srtp;
 		transport = a.transport;
 		publicAddr = a.publicAddr;
+		registerRefresh = a.registerRefresh;
+		keepAlive = a.keepAlive;
 		publish = a.publish;
 		ice = a.ice;
 		allowRewrite = a.allowRewrite;
@@ -203,31 +210,44 @@ struct player_eof_data
 {
 	pj_pool_t          *pool;
 	pjsua_player_id player_id;
-};
-
-struct SIPURI {
-	CString name;
-	CString user;
-	CString domain;
-	CString parameters;
+	void *callback;
 };
 
 struct Contact {
-	CString number;
 	CString name;
-	BOOL presence;
-	BOOL directory;
+	CString number;
+	CString firstname;
+	CString lastname;
+	CString phone;
+	CString mobile;
+	CString email;
+	CString address;
+	CString city;
+	CString state;
+	CString zip;
+	CString comment;
+	CString id;
+	bool presence;
+	bool directory;
+	CString info;
 	time_t presenceTime;
 	BOOL ringing;
-	CString presenceNote;
 	int image;
 	BOOL candidate;
-	Contact():presenceTime(0),ringing(FALSE),image(0),candidate(FALSE){}
+	Contact():presenceTime(0)
+		,presence(false)
+		,directory(false)
+		,ringing(FALSE)
+		,image(0)
+		,candidate(FALSE)
+	{}
 };
 
 struct MessagesContact {
 	CString name;
 	CString number;
+	CString numberOriginal;
+	CString commands;
 	CString numberParameters;
 	CString messages;
 	CString message;
@@ -236,8 +256,10 @@ struct MessagesContact {
 	CString lastSystemMessage;
 	CTime lastSystemMessageTime;
 	pjsua_call_id callId;
+	CString callIdStr;
 	int mediaStatus;
 	MessagesContact():mediaStatus(PJSUA_CALL_MEDIA_ERROR)
+		,callId(-1)
 		,hasNewMessages(false)
 		,fromCommandLine(false)
 	{}
@@ -268,7 +290,10 @@ struct call_user_data
 	call_tonegen_data *tonegen_data;
 	pjsua_recorder_id recorder_id;
 	pj_timer_entry auto_hangup_timer;
+	bool hangup;
 	msip_srtp_type srtp;
+	int rx_pkt_prev;
+	int rx_loss_prev;
 	CString name;
 	CString userAgent;
 	CString diversion;
@@ -280,11 +305,14 @@ struct call_user_data
 	int holdFrom;
 	call_user_data(pjsua_call_id call_id): tonegen_data(NULL)
 		,recorder_id(PJSUA_INVALID_ID)
+		,hangup(false)
 		,inConference(false)
 		,autoAnswer(false)
 		,hidden(false)
 		,holdFrom(-1)
 		,srtp(MSIP_SRTP_DISABLED)
+		,rx_pkt_prev(0)
+		,rx_loss_prev(0)
 		{
 			this->call_id = call_id;
 			pj_bzero(&auto_hangup_timer, sizeof(auto_hangup_timer));
@@ -292,9 +320,15 @@ struct call_user_data
 		}
 };
 
+extern pjsua_transport_id transport_udp_local;
+extern pjsua_transport_id transport_udp;
+extern pjsua_transport_id transport_tcp;
+extern pjsua_transport_id transport_tls;
+
 extern struct call_tonegen_data *tone_gen;
-extern int transport;
+//extern int transport;
 extern pjsua_acc_id account;
+extern CString password;
 extern pjsua_acc_id account_local;
 extern pjsua_conf_port_id msip_conf_port_id;
 extern pjsua_call_id msip_conf_port_call_id;
@@ -303,39 +337,10 @@ extern int msip_audio_input;
 extern int msip_audio_output;
 extern int msip_audio_ring;
 
-CString GetErrorMessage(pj_status_t status);
-BOOL ShowErrorMessage(pj_status_t status);
-BOOL IsIP(CString host);
-CString RemovePort(CString domain);
-void ParseSIPURI(CString in, SIPURI* out);
-CString PjToStr(const pj_str_t* str, BOOL utf = FALSE);
-pj_str_t StrToPjStr(CString str);
-char* StrToPj(CString str);
-CString Utf8DecodeUni(CStringA str);
-CStringA UnicodeToAnsi(CString str);
-CString AnsiToUnicode(CStringA str);
-CString AnsiToWideChar(char* str);
-CStringA StringToPjString(CString str);
-char *WideCharToPjStr(CString str);
-CString PjStrToWideChar(char *str);
-CString XMLEntityDecode(CString str);
-CString XMLEntityEncode(CString str);
-void OpenURL(CString url);
-CString GetDuration(int sec, bool zero = false);
-void AddTransportSuffix(CString &str);
+CString FormatNumber(CString number, CString *commands = NULL, bool noTransform = false);
+void AddTransportSuffix(CString &str, Account *account);
 CString GetSIPURI(CString str, bool isSimple = false, bool isLocal = false, CString domain = _T(""));
 bool SelectSIPAccount(CString number, pjsua_acc_id &acc_id, pj_str_t &pj_uri);
-bool IsPSTNNnmber(CString number);
-CString FormatNumber(CString number, CString *commands = NULL);
-bool IniSectionExists(CString section, CString iniFile);
-CString Bin2String(CByteArray *ca);
-void String2Bin(CString str, CByteArray *res);
-void CommandLineToShell(CString cmd, CString &command, CString &params);
-void RunCmd(CString cmdLine, CString addParams=_T(""), bool noWait = false);
-
-namespace MSIP {
-	void GetScreenRect(CRect *rect);
-}
 
 CString get_account_username();
 CString get_account_password();
@@ -359,8 +364,9 @@ void DTMFQueueTimerHandler(
 
 void msip_call_hangup_fast(pjsua_call_id call_id,pjsua_call_info *p_call_info = NULL);
 
-unsigned call_get_count_noincoming();
-void call_hangup_all_noincoming(bool onHold=false);
+bool call_hangup_all_noincoming(bool onHold=false);
+void call_hangup_calling();
+void call_hangup_all();
 
 void OpenHelp(CString code);
 
@@ -376,8 +382,9 @@ typedef struct {
 	DWORD statusCode;
 	CString headers;
 	CStringA body;
+	void* userData;
 } URLGetAsyncData;
-void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false, CString postData = _T(""), CString username = _T(""), CString password = _T(""));
+void URLGetAsync(CString url, HWND hWnd=0, UINT message=0, bool post = false, CString postData = _T(""), CString username = _T(""), CString password = _T(""), void* userData = NULL);
 URLGetAsyncData URLGetSync(CString url);
 
 CStringA urldecode(CStringA str);
@@ -388,21 +395,16 @@ CString URLMask(CString url, SIPURI* sipuri, pjsua_acc_id acc, call_user_data *u
 HICON LoadImageIcon(int i);
 
 void msip_set_sound_device(int outDev, bool forse = 0);
+bool msip_call_statistics(call_user_data *user_data, float *MOS);
 void msip_call_dial_dtmf(pjsua_call_id call_id, CString digits);
 void msip_call_send_dtmf_info(pjsua_call_id current_call, pj_str_t digits);
-
 void msip_call_end(pjsua_call_id call_id);
 void msip_conference_join(pjsua_call_info *call_info);
-void msip_conference_leave(pjsua_call_info *call_info, bool hold = false);
+void msip_conference_leave(pjsua_call_info *call_info, call_user_data *user_data = NULL, bool hold = false);
 void msip_call_hold(pjsua_call_info *call_info);
 void msip_call_unhold(pjsua_call_info *call_info = NULL);
-void msip_call_answer(pjsua_call_id call_id = PJSUA_INVALID_ID);
+bool msip_call_answer(pjsua_call_id call_id = PJSUA_INVALID_ID);
 void msip_call_busy(pjsua_call_id call_id, CString reason = _T(""));
-void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info = NULL);
-void msip_call_recording_stop(call_user_data *user_data); 
-CStringA msip_md5sum(CString *str);
+void msip_call_recording_start(call_user_data *user_data, pjsua_call_info *call_info = NULL, int id = 0);
+void msip_call_recording_stop(call_user_data *user_data, int id = 0);
 CString msip_url_mask(CString url);
-void msip_audio_input_set_volume(int val, bool mute = false);
-void msip_audio_conf_set_volume(int val, bool mute);
-pj_status_t msip_verify_sip_url(const char *url);
-int msip_get_duration(pj_time_val *time_val);

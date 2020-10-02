@@ -24,14 +24,17 @@
 #include "microsip.h"
 #include "Strsafe.h"
 #include "langpack.h"
+#include "Hid.h"
 
 #include "afxbutton.h"
 
 Dialer::Dialer(CWnd* pParent /*=NULL*/)
 	: CBaseDialog(Dialer::IDD, pParent)
 {
-	Create(IDD, pParent);
 	delayedDTMF = false;
+	m_hasVoicemail = false;
+	m_isButtonVoicemailVisible = false;
+	Create(IDD, pParent);
 }
 
 Dialer::~Dialer(void)
@@ -42,6 +45,7 @@ void Dialer::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_DIALER_VOICEMAIL, m_ButtonVoicemail);
+	DDX_Control(pDX, IDC_DIALER_VOICEMAIL_DISABLED, m_ButtonVoicemailDisabled);
 	DDX_Control(pDX, IDC_VOLUME_INPUT, m_SliderCtrlInput);
 	DDX_Control(pDX, IDC_VOLUME_OUTPUT, m_SliderCtrlOutput);
 	DDX_Control(pDX, IDC_KEY_1, m_ButtonDialer1);
@@ -112,9 +116,17 @@ void Dialer::RebuildShortcuts(bool init)
 			MapDialogRect(&mapRect);
 			shortcutsRect.top += mapRect.top;
 			shortcutsRect.bottom -= mapRect.bottom;
-			buttonHeight = shortcutsRect.Height() / shortcuts.GetCount();
-			shortcutsRect.top = shortcutsRect.top + (shortcutsRect.Height() - buttonHeight * shortcuts.GetCount())/2;
-			moveFactor = 100 / shortcuts.GetCount();
+			if (shortcuts.GetCount() > 12) {
+				int count = shortcuts.GetCount() / 2 + shortcuts.GetCount() % 2;
+				buttonHeight = shortcutsRect.Height() / count;
+				shortcutsRect.top = shortcutsRect.top + (shortcutsRect.Height() - buttonHeight * count) / 2;
+				moveFactor = 100 / count;
+			}
+			else {
+				buttonHeight = shortcutsRect.Height() / shortcuts.GetCount();
+				shortcutsRect.top = shortcutsRect.top + (shortcutsRect.Height() - buttonHeight * shortcuts.GetCount()) / 2;
+				moveFactor = 100 / shortcuts.GetCount();
+			}
 		}
 		for (int i = 0; i < shortcuts.GetCount(); i++) {
 			Shortcut shortcut = shortcuts.GetAt(i);
@@ -122,17 +134,28 @@ void Dialer::RebuildShortcuts(bool init)
 			if (mainDlg->shortcutsBottom) {
 				CRect buttonRect;
 				buttonRect = CRect(shortcutsRect.left, shortcutsRect.top, shortcutsRect.right, shortcutsRect.top + buttonHeight);
-				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, buttonRect, this, IDC_SHORTCUT_RANGE + i);
+				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX | BS_PUSHLIKE, buttonRect, this, IDC_SHORTCUT_RANGE + i);
 				AutoMove(button->m_hWnd, 0, 100, 100, 0);
 				shortcutsRect.top += buttonHeight;
 			}
 			else {
-				button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, CRect(shortcutsRect.right - 138, shortcutsRect.top, shortcutsRect.right - 4, shortcutsRect.top + buttonHeight), this, IDC_SHORTCUT_RANGE + i);
-				AutoMove(button->m_hWnd, 100, i * moveFactor, 0, moveFactor);
-				shortcutsRect.top += buttonHeight;
+				if (shortcuts.GetCount() > 12) {
+					int row = i % 2;
+					button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX | BS_PUSHLIKE, CRect(shortcutsRect.right - 198 + row * 97, shortcutsRect.top, shortcutsRect.right - 4 - (1 - row) * 97, shortcutsRect.top + buttonHeight), this, IDC_SHORTCUT_RANGE + i);
+					AutoMove(button->m_hWnd, 100, i / 2 * moveFactor, 0, moveFactor);
+					if (row) {
+						shortcutsRect.top += buttonHeight;
+					}
+				}
+				else {
+					button->Create(shortcut.label, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX | BS_PUSHLIKE, CRect(shortcutsRect.right - 138, shortcutsRect.top, shortcutsRect.right - 4, shortcutsRect.top + buttonHeight), this, IDC_SHORTCUT_RANGE + i);
+					AutoMove(button->m_hWnd, 100, i * moveFactor, 0, moveFactor);
+					shortcutsRect.top += buttonHeight;
+				}
 			}
 			
-			//button->SetIcon((HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_AWAY), IMAGE_ICON, 0, 0, 0));//!!
+			// todo: add icons
+			//button->SetIcon((HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_AWAY), IMAGE_ICON, 0, 0, 0));
 
 			button->SetFont(font);
 			shortcutButtons.AddTail(button);
@@ -165,17 +188,25 @@ BOOL Dialer::OnInitDialog()
 
 	TranslateDialog(this->m_hWnd);
 
+	m_ButtonVoicemail.LoadBitmaps(IDB_VMAIL, IDB_VMAIL_DOWN, IDB_VMAIL_FOCUS);
+	m_ButtonVoicemail.SizeToContent();
+	m_ButtonVoicemailDisabled.LoadBitmaps(IDB_VMAIL_GREY, IDB_VMAIL_GREY_DOWN, IDB_VMAIL_GREY_FOCUS);
+	m_ButtonVoicemailDisabled.SizeToContent();
+
 	if (m_ToolTip.Create(this)) {
 		m_ToolTip.AddTool(&m_ButtonDialerRedial, Translate(_T("Redial")));
 		m_ToolTip.AddTool(&m_ButtonDialerDelete, Translate(_T("Backspace")));
 		m_ToolTip.AddTool(&m_ButtonDialerClear, Translate(_T("Clear")));
+	if (accountSettings.recordingButton) {
 		m_ToolTip.AddTool(&m_ButtonRec, Translate(_T("Call Recording")));
-		m_ToolTip.AddTool(&m_ButtonVoicemail, Translate(_T("Voicemail Number")));
+	}
+		CString str = Translate(_T("Voicemail Number"));
+		m_ToolTip.AddTool(&m_ButtonVoicemail, str);
+		m_ToolTip.AddTool(&m_ButtonVoicemailDisabled, str);
 		m_ToolTip.Activate(TRUE);
 	}
 
 	RebuildButtons(true);
-
 	AutoMove(IDC_NUMBER, 0, 0, 100, 0);
 	AutoMove(IDC_DIALER_DTMF, 100, 0, 0, 0);
 
@@ -220,7 +251,7 @@ BOOL Dialer::OnInitDialog()
 	AutoMove(IDC_VOLUME_OUTPUT, 0, 100, 100, 0);
 
 	AutoMove(IDC_DIALER_VOICEMAIL, 100, 100, 0, 0);
-
+	AutoMove(IDC_DIALER_VOICEMAIL_DISABLED, 100, 100, 0, 0);
 
 	DialedLoad();
 
@@ -329,13 +360,14 @@ BEGIN_MESSAGE_MAP(Dialer, CBaseDialog)
 	ON_BN_CLICKED(IDC_DIALER_CONF, &Dialer::OnBnClickedConf)
 	ON_BN_CLICKED(IDC_DIALER_REC, &Dialer::OnBnClickedRec)
 	ON_BN_CLICKED(IDC_DIALER_VOICEMAIL, OnBnClickedVoicemail)
+	ON_BN_CLICKED(IDC_DIALER_VOICEMAIL_DISABLED, OnBnClickedVoicemail)
 	ON_BN_CLICKED(IDC_BUTTON_PLUS_INPUT, &Dialer::OnBnClickedPlusInput)
 	ON_BN_CLICKED(IDC_BUTTON_MINUS_INPUT, &Dialer::OnBnClickedMinusInput)
 	ON_BN_CLICKED(IDC_BUTTON_PLUS_OUTPUT, &Dialer::OnBnClickedPlusOutput)
 	ON_BN_CLICKED(IDC_BUTTON_MINUS_OUTPUT, &Dialer::OnBnClickedMinusOutput)
 	ON_BN_CLICKED(IDC_BUTTON_MUTE_OUTPUT, &Dialer::OnBnClickedMuteOutput)
 	ON_BN_CLICKED(IDC_BUTTON_MUTE_INPUT, &Dialer::OnBnClickedMuteInput)
-	ON_COMMAND_RANGE(IDC_SHORTCUT_RANGE, IDC_SHORTCUT_RANGE + 20, &Dialer::OnBnClickedShortcut)
+	ON_COMMAND_RANGE(IDC_SHORTCUT_RANGE, IDC_SHORTCUT_RANGE + 24, &Dialer::OnBnClickedShortcut)
 	ON_WM_RBUTTONUP()
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
@@ -380,24 +412,34 @@ void Dialer::SetName(CString str)
 
 void Dialer::UpdateVoicemailButton(bool hasMail)
 {
-	if (hasMail) {
-		m_ButtonVoicemail.LoadBitmaps(IDB_VMAIL, IDB_VMAIL_DOWN, IDB_VMAIL_FOCUS);
+	if (m_hasVoicemail != hasMail) {
+		m_hasVoicemail = hasMail;
+	}
+	if (m_isButtonVoicemailVisible) {
+		if (hasMail) {
+			m_ButtonVoicemailDisabled.ShowWindow(SW_HIDE);
+			m_ButtonVoicemail.ShowWindow(SW_SHOW);
+		}
+		else {
+			m_ButtonVoicemail.ShowWindow(SW_HIDE);
+			m_ButtonVoicemailDisabled.ShowWindow(SW_SHOW);
+		}
 	}
 	else {
-		m_ButtonVoicemail.LoadBitmaps(IDB_VMAIL_GREY, IDB_VMAIL_GREY_DOWN, IDB_VMAIL_GREY_FOCUS);
+		m_ButtonVoicemail.ShowWindow(SW_HIDE);
+		m_ButtonVoicemailDisabled.ShowWindow(SW_HIDE);
 	}
-	m_ButtonVoicemail.SizeToContent();
 }
 
 void Dialer::RebuildButtons(bool init)
 {
-	bool showVoicemail = false;
 	if (accountSettings.accountId && !accountSettings.account.voicemailNumber.IsEmpty()) {
-		m_ButtonVoicemail.ShowWindow(SW_SHOW);
-		showVoicemail = true;
+		m_isButtonVoicemailVisible = true;
+		UpdateVoicemailButton(m_hasVoicemail);
 	}
 	else {
-		m_ButtonVoicemail.ShowWindow(SW_HIDE);
+		m_isButtonVoicemailVisible = false;
+		UpdateVoicemailButton(m_hasVoicemail);
 	}
 	if (IsChild(&m_ButtonDND)) {
 		if (m_ToolTip) {
@@ -432,10 +474,10 @@ void Dialer::RebuildButtons(bool init)
 	bool addDND = accountSettings.denyIncoming == _T("button");
 	bool addAA = accountSettings.autoAnswer == _T("button");
 	bool addAC = !accountSettings.singleMode;
-	bool addConf = !accountSettings.singleMode;
-	bool addRec = !accountSettings.recordingPath.IsEmpty();
-
-	if (addDND || addAA || addAC || addConf|| addRec) {
+	bool addConf = true;
+	
+	bool addRec = accountSettings.recordingButton;
+	if (addDND || addAA || addAC || addConf || addRec) {
 		CRect windowRect;
 		if (!init) {
 			GetWindowRect(windowRect);
@@ -456,11 +498,10 @@ void Dialer::RebuildButtons(bool init)
 		MapDialogRect(&mapRect);
 		int stepPx = mapRect.bottom + rect.Width();
 
-		if (showVoicemail || m_ButtonVoicemail.IsWindowVisible()) {
+		if (m_isButtonVoicemailVisible) {
 			rect.left -= stepPx;
 			rect.right -= stepPx;
 		}
-
 		if (addRec) {
 			m_ButtonRec.Create(Translate(_T("REC")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX | BS_PUSHLIKE | WS_DISABLED, rect, this, IDC_DIALER_REC);
 			m_ButtonRec.SetFont(GetFont());
@@ -506,7 +547,7 @@ void Dialer::RebuildButtons(bool init)
 			rect.right -= stepPx;
 		}
 		if (addDND) {
-			m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX | BS_PUSHLIKE, rect, this, IDC_DIALER_DND);
+			m_ButtonDND.Create(Translate(_T("DND")), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_CHECKBOX | BS_PUSHLIKE, rect, this, IDC_DIALER_DND);
 			m_ButtonDND.SetFont(GetFont());
 			m_ButtonDND.SetCheck(accountSettings.DND ? BST_CHECKED : BST_UNCHECKED);
 			AutoMove(m_ButtonDND.m_hWnd, 100, 100, 0, 0);
@@ -908,7 +949,7 @@ void Dialer::UpdateCallButton(BOOL forse, int callsCount)
 	bool state = false;
 	if (accountSettings.singleMode) {
 		if (callsCount == -1) {
-			callsCount = call_get_count_noincoming();
+			callsCount = mainDlg->messagesDlg->GetCallsCount();
 		}
 		if (callsCount) {
 			if (!GetDlgItem(IDC_END)->IsWindowVisible()) {
@@ -1033,12 +1074,7 @@ void Dialer::OnBnClickedHold()
 
 void Dialer::OnBnClickedTransfer()
 {
-	if (!mainDlg->transferDlg) {
-		mainDlg->transferDlg = new Transfer(this);
-		mainDlg->transferDlg->LoadFromContacts();
-	}
-	mainDlg->transferDlg->SetAction(MSIP_ACTION_TRANSFER);
-	mainDlg->transferDlg->SetForegroundWindow();
+	mainDlg->messagesDlg->OnTransfer();
 }
 
 void Dialer::OnBnClickedEnd()
@@ -1125,7 +1161,7 @@ void Dialer::OnBnClickedKeyGrate()
 void Dialer::OnBnClickedRedial()
 {
 	if (!accountSettings.lastCallNumber.IsEmpty()) {
-		mainDlg->MakeCall(accountSettings.lastCallNumber, accountSettings.lastCallHasVideo);
+		mainDlg->MakeCall(accountSettings.lastCallNumber, accountSettings.lastCallHasVideo, false, true);
 	}
 }
 
@@ -1288,6 +1324,9 @@ void Dialer::OnBnClickedMuteInput()
 		OnHScroll(0, 0, NULL);
 	}
 	button->SetCheck(!button->GetCheck());
+	if (accountSettings.headsetSupport) {
+		Hid::SetMute(muteInput);
+	}
 }
 
 void Dialer::TimerVuMeter()
@@ -1332,7 +1371,7 @@ void Dialer::TimerVuMeter()
 
 BOOL Dialer::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
 {
-	if (pWnd == &m_ButtonVoicemail) {
+	if (pWnd == &m_ButtonVoicemail || pWnd == &m_ButtonVoicemailDisabled) {
 		::SetCursor(m_hCursorHand);
 		return TRUE;
 	}
@@ -1341,10 +1380,7 @@ BOOL Dialer::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message)
 
 void Dialer::OnBnClickedDND()
 {
-	CButton *button = (CButton*)GetDlgItem(IDC_DIALER_DND);
-	accountSettings.DND = button->GetCheck() == BST_CHECKED;
-	mainDlg->PublishStatus();
-	accountSettings.SettingsSave();
+	mainDlg->SwitchDND();
 }
 
 void Dialer::OnBnClickedAA()
@@ -1365,7 +1401,17 @@ void Dialer::OnBnClickedAC()
 
 void Dialer::OnBnClickedConf()
 {
-	mainDlg->messagesDlg->OnBnClickedConference();
+	if (accountSettings.singleMode) {
+		if (!mainDlg->transferDlg) {
+			mainDlg->transferDlg = new Transfer(mainDlg);
+			mainDlg->transferDlg->LoadFromContacts();
+		}
+		mainDlg->transferDlg->SetAction(MSIP_ACTION_INVITE);
+		mainDlg->transferDlg->SetForegroundWindow();
+	}
+	else {
+		mainDlg->messagesDlg->OnBnClickedConference();
+	}
 }
 
 void Dialer::OnBnClickedRec()

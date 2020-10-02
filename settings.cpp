@@ -63,6 +63,25 @@ void AccountSettings::Init()
 	iniFile.Format(_T("%s.ini"), fileName);
 	pathRoaming = _T("");
 	pathLocal = _T("");
+
+	ptr = appDataRoaming.GetBuffer(MAX_PATH);
+	SHGetSpecialFolderPath(
+		0,
+		ptr,
+		CSIDL_APPDATA,
+		FALSE);
+	appDataRoaming.ReleaseBuffer();
+	appDataRoaming.AppendFormat(_T("\\%s\\"), _T(_GLOBAL_NAME));
+
+	ptr = appDataLocal.GetBuffer(MAX_PATH);
+	SHGetSpecialFolderPath(
+		0,
+		ptr,
+		CSIDL_LOCAL_APPDATA,
+		FALSE);
+	appDataLocal.ReleaseBuffer();
+	appDataLocal.AppendFormat(_T("\\%s\\"), _T(_GLOBAL_NAME));
+
 	if (pathRoaming.IsEmpty()) {
 		CString contactsFile = _T("Contacts.xml");
 		CRegKey regKey;
@@ -107,29 +126,10 @@ void AccountSettings::Init()
 				i++;
 			}
 		}
-		CString appDataRoaming;
-		ptr = appDataRoaming.GetBuffer(MAX_PATH);
-		SHGetSpecialFolderPath(
-			0,
-			ptr,
-			CSIDL_APPDATA,
-			FALSE);
-		appDataRoaming.ReleaseBuffer();
-		appDataRoaming.AppendFormat(_T("\\%s\\"), _T(_GLOBAL_NAME));
-
 		if (!pathInstaller.IsEmpty() && pathInstaller.CompareNoCase(pathExe) == 0) {
 			// installer
 			CreateDirectory(appDataRoaming, NULL);
 			pathRoaming = appDataRoaming;
-			CString appDataLocal;
-			ptr = appDataLocal.GetBuffer(MAX_PATH);
-			SHGetSpecialFolderPath(
-				0,
-				ptr,
-				CSIDL_LOCAL_APPDATA,
-				FALSE);
-			appDataLocal.ReleaseBuffer();
-			appDataLocal.AppendFormat(_T("\\%s\\"), _T(_GLOBAL_NAME));
 			CreateDirectory(appDataLocal, NULL);
 			pathLocal = appDataLocal;
 			logFile = pathLocal + logFile;
@@ -180,7 +180,7 @@ void AccountSettings::Init()
 						file.SetLength(0);
 						wBOM = 0xFEFF;
 						file.Write(&wBOM, sizeof(wBOM));
-						CString res = AnsiToWideChar(data.GetBuffer());
+						CString res = MSIP::AnsiToWideChar(data.GetBuffer());
 						file.Write(res.GetBuffer(), data.GetLength() * sizeof(wchar_t));
 					}
 				}
@@ -313,20 +313,20 @@ void AccountSettings::Init()
 	str.ReleaseBuffer();
 	enableSTUN = str == "1" ? 1 : 0;
 
+	ptr = recordingPath.GetBuffer(255);
 	if (isPortable) {
 		str = _T("Recordings");
 	}
 	else {
-		ptr = str.GetBuffer(MAX_PATH);
+		LPTSTR ptr1 = str.GetBuffer(MAX_PATH);
 		SHGetSpecialFolderPath(
 			0,
-			ptr,
+			ptr1,
 			CSIDL_DESKTOPDIRECTORY,
 			FALSE);
 		str.ReleaseBuffer();
 		str.Append(_T("\\Recordings"));
 	}
-	ptr = recordingPath.GetBuffer(255);
 	GetPrivateProfileString(section, _T("recordingPath"), str, ptr, 256, iniFile);
 	recordingPath.ReleaseBuffer();
 
@@ -337,7 +337,12 @@ void AccountSettings::Init()
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("autoRecording"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
-	autoRecording = str == "1" ? 1 : 0;
+	autoRecording = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("recordingButton"), _T("1"), ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	recordingButton = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("DTMFMethod"), NULL, ptr, 256, iniFile);
@@ -370,6 +375,11 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("enableMediaButtons"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	enableMediaButtons = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("headsetSupport"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	headsetSupport = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("localDTMF"), _T("1"), ptr, 256, iniFile);
@@ -466,7 +476,7 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("cmdCallEnd"), NULL, ptr, 256, iniFile);
 	cmdCallEnd.ReleaseBuffer();
 
-	hidden = 0;
+	hidden = atoi(_GLOBAL_SETT_HIDDEN_VALUE);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("silent"), NULL, ptr, 256, iniFile);
@@ -557,6 +567,11 @@ void AccountSettings::Init()
 	GetPrivateProfileString(section, _T("callsWidth4"), NULL, ptr, 256, iniFile);
 	str.ReleaseBuffer();
 	callsWidth4 = _wtoi(str);
+
+	ptr = str.GetBuffer(255);
+	GetPrivateProfileString(section, _T("callsWidth5"), NULL, ptr, 256, iniFile);
+	str.ReleaseBuffer();
+	callsWidth5 = _wtoi(str);
 
 	ptr = str.GetBuffer(255);
 	GetPrivateProfileString(section, _T("contactsWidth0"), NULL, ptr, 256, iniFile);
@@ -651,14 +666,12 @@ void AccountSettings::Init()
 
 AccountSettings::AccountSettings()
 {
-	Init();
 }
 
 void AccountSettings::AccountDelete(int id)
 {
 	CString section;
 	section.Format(_T("Account%d"), id);
-	//!!WritePrivateProfileStruct(section, NULL, NULL, 0, iniFile);
 	WritePrivateProfileString(section, NULL, NULL, iniFile);
 }
 
@@ -677,7 +690,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	}
 
 	ptr = account->label.GetBuffer(255);
-	GetPrivateProfileString(section, _T("label"), id ? NULL : _T("Local"), ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("label"), id ? NULL : _T("Local (call by IP address)"), ptr, 256, iniFile);
 	account->label.ReleaseBuffer();
 
 	ptr = account->server.GetBuffer(255);
@@ -693,7 +706,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	account->domain.ReleaseBuffer();
 
 	ptr = account->username.GetBuffer(255);
-	GetPrivateProfileString(section, _T("username"), id ? NULL : _T("user"), ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("username"), NULL, ptr, 256, iniFile);
 	account->username.ReleaseBuffer();
 
 	ptr = account->password.GetBuffer(1040);
@@ -701,7 +714,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	account->password.ReleaseBuffer();
 	if (!account->password.IsEmpty()) {
 		CByteArray arPassword;
-		String2Bin(account->password, &arPassword);
+		MSIP::String2Bin(account->password, &arPassword);
 		MFC::CCrypto crypto;
 		if (crypto.DeriveKey((LPCTSTR)_GLOBAL_KEY)) {
 			try {
@@ -718,7 +731,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 					}
 					//--end decode from old format
 					if (crypto.Encrypt(account->password, arPassword)) {
-						WritePrivateProfileString(section, _T("password"), Bin2String(&arPassword), iniFile);
+						WritePrivateProfileString(section, _T("password"), MSIP::Bin2String(&arPassword), iniFile);
 						//--delete old format addl.data
 						WritePrivateProfileString(section, _T("passwordSize"), NULL, iniFile);
 					}
@@ -762,7 +775,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	account->srtp.ReleaseBuffer();
 
 	ptr = account->transport.GetBuffer(255);
-	GetPrivateProfileString(section, _T("transport"), NULL, ptr, 256, iniFile);
+	GetPrivateProfileString(section, _T("transport"), _T("udp"), ptr, 256, iniFile);
 	account->transport.ReleaseBuffer();
 
 	ptr = account->publicAddr.GetBuffer(255);
@@ -808,7 +821,7 @@ bool AccountSettings::AccountLoad(int id, Account *account)
 	str.ReleaseBuffer();
 	account->disableSessionTimer = str == _T("1") ? 1 : 0;
 
-	bool sectionExists = IniSectionExists(section, iniFile);
+	bool sectionExists = MSIP::IniSectionExists(section, iniFile);
 
 	if (id == -2) {
 		// delete old
@@ -868,7 +881,7 @@ void AccountSettings::AccountSave(int id, Account *account)
 		if (!account->password.IsEmpty() && crypto.DeriveKey((LPCTSTR)_GLOBAL_KEY)
 			&& crypto.Encrypt(account->password, arPassword)
 			) {
-			str = Bin2String(&arPassword);
+			str = MSIP::Bin2String(&arPassword);
 		}
 		else {
 			str = account->password;
@@ -951,6 +964,7 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("recordingPath"), recordingPath, iniFile);
 	WritePrivateProfileString(section, _T("recordingFormat"), recordingFormat, iniFile);
 	WritePrivateProfileString(section, _T("autoRecording"), autoRecording ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("recordingButton"), recordingButton ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("DTMFMethod"), DTMFMethod == 1 ? _T("1") : (DTMFMethod == 2 ? _T("2") : (DTMFMethod == 3 ? _T("3") : _T("0"))), iniFile);
 	WritePrivateProfileString(section, _T("autoAnswer"), autoAnswer, iniFile);
 	str.Format(_T("%d"), autoAnswerDelay);
@@ -959,6 +973,7 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("usersDirectory"), usersDirectory, iniFile);
 	WritePrivateProfileString(section, _T("defaultAction"), defaultAction, iniFile);
 	WritePrivateProfileString(section, _T("enableMediaButtons"), enableMediaButtons ? _T("1") : _T("0"), iniFile);
+	WritePrivateProfileString(section, _T("headsetSupport"), headsetSupport ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("localDTMF"), localDTMF ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("enableLog"), enableLog ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("bringToFrontOnIncoming"), bringToFrontOnIncoming ? _T("1") : _T("0"), iniFile);
@@ -989,6 +1004,7 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("cmdCallBusy"), cmdCallBusy, iniFile);
 	WritePrivateProfileString(section, _T("cmdCallStart"), cmdCallStart, iniFile);
 	WritePrivateProfileString(section, _T("cmdCallEnd"), cmdCallEnd, iniFile);
+
 	WritePrivateProfileString(section, _T("silent"), silent ? _T("1") : _T("0"), iniFile);
 
 	WritePrivateProfileString(section, _T("portKnockerHost"), portKnockerHost, iniFile);
@@ -1042,6 +1058,9 @@ void AccountSettings::SettingsSave()
 	str.Format(_T("%d"), callsWidth4);
 	WritePrivateProfileString(section, _T("callsWidth4"), str, iniFile);
 
+	str.Format(_T("%d"), callsWidth5);
+	WritePrivateProfileString(section, _T("callsWidth5"), str, iniFile);
+
 	str.Format(_T("%d"), contactsWidth0);
 	WritePrivateProfileString(section, _T("contactsWidth0"), str, iniFile);
 	str.Format(_T("%d"), contactsWidth1);
@@ -1061,7 +1080,6 @@ void AccountSettings::SettingsSave()
 	WritePrivateProfileString(section, _T("AA"), AA ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("AC"), AC ? _T("1") : _T("0"), iniFile);
 	WritePrivateProfileString(section, _T("DND"), DND ? _T("1") : _T("0"), iniFile);
-
 	str.Format(_T("%d"), alwaysOnTop);
 	WritePrivateProfileString(section, _T("alwaysOnTop"), str, iniFile);
 
@@ -1131,7 +1149,7 @@ void ShortcutsLoad()
 	int i = 0;
 	while (i < _GLOBAL_SHORTCUTS_QTY) {
 		key.Format(_T("%d"), i);
-		if (GetPrivateProfileString(_T("Shortcuts"), key, NULL, ptr, 256, accountSettings.iniFile)) {
+		if (GetPrivateProfileString(_T("Shortcuts"), key, NULL, ptr, 1024, accountSettings.iniFile)) {
 			ShortcutDecode(ptr, &shortcut);
 			shortcuts.Add(shortcut);
 	}

@@ -22,6 +22,8 @@
 #include "global.h"
 #include "BaseDialog.h"
 #include "CListCtrl_SortItemsEx.h"
+#include "CSVFile.h"
+#include "Markup.h"
 
 class Calls :
 	public CBaseDialog
@@ -37,6 +39,7 @@ public:
 
 	int Get(CString id);
 	void Add(pj_str_t id, CString number, CString name, int type);
+	void SetName(pj_str_t id, CString name);
 	void SetDuration(pj_str_t id, int sec);
 	void SetInfo(pj_str_t id, CString str);
 	void Delete(int i);
@@ -53,7 +56,6 @@ public:
 	void OnCreated();
 
 private:
-	CToolTipCtrl m_ToolTip;
 	CImageList* imageList;
 	int lastDay;
 	int lastKey;
@@ -79,6 +81,7 @@ public:
 	afx_msg void OnMenuChat();
 	afx_msg void OnMenuCopy();
 	afx_msg void OnMenuDelete(); 
+	afx_msg void OnMenuExport();
 	afx_msg LRESULT OnContextMenu(WPARAM wParam,LPARAM lParam);
 	afx_msg void OnNMDblclkCalls(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnEndtrack(NMHDR* pNMHDR, LRESULT* pResult);

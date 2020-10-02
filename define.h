@@ -16,6 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
  */
 
+#pragma once
+
 #include "const.h"
 
 #define STR_SZ 256
@@ -23,6 +25,9 @@
 #define _GLOBAL_WIDTH 162
 
 #define _GLOBAL_DIALER_WIDTH 162
+
+#define _GLOBAL_ICON "res\\microsip.ico"
+#define _GLOBAL_ICON_INACTIVE "res\\inactive.ico"
 
 #define _GLOBAL_HEIGHT1 0
 #define _GLOBAL_HEIGHT2 _GLOBAL_HEIGHT1+16
@@ -65,7 +70,11 @@
 
 #define MACRO_ENABLE_LOCAL_ACCOUNT (accountSettings.enableLocalAccount || !accountSettings.accountId)
 
+#define MACRO_SILENT (accountSettings.silent || accountSettings.hidden)
+
 #define _GLOBAL_SUBSCRIBE
+
+#define _GLOBAL_SETT_HIDDEN_VALUE "0"
 
 #ifndef LVS_EX_AUTOSIZECOLUMNS
 #define LVS_EX_AUTOSIZECOLUMNS 0x10000000

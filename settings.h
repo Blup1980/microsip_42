@@ -39,6 +39,7 @@ struct AccountSettings {
 	CString recordingPath;
 	CString recordingFormat;
 	bool autoRecording;
+	bool recordingButton;
 	CString videoCaptureDevice;
 	CString videoCodec;
 	bool videoH264;
@@ -63,6 +64,7 @@ struct AccountSettings {
 	CString usersDirectory;
 	CString defaultAction;
 	bool enableMediaButtons;
+	bool headsetSupport;
 	bool localDTMF;
 	bool enableLocalAccount;
 	bool crashReport;
@@ -100,6 +102,7 @@ struct AccountSettings {
 	int callsWidth2;
 	int callsWidth3;
 	int callsWidth4;
+	int callsWidth5;
 
 	int contactsWidth0;
 	int contactsWidth1;
@@ -115,6 +118,8 @@ struct AccountSettings {
 	CString pathRoaming;
 	CString pathLocal;
 	CString pathExe;
+	CString appDataRoaming;
+	CString appDataLocal;
 
 	int checkUpdatesTime;
 
@@ -133,6 +138,7 @@ struct AccountSettings {
 	CString cmdCallBusy;
 	CString cmdCallStart;
 	CString cmdCallEnd;
+
 	bool enableShortcuts;
 	bool shortcutsBottom;
 	AccountSettings();

@@ -84,18 +84,17 @@ void Preview::Start(int id)
 	if (wid != PJSUA_INVALID_ID) {
 		if (widx != id) {
 			pjsua_vid_preview_stop(widx);
-		} else {
+		}
+		else {
 			return;
 		}
 	}
 	widx = id;
-
 	pjsua_vid_preview_param pre_param;
 	pj_status_t status;
-	const pjmedia_coord pos = {0, 0};
-
+	const pjmedia_coord pos = { 0, 0 };
 	pjsua_vid_preview_param_default(&pre_param);
-	pre_param.show = PJ_FALSE;
+	//pre_param.show = PJ_FALSE;
 	status = pjsua_vid_preview_start(widx, &pre_param);
 	if (status != PJ_SUCCESS) {
 		OnClose();
@@ -103,30 +102,25 @@ void Preview::Start(int id)
 	}
 	wid = pjsua_vid_preview_get_win(widx);
 	pjsua_vid_win_get_info(wid, &wi);
-
 	CRect rcClient, rcWind;
 	POINT ptDiff;
 	GetClientRect(&rcClient);
 	GetWindowRect(&rcWind);
-	ptDiff.x =  (rcWind.right - rcWind.left) - rcClient.right;
+	ptDiff.x = (rcWind.right - rcWind.left) - rcClient.right;
 	ptDiff.y = (rcWind.bottom - rcWind.top) - rcClient.bottom;
 	CRect screenRect;
-	SystemParametersInfo(SPI_GETWORKAREA,0,&screenRect,0);
+	SystemParametersInfo(SPI_GETWORKAREA, 0, &screenRect, 0);
 	//int w = wi.size.w + ptDiff.x;
 	//int h = wi.size.h + ptDiff.y;
 	int w = 320 + ptDiff.x;
 	int h = 240 + ptDiff.y;
 	int x = screenRect.Width() - w;
 	int y = ptDiff.y - 6;
-	SetWindowPos(NULL, x, y, w, h, SWP_NOZORDER|SWP_SHOWWINDOW);
-
-	pjsua_vid_win_set_pos(wid,&pos);
-
-	pjsua_vid_win_set_show(wid, PJ_TRUE);
-
-	const pjmedia_rect_size size = {320, 240};
-	pjsua_vid_win_set_size( wid, &size);
-	
-	::SetParent((HWND)wi.hwnd.info.win.hwnd,this->m_hWnd);
+	SetWindowPos(NULL, x, y, w, h, SWP_NOZORDER | SWP_SHOWWINDOW);
+	pjsua_vid_win_set_pos(wid, &pos);
+	//pjsua_vid_win_set_show(wid, PJ_TRUE);
+	const pjmedia_rect_size size = { 320, 240 };
+	pjsua_vid_win_set_size(wid, &size);
+	::SetParent((HWND)wi.hwnd.info.win.hwnd, this->m_hWnd);
 }
 #endif

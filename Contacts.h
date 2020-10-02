@@ -39,7 +39,7 @@ public:
 	AddDlg* addDlg;
 	BOOL isSubscribed;
 
-	bool ContactAdd(CString number, CString name, CString info, CString hint, char presence, char directory, BOOL save = FALSE, BOOL fromDirectory = FALSE, BOOL load = FALSE);
+	bool ContactAdd(Contact contact, BOOL save = FALSE, BOOL load = FALSE, CStringList* fields = NULL, CString oldNumber = _T(""), bool manual = false);
 
 	void ContactDelete(int i);
 	void ContactsSave();
@@ -52,6 +52,7 @@ public:
 	int DeleteCanditates();
 
 	void UpdateCallButton();
+	Contact* FindContact(CString number);
 	CString GetNameByNumber(CString number);
 	void PresenceSubsribeOne(Contact *pContact);
 	void PresenceUnsubsribeOne(Contact *pContact);
@@ -62,7 +63,7 @@ public:
 
 private:
 	CImageList* imageList;
-	void ContactDecode(CString str, CString &number, CString &name, BOOL &presence, BOOL &fromDirectory);
+	void ContactDecode(CString str, Contact &contact);
 	void MessageDlgOpen(BOOL isCall = FALSE, BOOL hasVideo = FALSE);
 	void DefaultItemAction(int i);
 
@@ -70,6 +71,7 @@ protected:
 	virtual BOOL OnInitDialog();
 	virtual void PostNcDestroy();
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnBnClickedOk();
@@ -82,15 +84,13 @@ public:
 	afx_msg void OnMenuEdit(); 
 	afx_msg void OnMenuCopy(); 
 	afx_msg void OnMenuDelete(); 
-	afx_msg void OnMenuImportCSV();
-	afx_msg void OnMenuImportGoogle();
-	afx_msg void OnMenuExportCSV();
+	afx_msg void OnMenuImport();
+	afx_msg void OnMenuExport();
 	afx_msg LRESULT OnContextMenu(WPARAM wParam,LPARAM lParam);
 	afx_msg void OnNMDblclkContacts(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnEndtrack(NMHDR* pNMHDR, LRESULT* pResult);
 #ifdef _GLOBAL_VIDEO
 	afx_msg void OnMenuCallVideo(); 
 #endif
-	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };
 

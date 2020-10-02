@@ -25,12 +25,13 @@
 #include "utf.h"
 #include "langpack.h"
 #include "CSVFile.h"
-#include "XMLFile.h"
+#include "Markup.h"
 #include "Transfer.h"
 
 Contacts::Contacts(CWnd* pParent /*=NULL*/)
 : CBaseDialog(Contacts::IDD, pParent)
 {
+	isSubscribed=FALSE;
 	Create (IDD, pParent);
 }
 
@@ -70,7 +71,6 @@ BOOL Contacts::OnInitDialog()
 	list->InsertColumn(0, Translate(_T("Name")), LVCFMT_LEFT, accountSettings.contactsWidth0 > 0 ? accountSettings.contactsWidth0 : 160);
 	list->InsertColumn(1, Translate(_T("Number")), LVCFMT_LEFT, accountSettings.contactsWidth1 > 0 ? accountSettings.contactsWidth1 : 100);
 	list->InsertColumn(2, Translate(_T("Info")), LVCFMT_LEFT, accountSettings.contactsWidth2 > 0 ? accountSettings.contactsWidth2 : 120);
-
 	ContactsLoad();
 
 	return TRUE;
@@ -108,9 +108,8 @@ BEGIN_MESSAGE_MAP(Contacts, CBaseDialog)
 	ON_COMMAND(ID_EDIT,OnMenuEdit)
 	ON_COMMAND(ID_COPY,OnMenuCopy)
 	ON_COMMAND(ID_DELETE,OnMenuDelete)
-	ON_COMMAND(ID_IMPORT_CSV, OnMenuImportCSV)
-	ON_COMMAND(ID_IMPORT_GOOGLE,OnMenuImportGoogle)
-	ON_COMMAND(ID_EXPORT_CSV, OnMenuExportCSV)
+	ON_COMMAND(ID_IMPORT, OnMenuImport)
+	ON_COMMAND(ID_EXPORT, OnMenuExport)
 	ON_MESSAGE(WM_CONTEXTMENU,OnContextMenu)
 	ON_NOTIFY(NM_DBLCLK, IDC_CONTACTS, &Contacts::OnNMDblclkContacts)
 #ifdef _GLOBAL_VIDEO
@@ -122,12 +121,20 @@ END_MESSAGE_MAP()
 BOOL Contacts::PreTranslateMessage(MSG* pMsg)
 {
 	BOOL catched = FALSE;
-	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE) {
-		CEdit* edit = (CEdit*)GetDlgItem(IDC_FILER_VALUE);
-		if (edit == GetFocus()) {
-			catched = TRUE;
-			if (isFiltered()) {
-				filterReset();
+	if (pMsg->message == WM_KEYDOWN) {
+		if (pMsg->wParam == VK_ESCAPE) {
+			CEdit* edit = (CEdit*)GetDlgItem(IDC_FILER_VALUE);
+			if (edit == GetFocus()) {
+				catched = TRUE;
+				if (isFiltered()) {
+					filterReset();
+				}
+			}
+		}
+		if (pMsg->wParam == VK_DELETE) {
+			if ((CListCtrl*)GetDlgItem(IDC_CONTACTS) == GetFocus()) {
+				catched = TRUE;
+				OnMenuDelete();
 			}
 		}
 	}
@@ -170,7 +177,9 @@ void Contacts::DefaultItemAction(int i)
 {
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	Contact *pContact = (Contact *) list->GetItemData(i);
-	if (pContact->ringing) {
+	bool pickup = pContact->ringing;
+	pickup = false;
+	if (pickup) {
 		OnMenuCallPickup();
 	}
 	else {
@@ -288,11 +297,7 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 			tracker->EnableMenuItem(ID_CHAT, FALSE);
 			tracker->EnableMenuItem(ID_COPY, FALSE);
 			tracker->EnableMenuItem(ID_EDIT, FALSE);
-			if (pContact->directory && mainDlg->usersDirectoryLoaded) {
-				tracker->EnableMenuItem(ID_DELETE, TRUE);
-			} else {
-				tracker->EnableMenuItem(ID_DELETE, FALSE);
-			}
+			tracker->EnableMenuItem(ID_DELETE, FALSE);
 		} else {
 			tracker->EnableMenuItem(ID_CALL, TRUE);
 #ifdef _GLOBAL_VIDEO
@@ -304,16 +309,8 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 			tracker->EnableMenuItem(ID_DELETE, TRUE);
 		}
 		tracker->AppendMenu(0, MF_SEPARATOR);
-		CMenu importMenu;
-		importMenu.CreatePopupMenu();
-		importMenu.AppendMenu(MF_STRING, ID_IMPORT_CSV, Translate(_T("CSV")));
-		importMenu.AppendMenu(MF_STRING, ID_IMPORT_GOOGLE, Translate(_T("CSV (Google)")));
-		tracker->AppendMenu(MF_POPUP, (UINT_PTR)importMenu.m_hMenu, Translate(_T("Import")));
-		CMenu exportMenu;
-		exportMenu.CreatePopupMenu();
-		exportMenu.AppendMenu(MF_STRING, ID_EXPORT_CSV, Translate(_T("CSV")));
-		tracker->AppendMenu(MF_POPUP, (UINT_PTR)exportMenu.m_hMenu, Translate(_T("Export")));
-		
+		tracker->AppendMenu(MF_STRING, ID_IMPORT, Translate(_T("Import")));
+		tracker->AppendMenu(MF_STRING, ID_EXPORT, Translate(_T("Export")));
 		if (tracker->GetMenuItemCount() == 3) {
 			tracker->RemoveMenu(0, MF_BYPOSITION);
 		}
@@ -325,7 +322,7 @@ LRESULT Contacts::OnContextMenu(WPARAM wParam,LPARAM lParam)
 
 void Contacts::MessageDlgOpen(BOOL isCall, BOOL hasVideo)
 {
-	if (accountSettings.singleMode && call_get_count_noincoming() && isCall) {
+	if (accountSettings.singleMode && mainDlg->messagesDlg->GetCallsCount() && isCall) {
 		mainDlg->GotoTab(0);
 		return;
 	}
@@ -338,7 +335,7 @@ void Contacts::MessageDlgOpen(BOOL isCall, BOOL hasVideo)
 		if (isCall) {
 			mainDlg->MakeCall(number, hasVideo);
 		} else {
-			mainDlg->MessagesOpen(number, pContact->name);
+			mainDlg->MessagesOpen(number);
 		}
 	}
 }
@@ -354,12 +351,18 @@ void Contacts::OnNMDblclkContacts(NMHDR *pNMHDR, LRESULT *pResult)
 
 void Contacts::OnMenuCallPickup()
 {
-	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+	CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	POSITION pos = list->GetFirstSelectedItemPosition();
 	if (pos) {
 		int i = list->GetNextSelectedItem(pos);
-		Contact *pContact = (Contact *) list->GetItemData(i);
-		mainDlg->messagesDlg->CallMake(_T(_GLOBAL_CALL_PICKUP)+pContact->number);
+		Contact *pContact = (Contact *)list->GetItemData(i);
+		CString commands;
+		CString numberFormated = FormatNumber(pContact->number, &commands);
+		SIPURI sipuri;
+		MSIP::ParseSIPURI(numberFormated, &sipuri);
+		sipuri.user = _T(_GLOBAL_CALL_PICKUP) + sipuri.user;
+		numberFormated = MSIP::BuildSIPURI(&sipuri);
+		mainDlg->messagesDlg->CallMake(numberFormated);
 	}
 }
 
@@ -388,11 +391,8 @@ void Contacts::OnMenuAdd()
 	else {
 		addDlg->SetForegroundWindow();
 	}
-	addDlg->listIndex = -1;
-	addDlg->GetDlgItem(IDC_EDIT_NUMBER)->SetWindowText(_T(""));
-	addDlg->GetDlgItem(IDC_EDIT_NAME)->SetWindowText(_T(""));
-	((CButton *)addDlg->GetDlgItem(IDC_PRESENCE))->SetCheck(0);
-	addDlg->GetDlgItem(IDC_EDIT_NAME)->SetFocus();
+	Contact contact;
+	addDlg->Load(&contact);
 }
 
 void Contacts::OnMenuEdit()
@@ -401,12 +401,8 @@ void Contacts::OnMenuEdit()
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	POSITION pos = list->GetFirstSelectedItemPosition();
 	int i = list->GetNextSelectedItem(pos);
-	addDlg->listIndex = i;
-
 	Contact *pContact = (Contact *) list->GetItemData(i);
-	addDlg->GetDlgItem(IDC_EDIT_NUMBER)->SetWindowText(pContact->number);
-	addDlg->GetDlgItem(IDC_EDIT_NAME)->SetWindowText(pContact->name);
-	((CButton *)addDlg->GetDlgItem(IDC_PRESENCE))->SetCheck(pContact->presence);
+	addDlg->Load(pContact);
 }
 
 void Contacts::OnMenuCopy()
@@ -425,26 +421,38 @@ void Contacts::OnMenuDelete()
 	CList<CString,CString> contacts;
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	POSITION pos = list->GetFirstSelectedItemPosition();
-	while (pos)	{
-		Contact *pContact = (Contact *) list->GetItemData(list->GetNextSelectedItem(pos));
-		contacts.AddTail(pContact->number);
-	}
-	if (isFiltered()) {
-		filterReset();
-	}
-	int count = list->GetItemCount();
-	for (int i=0;i<count;i++) {
-		Contact *pContact = (Contact *) list->GetItemData(i);
-		if (contacts.Find(pContact->number)) {
-			ContactDelete(i);
-			count--;
-			i--;
+	if (pos) {
+		if (MessageBox(Translate(_T("Are you sure you want to delete?")), Translate(_T("Delete contact")), MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) {
+			return;
+		}
+		while (pos) {
+			Contact *pContact = (Contact *)list->GetItemData(list->GetNextSelectedItem(pos));
+			contacts.AddTail(pContact->number);
+		}
+		if (isFiltered()) {
+			filterReset();
+		}
+		int count = list->GetItemCount();
+		bool deleted = false;
+		for (int i = 0; i < count; i++) {
+			Contact *pContact = (Contact *)list->GetItemData(i);
+			if (contacts.Find(pContact->number)) {
+				bool allow = true;
+				if (allow) {
+					ContactDelete(i);
+					count--;
+					i--;
+					deleted = true;
+				}
+			}
+		}
+		if (deleted) {
+			ContactsSave();
 		}
 	}
-	ContactsSave();
 }
 
-void Contacts::OnMenuImportCSV()
+void Contacts::OnMenuImport()
 {
 	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"), this);
 	if (dlgFile.DoModal() == IDOK) {
@@ -456,16 +464,68 @@ void Contacts::OnMenuImportCSV()
 		CSVFile.SetCodePage(CP_UTF8);
 		if (CSVFile.Open(dlgFile.GetPathName(), CCSVFile::modeRead | CFile::typeText | CFile::shareDenyWrite)) {
 			CStringArray arr;
-			int nameIndex = -1, numberIndex = -1, presenceIndex = -1, directoryIndex = -1;
+			int nameIndex = -1;
+			int numberIndex = -1;
+			int firstnameIndex = -1;
+			int lastnameIndex = -1;
+			int phoneIndex = -1;
+			int mobileIndex = -1;
+			int emailIndex = -1;
+			int addressIndex = -1;
+			int cityIndex = -1;
+			int stateIndex = -1;
+			int zipIndex = -1;
+			int commentIndex = -1;
+			int idIndex = -1;
+			int infoIndex = -1;
+			int presenceIndex = -1;
+			int directoryIndex = -1;
+			bool header = true;
 			while (CSVFile.ReadData(arr)) {
-				if (nameIndex == -1) {
+				if (header) {
 					for (int i = 0; i < arr.GetCount(); i++) {
 						CString s = arr.GetAt(i);
-						if (numberIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Number")) == 0) {
+						if (nameIndex == -1 &&  arr.GetAt(i).CompareNoCase(_T("Name")) == 0) {
+							nameIndex = i;
+						}
+						if (numberIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Number")) == 0 || arr.GetAt(i).CompareNoCase(_T("Primary Phone")) == 0)) {
 							numberIndex = i;
 						}
-						if (nameIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Name")) == 0) {
-							nameIndex = i;
+						if (firstnameIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("First Name")) == 0 || arr.GetAt(i).CompareNoCase(_T("Given Name")) == 0)) {
+							firstnameIndex = i;
+						}
+						if (lastnameIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Last Name")) == 0 || arr.GetAt(i).CompareNoCase(_T("Family Name")) == 0)) {
+							lastnameIndex = i;
+						}
+						if (phoneIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Phone Number")) == 0 || arr.GetAt(i).CompareNoCase(_T("Home Phone")) == 0 || arr.GetAt(i).CompareNoCase(_T("Phone 2 - Value")) == 0)) {
+							phoneIndex = i;
+						}
+						if (mobileIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Mobile Number")) == 0 || arr.GetAt(i).CompareNoCase(_T("Mobile Phone")) == 0 || arr.GetAt(i).CompareNoCase(_T("Phone 1 - Value")) == 0)) {
+							mobileIndex = i;
+						}
+						if (emailIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("E-mail Address")) == 0 || arr.GetAt(i).CompareNoCase(_T("E-mail 1 - Value")) == 0)) {
+							emailIndex = i;
+						}
+						if (addressIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Address")) == 0 || arr.GetAt(i).CompareNoCase(_T("Home Address")) == 0)) {
+							addressIndex = i;
+						}
+						if (cityIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("City")) == 0 || arr.GetAt(i).CompareNoCase(_T("Home City")) == 0)) {
+							cityIndex = i;
+						}
+						if (stateIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("State")) == 0 || arr.GetAt(i).CompareNoCase(_T("Home State")) == 0)) {
+							stateIndex = i;
+						}
+						if (zipIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Postal Code")) == 0 || arr.GetAt(i).CompareNoCase(_T("Home Postal Code")) == 0)) {
+							zipIndex = i;
+						}
+						if (commentIndex == -1 && (arr.GetAt(i).CompareNoCase(_T("Comment")) == 0 || arr.GetAt(i).CompareNoCase(_T("Notes")) == 0)) {
+							commentIndex = i;
+						}
+						if (idIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Id")) == 0) {
+							idIndex = i;
+						}
+						if (infoIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Info")) == 0) {
+							infoIndex = i;
 						}
 						if (presenceIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Presence")) == 0) {
 							presenceIndex = i;
@@ -474,24 +534,80 @@ void Contacts::OnMenuImportCSV()
 							directoryIndex = i;
 						}
 					}
-					if (nameIndex == -1 || numberIndex == -1) {
+					if (numberIndex == -1 && phoneIndex == -1 && mobileIndex == -1) {
 						AfxMessageBox(_T("Unknown format"));
 						break;
 					}
+					header = false;
 				}
-				else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex && arr.GetCount() > presenceIndex && arr.GetCount() > directoryIndex) {
-					CString number = arr.GetAt(numberIndex);
-					CString name = arr.GetAt(nameIndex);
-					CString hint;
-					CString presence;
-					if (presenceIndex != -1) {
-						presence = arr.GetAt(presenceIndex);
+				else {
+					CStringList fields;
+					Contact contact;
+					if (nameIndex != -1 && arr.GetCount() > nameIndex) {
+						fields.AddTail(_T("name"));
+						contact.name = arr.GetAt(nameIndex);
 					}
-					CString directory;
-					if (directoryIndex != -1) {
-						directory = arr.GetAt(directoryIndex);
+					if (numberIndex != -1 && arr.GetCount() > numberIndex) {
+						fields.AddTail(_T("number"));
+						contact.number = arr.GetAt(numberIndex);
 					}
-					if (!number.IsEmpty() && ContactAdd(number, name, _T(""), hint, presence == _T("1") ? 1 : 0, directory == _T("1") ? 1 : 0, FALSE, FALSE) && !changed) {
+					if (firstnameIndex != -1 && arr.GetCount() > firstnameIndex) {
+						fields.AddTail(_T("firstname"));
+						contact.firstname = arr.GetAt(firstnameIndex);
+					}
+					if (lastnameIndex != -1 && arr.GetCount() > lastnameIndex) {
+						fields.AddTail(_T("lastname"));
+						contact.lastname = arr.GetAt(lastnameIndex);
+					}
+					if (phoneIndex != -1 && arr.GetCount() > phoneIndex) {
+						fields.AddTail(_T("phone"));
+						contact.phone = arr.GetAt(phoneIndex);
+					}
+					if (mobileIndex != -1 && arr.GetCount() > mobileIndex) {
+						fields.AddTail(_T("mobile"));
+						contact.mobile = arr.GetAt(mobileIndex);
+					}
+					if (emailIndex != -1 && arr.GetCount() > emailIndex) {
+						fields.AddTail(_T("email"));
+						contact.email = arr.GetAt(emailIndex);
+					}
+					if (addressIndex != -1 && arr.GetCount() > addressIndex) {
+						fields.AddTail(_T("address"));
+						contact.address = arr.GetAt(addressIndex);
+					}
+					if (cityIndex != -1 && arr.GetCount() > cityIndex) {
+						fields.AddTail(_T("city"));
+						contact.city = arr.GetAt(cityIndex);
+					}
+					if (stateIndex != -1 && arr.GetCount() > stateIndex) {
+						fields.AddTail(_T("state"));
+						contact.state = arr.GetAt(stateIndex);
+					}
+					if (zipIndex != -1 && arr.GetCount() > zipIndex) {
+						fields.AddTail(_T("zip"));
+						contact.zip = arr.GetAt(zipIndex);
+					}
+					if (commentIndex != -1 && arr.GetCount() > commentIndex) {
+						fields.AddTail(_T("comment"));
+						contact.comment = arr.GetAt(commentIndex);
+					}
+					if (idIndex != -1 && arr.GetCount() > idIndex) {
+						fields.AddTail(_T("id"));
+						contact.id = arr.GetAt(idIndex);
+					}
+					if (infoIndex != -1 && arr.GetCount() > infoIndex) {
+						fields.AddTail(_T("info"));
+						contact.info = arr.GetAt(infoIndex);
+					}
+					if (presenceIndex != -1 && arr.GetCount() > presenceIndex) {
+						fields.AddTail(_T("presence"));
+						contact.presence = arr.GetAt(presenceIndex) == _T("1");
+					}
+					if (directoryIndex != -1 && arr.GetCount() > directoryIndex) {
+						fields.AddTail(_T("directory"));
+						contact.directory = arr.GetAt(directoryIndex) == _T("1");
+					}
+					if (ContactAdd(contact, FALSE, FALSE, &fields, _T(""), true) && !changed) {
 						changed = true;
 					}
 				}
@@ -504,80 +620,73 @@ void Contacts::OnMenuImportCSV()
 	}
 }
 
-void Contacts::OnMenuImportGoogle()
+void Contacts::OnMenuExport()
 {
-	CFileDialog dlgFile(TRUE, _T("cvs"), 0, OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"),this);
+	TCHAR szFilters[] = _T("CSV Files (*.csv)|*.csv|XML Files (*.xml)|*.xml||");
+	CFileDialog dlgFile(FALSE, _T("csv"), _T("Contacts"), OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, szFilters, this);
 	if (dlgFile.DoModal() == IDOK) {
-		bool changed = false;
-		if (isFiltered()) {
-			filterReset();
-		}
-		CCSVFile CSVFile;
-		CSVFile.SetCodePage(CP_UTF8);
-		if (CSVFile.Open(dlgFile.GetPathName(), CCSVFile::modeRead | CFile::typeText | CFile::shareDenyWrite)) {
-			CStringArray arr;
-			int nameIndex = -1, numberIndex = -1;
-			while (CSVFile.ReadData(arr)) {
-				if (nameIndex == -1) {
-					for (int i = 0; i < arr.GetCount(); i++) {
-						CString s = arr.GetAt(i);
-						if (nameIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Name")) == 0) {
-							nameIndex = i;
-						}
-						if (numberIndex == -1 && arr.GetAt(i).CompareNoCase(_T("Phone 1 - Value")) == 0) {
-							numberIndex = i;
-						}
-					}
-					if (nameIndex == -1 || numberIndex == -1) {
-						AfxMessageBox(_T("Unknown format"));
-						break;
-					}
-				}
-				else if (arr.GetCount() > numberIndex && arr.GetCount() > nameIndex) {
-					CString number = arr.GetAt(numberIndex);
-					CString name = arr.GetAt(nameIndex);
-					if (!number.IsEmpty() && ContactAdd(number, name, _T(""), _T(""), 0, 0, FALSE, FALSE) && !changed) {
-						changed = true;
-					}
-				}
+		CString filename = dlgFile.GetPathName();
+		if (dlgFile.m_ofn.nFilterIndex == 2) {
+			if (dlgFile.GetFileExt().IsEmpty()) {
+				filename.Append(_T(".xml"));
 			}
-			CSVFile.Close();
+			CString source = accountSettings.pathRoaming;
+			source.Append(_T("Contacts.xml"));
+			CopyFile(source, filename, FALSE);
 		}
-		if (changed) {
-			ContactsSave();
-		}
-	}
-}
-
-void Contacts::OnMenuExportCSV()
-{
-	CFileDialog dlgFile(FALSE, _T("cvs"), 0, OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY, _T("CSV Files (*.csv)|*.csv|"), this);
-	if (dlgFile.DoModal() == IDOK) {
-		bool changed = false;
-		if (isFiltered()) {
-			filterReset();
-		}
-		CCSVFile CSVFile;
-		CSVFile.SetCodePage(CP_UTF8);
-		if (CSVFile.Open(dlgFile.GetPathName(), CCSVFile::modeCreate | CCSVFile::modeWrite | CFile::typeText | CFile::shareExclusive)) {
-			CStringArray arr;
-			arr.Add(_T("Name"));
-			arr.Add(_T("Number"));
-			arr.Add(_T("Presence"));
-			arr.Add(_T("Directory"));
-			CSVFile.WriteData(arr);
-			CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
-			int count = list->GetItemCount();
-			for (int i = 0; i < count; i++) {
-				Contact *pContact = (Contact *)list->GetItemData(i);
-				arr.RemoveAll();
-				arr.Add(pContact->name);
-				arr.Add(pContact->number);
-				arr.Add(pContact->presence ? _T("1") : _T("0"));
-				arr.Add(pContact->directory ? _T("1") : _T("0"));
+		else {
+			if (isFiltered()) {
+				filterReset();
+			}
+			if (dlgFile.GetFileExt().IsEmpty()) {
+				filename.Append(_T(".csv"));
+			}
+			CCSVFile CSVFile;
+			CSVFile.SetCodePage(CP_UTF8);
+			if (CSVFile.Open(filename, CCSVFile::modeCreate | CCSVFile::modeWrite | CFile::typeText | CFile::shareExclusive)) {
+				CStringArray arr;
+				arr.Add(_T("Name"));
+				arr.Add(_T("Number"));
+				arr.Add(_T("First Name"));
+				arr.Add(_T("Last Name"));
+				arr.Add(_T("Phone Number"));
+				arr.Add(_T("Mobile Number"));
+				arr.Add(_T("E-mail Address"));
+				arr.Add(_T("Address"));
+				arr.Add(_T("City"));
+				arr.Add(_T("State"));
+				arr.Add(_T("Postal Code"));
+				arr.Add(_T("Comment"));
+				arr.Add(_T("Id"));
+				arr.Add(_T("Info"));
+				arr.Add(_T("Presence"));
+				arr.Add(_T("Directory"));
 				CSVFile.WriteData(arr);
+				CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+				int count = list->GetItemCount();
+				for (int i = 0; i < count; i++) {
+					Contact *pContact = (Contact *)list->GetItemData(i);
+					arr.RemoveAll();
+					arr.Add(pContact->name);
+					arr.Add(pContact->number);
+					arr.Add(pContact->firstname);
+					arr.Add(pContact->lastname);
+					arr.Add(pContact->phone);
+					arr.Add(pContact->mobile);
+					arr.Add(pContact->email);
+					arr.Add(pContact->address);
+					arr.Add(pContact->city);
+					arr.Add(pContact->state);
+					arr.Add(pContact->zip);
+					arr.Add(pContact->comment);
+					arr.Add(pContact->id);
+					arr.Add(pContact->info);
+					arr.Add(pContact->presence ? _T("1") : _T("0"));
+					arr.Add(pContact->directory ? _T("1") : _T("0"));
+					CSVFile.WriteData(arr);
+				}
+				CSVFile.Close();
 			}
-			CSVFile.Close();
 		}
 	}
 }
@@ -592,55 +701,166 @@ void Contacts::ContactDelete(int i)
 	delete pContact;
 }
 
-bool Contacts::ContactAdd(CString number, CString name, CString info, CString hint, char presence, char directory, BOOL save, BOOL fromDirectory, BOOL load)
+bool Contacts::ContactAdd(Contact contact, BOOL save, BOOL load, CStringList* fields, CString oldNumber, bool manual)
 {
 	if (save) {
 		if (isFiltered()) {
 			filterReset();
 		}
 	}
-	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+	if (contact.number.IsEmpty()) {
+		contact.number = contact.phone;
+	}
+	if (contact.number.IsEmpty()) {
+		contact.number = contact.mobile;
+	}
+	if (contact.number.IsEmpty()) {
+		return false;
+	}
+	if (contact.name.IsEmpty()) {
+		if (contact.firstname != contact.lastname) {
+			contact.name.Format(_T("%s %s"), contact.firstname, contact.lastname);
+		}
+		else {
+			contact.name = contact.firstname;
+		}
+		contact.name.Trim();
+	}
+	if (contact.name.IsEmpty()) {
+		contact.name = contact.number;
+	}
+	CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	if (!load) {
+		bool found = false;
+		bool changedAny = false;
 		int count = list->GetItemCount();
-		for (int i=0;i<count;i++) {
-			Contact *pContact = (Contact *) list->GetItemData(i);
-			CString contactData;
-			if (pContact->number == number) {
-				pContact->candidate = FALSE;
+		for (int i = 0; i < count; i++) {
+			Contact *pContact = (Contact *)list->GetItemData(i);
+			CString compareNumber = !oldNumber.IsEmpty() ? oldNumber : contact.number;
+			if (pContact->number == compareNumber) {
+				found = true;
 				bool changed = false;
-				if (!fromDirectory || pContact->directory) {
-					if (!name.IsEmpty() && name != pContact->name) {
-						list->SetItemText(i, 0, name);
-						pContact->name = name;
+				pContact->candidate = FALSE;
+				if (!fields || fields->Find(_T("name"))) {
+					if (pContact->name != contact.name) {
+						list->SetItemText(i, 0, contact.name);
+						pContact->name = contact.name;
 						changed = true;
 					}
-					if (presence != -1 && presence != pContact->presence) {
-						pContact->presence = presence;
-						if (presence > 0) {
+				}
+				if (!fields || fields->Find(_T("number"))) {
+					if (pContact->number != contact.number) {
+						if (pContact->presence) {
+							PresenceUnsubsribeOne(pContact);
+						}
+						list->SetItemText(i, 1, contact.number);
+						pContact->number = contact.number;
+						if ((!fields || fields->Find(_T("presence")))) {
+							pContact->presence = contact.presence;
+						}
+						if (pContact->presence) {
 							PresenceSubsribeOne(pContact);
 						}
 						changed = true;
 					}
-					if (!pContact->presence) {
-						pContact->presenceNote = info;
-						list->SetItemText(i, 2, info);
-					}
-					if (!fromDirectory && directory != -1 && directory != pContact->directory) {
-						pContact->directory = directory;
+				}
+				if (!fields || fields->Find(_T("firstname"))) {
+					if (pContact->firstname != contact.firstname) {
+						pContact->firstname = contact.firstname;
 						changed = true;
 					}
-					if (save && changed) {
-						ContactsSave();
+				}
+				if (!fields || fields->Find(_T("lastname"))) {
+					if (pContact->lastname != contact.lastname) {
+						pContact->lastname = contact.lastname;
+						changed = true;
 					}
 				}
-				return changed;
+				if (!fields || fields->Find(_T("phone"))) {
+					if (pContact->phone != contact.phone) {
+						pContact->phone = contact.phone;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("mobile"))) {
+					if (pContact->mobile != contact.mobile) {
+						pContact->mobile = contact.mobile;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("email"))) {
+					if (pContact->email != contact.email) {
+						pContact->email = contact.email;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("address"))) {
+					if (pContact->address != contact.address) {
+						pContact->address = contact.address;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("city"))) {
+					if (pContact->city != contact.city) {
+						pContact->city = contact.city;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("state"))) {
+					if (pContact->state != contact.state) {
+						pContact->state = contact.state;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("zip"))) {
+					if (pContact->zip != contact.zip) {
+						pContact->zip = contact.zip;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("comment"))) {
+					if (pContact->comment != contact.comment) {
+						pContact->comment = contact.comment;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("id"))) {
+					if (pContact->id != contact.id) {
+						pContact->id = contact.id;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("info"))) {
+					if (pContact->info != contact.info) {
+						list->SetItemText(i, 2, contact.info);
+						pContact->info = contact.info;
+						changed = true;
+					}
+				}
+				if (!fields || fields->Find(_T("presence"))) {
+					if (contact.presence != pContact->presence) {
+						pContact->presence = contact.presence;
+						if (contact.presence) {
+							PresenceSubsribeOne(pContact);
+						}
+						else {
+							PresenceUnsubsribeOne(pContact);
+						}
+						changed = true;
+					}
+				}
+				if (changed && !changedAny) {
+					changedAny = true;
+				}
 			}
 		}
+		if (found) {
+			if (save && changedAny) {
+				ContactsSave();
+			}
+			return true;
+		}
 	}
-	if (name.IsEmpty()) {
-		name = number;
-	}
-
 	Contact *pContact;
 	bool found = false;
 	if (isSubscribed) {
@@ -650,7 +870,7 @@ bool Contacts::ContactAdd(CString number, CString name, CString info, CString hi
 			pjsua_enum_buddies(ids, &count);
 			for (unsigned i = 0; i < count; i++) {
 				pContact = (Contact *)pjsua_buddy_get_user_data(ids[i]);
-				if (pContact && pContact->number == number) {
+				if (pContact && pContact->number == contact.number) {
 					found = true;
 					break;
 				}
@@ -661,19 +881,35 @@ bool Contacts::ContactAdd(CString number, CString name, CString info, CString hi
 		pContact = new Contact();
 		pContact->image = 7;
 	}
-	pContact->number = number;
-	pContact->name = name;
-	pContact->presence = presence>0;
-	pContact->directory = directory>0;
-	pContact->presenceNote = info;
-	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,0,name,0,0,pContact->image,(LPARAM)pContact);
-	list->SetItemText(i, 1, number);
-		list->SetItemText(i, 2, info);
+	pContact->name = contact.name;
+	pContact->number = contact.number;
+	pContact->firstname = contact.firstname;
+	pContact->lastname=contact.lastname;
+	pContact->phone = contact.phone;
+	pContact->mobile=contact.mobile;
+	pContact->email=contact.email;
+	pContact->address=contact.address;
+	pContact->city=contact.city;
+	pContact->state = contact.state;
+	pContact->zip=contact.zip;
+	pContact->comment=contact.comment;
+	pContact->id=contact.id;
+	pContact->info = contact.info;
+	pContact->presence = contact.presence;
+	pContact->directory = contact.directory;
+	int i = list->InsertItem(LVIF_TEXT|LVIF_PARAM|LVIF_IMAGE,0, pContact->name, 0,0,pContact->image,(LPARAM)pContact);
+	list->SetItemText(i, 1, contact.number);
+	list->SetItemText(i, 2, contact.info);
 	if (save) {
 		ContactsSave();
 	}
 	if (!load) {
-		PresenceSubsribeOne(pContact);
+		if (pContact->presence) {
+			PresenceSubsribeOne(pContact);
+		}
+		else {
+			PresenceUnsubsribeOne(pContact);
+		}
 	}
 	return true;
 }
@@ -683,42 +919,43 @@ void Contacts::ContactsSave()
 	if (isFiltered()) {
 		filterReset();
 	}
-	CXMLFile xmlFile; 
-	CXMLElement* xmlRoot = new CXMLElement();
-	xmlRoot->Create(_T("XML:ROOT"), XET_TAG);
-	CXMLElement* xmlContacts = new CXMLElement();
-	xmlContacts->Create(_T("contacts"), XET_TAG);
-	xmlRoot->AppendChild(xmlContacts);
-	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+	CMarkup xml;
+	xml.AddElem(_T("contacts"));
+	xml.IntoElem();
+
+	CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	int count = list->GetItemCount();
-	CXMLElement* xmlContact;
-	CXMLElement* xmlAttr;
-	for (int i=0;i<count;i++) {
-		Contact *pContact = (Contact *) list->GetItemData(i);
-		xmlContact = new CXMLElement();
-		xmlContact->Create(_T("contact"), XET_TAG);
-		xmlAttr = new CXMLElement();
-		xmlAttr->Create(_T("number"), XET_ATTRIBUTE);
-		xmlAttr->SetValue(AnsiToUnicode(Utf8EncodeUcs2(XMLEntityEncode(pContact->number))).GetBuffer());
-		xmlContact->AppendChild(xmlAttr);
-		xmlAttr = new CXMLElement();
-		xmlAttr->Create(_T("name"), XET_ATTRIBUTE);
-		xmlAttr->SetValue(AnsiToUnicode(Utf8EncodeUcs2(XMLEntityEncode(pContact->name))).GetBuffer());
-		xmlContact->AppendChild(xmlAttr);
-		xmlAttr = new CXMLElement();
-		xmlAttr->Create(_T("presence"), XET_ATTRIBUTE);
-		xmlAttr->SetValue(pContact->presence?_T("1"):_T("0"));
-		xmlContact->AppendChild(xmlAttr);
-		xmlAttr = new CXMLElement();
-		xmlAttr->Create(_T("directory"), XET_ATTRIBUTE);
-		xmlAttr->SetValue(pContact->directory?_T("1"):_T("0"));
-		xmlContact->AppendChild(xmlAttr);
-		xmlContacts->AppendChild(xmlContact);
+	for (int i = 0; i < count; i++) {
+		Contact *pContact = (Contact *)list->GetItemData(i);
+		xml.AddElem(_T("contact"));
+		xml.AddAttrib(_T("name"), pContact->name);
+		xml.AddAttrib(_T("number"), pContact->number);
+		xml.AddAttrib(_T("firstname"), pContact->firstname);
+		xml.AddAttrib(_T("lastname"), pContact->lastname);
+		xml.AddAttrib(_T("phone"), pContact->phone);
+		xml.AddAttrib(_T("mobile"), pContact->mobile);
+		xml.AddAttrib(_T("email"), pContact->email);
+		xml.AddAttrib(_T("address"), pContact->address);
+		xml.AddAttrib(_T("city"), pContact->city);
+		xml.AddAttrib(_T("state"), pContact->state);
+		xml.AddAttrib(_T("zip"), pContact->zip);
+		xml.AddAttrib(_T("comment"), pContact->comment);
+		xml.AddAttrib(_T("id"), pContact->id);
+		xml.AddAttrib(_T("info"), pContact->info);
+		xml.AddAttrib(_T("presence"), pContact->presence ? _T("1") : _T("0"));
+		xml.AddAttrib(_T("directory"), pContact->directory ? _T("1") : _T("0"));
 	}
-	xmlFile.SetRoot(xmlRoot);
+	
 	CString filename = accountSettings.pathRoaming;
 	filename.Append(_T("Contacts.xml"));
-	xmlFile.SaveToFile(filename.GetBuffer());
+	CFile file;
+	CFileException fileException;
+	if (file.Open(filename, CFile::modeCreate | CFile::modeWrite, &fileException)) {
+		CStringA str = "<?xml version=\"1.0\"?>\r\n";
+		str.Append(Utf8EncodeUcs2(xml.GetDoc()));
+		file.Write(str.GetBuffer(), str.GetLength());
+		file.Close();
+	}
 }
 
 void Contacts::ContactsClear()
@@ -729,57 +966,56 @@ void Contacts::ContactsClear()
 
 void Contacts::ContactsLoad()
 {
-	CXMLFile xmlFile;
 	CString filename = accountSettings.pathRoaming;
 	filename.Append(_T("Contacts.xml"));
-	if (xmlFile.LoadFromFile(filename.GetBuffer())) {
-		CXMLElement *xmlRoot = xmlFile.GetRoot();
-		CXMLElement *xmlContacts = xmlRoot->GetFirstChild();
-		while (xmlContacts) {
-			if (xmlContacts->GetElementType() == XET_TAG) {
-				CXMLElement *xmlContact = xmlContacts->GetFirstChild();
-				while (xmlContact) {
-					if (xmlContact->GetElementType() == XET_TAG) {
-						CXMLElement *xmlAttr = xmlContact->GetFirstChild();
-						CString number;
-						CString name;
-						CString hint;
-						BOOL presence = FALSE;
-						BOOL directory = FALSE;
-						CString rab;
-						while (xmlAttr) {
-							if (xmlAttr->GetElementType() == XET_ATTRIBUTE) {
-								CString attrName = xmlAttr->GetElementName();
-								if (attrName == _T("number")) {
-									number = XMLEntityDecode(Utf8DecodeUni(UnicodeToAnsi(xmlAttr->GetValue())));
-								}
-								else if (attrName == _T("name")) {
-									name = XMLEntityDecode(Utf8DecodeUni(UnicodeToAnsi(xmlAttr->GetValue())));
-								}
-								else if (attrName == _T("presence")) {
-									rab = xmlAttr->GetValue();
-									presence = rab == _T("1");
-								}
-								else if (attrName == _T("directory")) {
-									rab = xmlAttr->GetValue();
-									directory = rab == _T("1");
-								}
-							}
-							xmlAttr = xmlContact->GetNextChild();
-						}
-						if (!number.IsEmpty()) {
-							Contact contact;
-							contact.name = name;
-							contact.number = number;
-							if (!isFiltered(&contact)) {
-								ContactAdd(number, name, _T(""), hint, presence, directory, FALSE, FALSE, TRUE);
-							}
+	CFile file;
+	CFileException fileException;
+	if (file.Open(filename, CFile::modeRead, &fileException)) {
+		CStringA data;
+		char buf[256];
+		int count;
+		while (true) {
+			count = file.Read(buf, sizeof(buf));
+			data.Append(buf, count);
+			if (count < sizeof(buf)) {
+				break;
+			}
+		}
+		file.Close();
+		CMarkup xml;
+		BOOL bResult = xml.SetDoc(MSIP::Utf8DecodeUni(data));
+		if (bResult) {
+			if (xml.FindElem(_T("contacts"))) {
+				while (xml.FindChildElem(_T("contact"))) {
+					xml.IntoElem();
+					Contact contact;
+					contact.name = xml.GetAttrib(_T("name"));
+					contact.number = xml.GetAttrib(_T("number"));
+					contact.firstname = xml.GetAttrib(_T("firstname"));
+					contact.lastname = xml.GetAttrib(_T("lastname"));
+					contact.phone = xml.GetAttrib(_T("phone"));
+					contact.mobile = xml.GetAttrib(_T("mobile"));
+					contact.email = xml.GetAttrib(_T("email"));
+					contact.address = xml.GetAttrib(_T("address"));
+					contact.city = xml.GetAttrib(_T("city"));
+					contact.state = xml.GetAttrib(_T("state"));
+					contact.zip = xml.GetAttrib(_T("zip"));
+					contact.comment = xml.GetAttrib(_T("comment"));
+					contact.id = xml.GetAttrib(_T("id"));
+					contact.info = xml.GetAttrib(_T("info"));
+					CString rab;
+					rab = xml.GetAttrib(_T("presence"));
+					contact.presence = rab == _T("1");
+					rab = xml.GetAttrib(_T("directory"));
+					contact.directory = rab == _T("1");
+					if (!contact.number.IsEmpty()) {
+						if (!isFiltered(&contact)) {
+							ContactAdd(contact, FALSE, TRUE);
 						}
 					}
-					xmlContact = xmlContacts->GetNextChild();
+					xml.OutOfElem();
 				}
 			}
-			xmlContacts = xmlRoot->GetNextChild();
 		}
 	} else {
 		// old
@@ -790,12 +1026,9 @@ void Contacts::ContactsLoad()
 		while (TRUE) {
 			key.Format(_T("%d"),i);
 			if (GetPrivateProfileString(_T("Contacts"), key, NULL, ptr, 256, accountSettings.iniFile)) {
-				CString number;
-				CString name;
-				BOOL presence;
-				BOOL directory;
-				ContactDecode(ptr, number, name, presence, directory);
-				ContactAdd(number, name, _T(""), _T(""), presence, directory, FALSE, FALSE, TRUE);
+				Contact contact;
+				ContactDecode(ptr, contact);
+				ContactAdd(contact, FALSE, TRUE);
 			} else {
 				break;
 			}
@@ -807,57 +1040,64 @@ void Contacts::ContactsLoad()
 	m_SortItemsExListCtrl.SortColumn(m_SortItemsExListCtrl.GetSortColumn(),m_SortItemsExListCtrl.IsAscending());
 }
 
-void Contacts::ContactDecode(CString str, CString &number, CString &name, BOOL &presence, BOOL &fromDirectory)
+void Contacts::ContactDecode(CString str, Contact &contact)
 {
 	CString rab;
 	int begin;
 	int end;
 	begin = 0;
 	end = str.Find(';', begin);
-	if (end != -1)
-	{
-		number=str.Mid(begin, end-begin);
+	if (end != -1) {
+		contact.number = str.Mid(begin, end - begin);
 		begin = end + 1;
 		end = str.Find(';', begin);
-		if (end != -1)
-		{
-			name=str.Mid(begin, end-begin);
+		if (end != -1) {
+			contact.name = str.Mid(begin, end - begin);
 			begin = end + 1;
 			end = str.Find(';', begin);
-			if (end != -1)
-			{
-				rab=str.Mid(begin, end-begin);
-				presence = rab == _T("1");
+			if (end != -1) {
+				rab = str.Mid(begin, end - begin);
+				contact.presence = rab == _T("1");
 				begin = end + 1;
 				end = str.Find(';', begin);
-				if (end != -1)
-				{
-					rab=str.Mid(begin, end-begin);
-					fromDirectory = rab == _T("1");
-				} else 
-				{
-					rab=str.Mid(begin);
-					fromDirectory = rab == _T("1");
+				if (end != -1) {
+					rab = str.Mid(begin, end - begin);
+					contact.directory = rab == _T("1");
 				}
-			} else 
-			{
-				rab=str.Mid(begin);
-				presence = rab == _T("1");
-				fromDirectory = FALSE;
+				else {
+					rab = str.Mid(begin);
+					contact.directory = rab == _T("1");
+				}
 			}
-		} else 
-		{
-			name = str.Mid(begin);
-			presence = FALSE;
-			fromDirectory = FALSE;
+			else {
+				rab = str.Mid(begin);
+				contact.presence = rab == _T("1");
+			}
 		}
-	} else 
-	{
-		number=str;
-		name = number;
-		presence = FALSE;
-		fromDirectory = FALSE;
+		else {
+			contact.name = str.Mid(begin);
+		}
 	}
+	else {
+		contact.number = str;
+		contact.name = contact.number;
+	}
+}
+
+Contact* Contacts::FindContact(CString number)
+{
+	if (isFiltered()) {
+		filterReset();
+	}
+	CListCtrl *list = (CListCtrl*)GetDlgItem(IDC_CONTACTS);
+	int n = list->GetItemCount();
+	for (int i = 0; i<n; i++) {
+		Contact* pContact = (Contact *)list->GetItemData(i);
+		if (number == pContact->number) {
+			return pContact;
+		}
+	}
+	return NULL;
 }
 
 CString Contacts::GetNameByNumber(CString number)
@@ -866,32 +1106,53 @@ CString Contacts::GetNameByNumber(CString number)
 		filterReset();
 	}
 	CString name;
+	CString nameAlt;
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	int n = list->GetItemCount();
 	for (int i=0; i<n; i++) {
 		Contact* pContact = (Contact *) list->GetItemData(i);
 		CString commands;
-		CString numberFormated = FormatNumber(pContact->number, &commands);
-		if (number == numberFormated) {
+		CString numberContact = FormatNumber(pContact->number, &commands);
+		SIPURI sipuri;
+		MSIP::ParseSIPURI(numberContact, &sipuri);
+		numberContact = !sipuri.user.IsEmpty() ? sipuri.user : sipuri.domain;
+		if (number == numberContact) {
 			name = pContact->name;
 			break;
 		}
+		if (numberContact.GetLength() > 3) {
+			int pos = number.Find(numberContact);
+			if (pos >= 0 && pos <= 3 && number.GetLength() == numberContact.GetLength() + pos) {
+				nameAlt = pContact->name;
+			}
+		}
 	}
-	return name;
+	return !name.IsEmpty() ? name : nameAlt;
 }
 
 void Contacts::PresenceSubsribeOne(Contact *pContact)
 {
 	if (isSubscribed && pContact->presence) {
-		pjsua_buddy_id p_buddy_id;
-		pjsua_buddy_config buddy_cfg;
-		pjsua_buddy_config_default(&buddy_cfg);
-		buddy_cfg.subscribe=PJ_TRUE;
-		buddy_cfg.uri = StrToPjStr(GetSIPURI(pContact->number));
-		buddy_cfg.user_data = (void *)pContact;
-		pj_status_t status = pjsua_buddy_add(&buddy_cfg, &p_buddy_id);
+		CString commands;
+		CString numberFormated = FormatNumber(pContact->number, &commands);
+		pj_status_t status = msip_verify_sip_url(MSIP::StrToPj(numberFormated));
+		if (status == PJ_SUCCESS) {
+			pjsua_acc_id acc_id;
+			pj_str_t pj_uri;
+			if (SelectSIPAccount(numberFormated, acc_id, pj_uri)) {
+				pjsua_buddy_id p_buddy_id;
+				pjsua_buddy_config buddy_cfg;
+				pjsua_buddy_config_default(&buddy_cfg);
+				buddy_cfg.subscribe = PJ_TRUE;
+				buddy_cfg.uri = pj_uri;
+				buddy_cfg.user_data = (void *)pContact;
+				status = pjsua_buddy_add(&buddy_cfg, &p_buddy_id);
+			}
+		}
 		if (status != PJ_SUCCESS) {
-			AfxMessageBox(_T("Presence Subscription error: ")+GetErrorMessage(status));
+			CString str;
+			str.Format(_T("Presence Subscription\r\n%s"), pContact->number);
+			mainDlg->BaloonPopup(str, MSIP::GetErrorMessage(status), NIIF_INFO);
 		}
 	}
 }
@@ -958,6 +1219,7 @@ void Contacts::SetCanditates()
 	if (isFiltered()) {
 		filterReset();
 	}
+	GetDlgItem(IDC_FILER_VALUE)->EnableWindow(FALSE);
 	CListCtrl *list= (CListCtrl*)GetDlgItem(IDC_CONTACTS);
 	int count = list->GetItemCount();
 	for (int i=0;i<count;i++)
@@ -986,6 +1248,7 @@ int Contacts::DeleteCanditates()
 			deleted++;
 		}
 	}
+	GetDlgItem(IDC_FILER_VALUE)->EnableWindow(TRUE);
 	return deleted;
 }
 

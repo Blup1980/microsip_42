@@ -76,7 +76,10 @@ public:
 	CButton m_ButtonRec;
 	CButton m_ButtonConf;
 
+	bool m_isButtonVoicemailVisible;
+	bool m_hasVoicemail;
 	CBitmapButton m_ButtonVoicemail;
+	CBitmapButton m_ButtonVoicemailDisabled;
 	HICON m_hIconHold;
 	HICON m_hIconResume;
 	HICON m_hIconTransfer;

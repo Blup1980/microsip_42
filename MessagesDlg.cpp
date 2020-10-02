@@ -318,39 +318,37 @@ void MessagesDlg::OnBnClickedOk()
 {
 }
 
-MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate, pjsua_call_info *call_info, call_user_data *user_data, BOOL notShowWindow, BOOL ifExists)
+MessagesContact* MessagesDlg::AddTab(CString number, BOOL activate, pjsua_call_info *call_info, call_user_data *user_data, BOOL notShowWindow, BOOL ifExists, CString numberOriginal)
 {
 	MessagesContact* messagesContact = NULL;
 
 	SIPURI sipuri;
-	ParseSIPURI(number, &sipuri);
+	MSIP::ParseSIPURI(number, &sipuri);
 
 	//-- incoming call
 	if (call_info && call_info->role == PJSIP_ROLE_UAS) {
 		//-- fix wrong domain
-		if (accountSettings.accountId) {
-			if (IsIP(RemovePort(sipuri.domain))) {
+		if (!sipuri.user.IsEmpty() && accountSettings.accountId) {
+			if (MSIP::IsIP(MSIP::RemovePort(sipuri.domain))) {
 				sipuri.domain = get_account_domain();
 			}
 		}
 		//--
 	}
 	//--
-	if (accountSettings.accountId && RemovePort(get_account_domain()) == RemovePort(sipuri.domain)) {
+	if (accountSettings.accountId && MSIP::RemovePort(get_account_domain()) == MSIP::RemovePort(sipuri.domain)) {
 		sipuri.domain = get_account_domain();
 	}
 
-	number = (sipuri.user.GetLength() ? sipuri.user + _T("@") : _T("")) + sipuri.domain;
+	number = (!sipuri.user.IsEmpty() ? sipuri.user + _T("@") : _T("")) + sipuri.domain;
 
 	LONG exists = -1;
-	bool isNewCall = false;
 	for (int i = 0; i < tab->GetItemCount(); i++)
 	{
 		messagesContact = GetMessageContact(i);
 		if (messagesContact->number == number) {
 			exists = i;
-			if (call_info)
-			{
+			if (call_info) {
 				if (messagesContact->callId != -1) {
 					if (messagesContact->callId != call_info->id) {
 						if (call_info->state != PJSIP_INV_STATE_DISCONNECTED) {
@@ -359,32 +357,49 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 						return NULL;
 					}
 				}
-				else {
-					messagesContact->callId = call_info->id;
-					isNewCall = true;
-				}
 			}
 			break;
 		}
 	}
-	//--name
-	if (name.IsEmpty()) {
-		if (exists == -1 || messagesContact->callId == -1 || isNewCall) {
-			name = mainDlg->pageContacts->GetNameByNumber(GetSIPURI(number, true));
-			if (name.IsEmpty()) {
-				CString numberLocal = number;
-				name = sipuri.name;
-				if (name.IsEmpty()) {
-					name = (sipuri.domain == get_account_domain() ? sipuri.user : numberLocal);
-				}
+	if (exists == -1) {
+		if (ifExists) {
+			return NULL;
+		}
+		messagesContact = new MessagesContact();
+		messagesContact->number = number;
+		CString name;
+		name = mainDlg->pageContacts->GetNameByNumber(!sipuri.user.IsEmpty() ? sipuri.user : sipuri.domain);
+		if (name.IsEmpty() && !sipuri.name.IsEmpty()) {
+			name = sipuri.name;
+		}
+		if (name.IsEmpty() && !numberOriginal.IsEmpty()) {
+			int pos = numberOriginal.Find(',');
+			if (pos != -1) {
+				name = numberOriginal.Left(pos);
+			}
+			else {
+				name = numberOriginal;
 			}
 		}
-		else {
-			name = messagesContact->name;
+		if (name.IsEmpty() && !sipuri.user.IsEmpty()) {
+			name = sipuri.user;
+		}
+		if (name.IsEmpty() && !sipuri.domain.IsEmpty()) {
+			name = sipuri.domain;
+		}
+		messagesContact->name = name;
+	}
+	if (!call_info || call_info->state != PJSIP_INV_STATE_DISCONNECTED) {
+		if (call_info) {
+			messagesContact->callId = call_info->id;
+			messagesContact->callIdStr = MSIP::PjToStr(&call_info->call_id);
+		}
+		if (messagesContact->callId == -1) {
+			messagesContact->numberOriginal = numberOriginal;
+			messagesContact->numberParameters = sipuri.parameters;
 		}
 	}
-	//--end name
-	CString tabName = name;
+	CString tabName = messagesContact->name;
 	if (user_data) {
 		user_data->CS.Lock();
 		if (!user_data->diversion.IsEmpty()) {
@@ -393,19 +408,11 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		user_data->CS.Unlock();
 	}
 	tabName.Format(_T("   %s  "), tabName);
+	TCITEM item;
+	item.pszText = tabName.GetBuffer();
+	item.cchTextMax = 0;
 	if (exists == -1) {
-		if (ifExists) {
-			return NULL;
-		}
-		messagesContact = new MessagesContact();
-		messagesContact->callId = call_info ? call_info->id : -1;
-		messagesContact->number = number;
-		messagesContact->numberParameters = sipuri.parameters;
-		messagesContact->name = name;
-		TCITEM item;
 		item.mask = TCIF_PARAM | TCIF_TEXT;
-		item.pszText = tabName.GetBuffer();
-		item.cchTextMax = 0;
 		item.lParam = (LPARAM)messagesContact;
 		exists = tab->InsertItem(tab->GetItemCount(), &item);
 		if (tab->GetCurSel() == exists) {
@@ -413,20 +420,8 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 		}
 	}
 	else {
-		if (messagesContact->callId == -1) {
-			messagesContact->numberParameters = sipuri.parameters;
-		}
-		if (messagesContact->name != name) {
-			messagesContact->name = name;
-			if (tab->GetCurSel() == exists) {
-				SetWindowText(name);
-			}
-		}
 		//--
-		TCITEM item;
 		item.mask = TCIF_TEXT;
-		item.pszText = tabName.GetBuffer();
-		item.cchTextMax = 0;
 		tab->SetItem(exists, &item);
 		//--
 		if (tab->GetCurSel() == exists && call_info) {
@@ -437,19 +432,17 @@ MessagesContact* MessagesDlg::AddTab(CString number, CString name, BOOL activate
 	if (call_info) {
 		UpdateTabIcon(messagesContact, exists, call_info, user_data);
 	}
-	//if (tab->GetCurSel() != exists && (activate || !IsWindowVisible()))
-	if (tab->GetCurSel() != exists && activate)
-	{
+	//if (tab->GetCurSel() != exists && (activate || !IsWindowVisible())) {
+	if (tab->GetCurSel() != exists && activate) {
 		LONG_PTR result;
 		OnTcnSelchangingTab(NULL, &result);
 		tab->SetCurSel(exists);
 		OnChangeTab(call_info, user_data);
 	}
-
 	if (!IsWindowVisible()) {
 		if (!notShowWindow)
 		{
-			if (!accountSettings.hidden) {
+			if (!MACRO_SILENT) {
 				ShowWindow(SW_SHOW);
 				CRichEditCtrl* richEdit = (CRichEditCtrl*)GetDlgItem(IDC_MESSAGE);
 				GotoDlgCtrl(richEdit);
@@ -487,8 +480,15 @@ void MessagesDlg::OnChangeTab(pjsua_call_info *p_call_info, call_user_data *user
 				))
 			) {
 			SIPURI sipuri;
-			ParseSIPURI(messagesContact->number, &sipuri);
-			mainDlg->pageDialer->SetNumber(!sipuri.user.IsEmpty() && sipuri.domain == get_account_domain() ? sipuri.user : messagesContact->number, 1);
+			MSIP::ParseSIPURI(messagesContact->number, &sipuri);
+			CString numberLocal;
+			if (sipuri.user.IsEmpty()) {
+				numberLocal = sipuri.domain;
+			}
+			else {
+				numberLocal = sipuri.user;
+			}
+			mainDlg->pageDialer->SetNumber(numberLocal, 1);
 		}
 	}
 	else {
@@ -515,6 +515,10 @@ void MessagesDlg::OnChangeTab(pjsua_call_info *p_call_info, call_user_data *user
 void MessagesDlg::OnTcnSelchangeTab(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	OnChangeTab();
+	CButton* buttonHold = (CButton*)GetDlgItem(IDC_HOLD);
+	if (buttonHold->IsWindowVisible() && buttonHold->GetCheck()) {
+		OnBnClickedHold();
+	}
 	*pResult = 0;
 }
 
@@ -573,7 +577,9 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 	pj_str_t pj_uri;
 	if (!SelectSIPAccount(number, acc_id, pj_uri)) {
 		Account dummy;
-		*pStatus = accountSettings.AccountLoad(1, &dummy) ? PJSIP_EAUTHACCDISABLED : PJSIP_EAUTHACCNOTFOUND;
+		if (pStatus) {
+			*pStatus = accountSettings.AccountLoad(1, &dummy) ? PJSIP_EAUTHACCDISABLED : PJSIP_EAUTHACCNOTFOUND;
+		}
 		return PJSUA_INVALID_ID;
 	}
 	if (accountSettings.singleMode) {
@@ -586,7 +592,6 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 		mainDlg->createPreviewWin();
 	}
 #endif
-
 	msip_set_sound_device(msip_audio_output);
 
 	pjsua_call_id call_id;
@@ -634,27 +639,63 @@ pjsua_call_id MessagesDlg::CallMake(CString number, bool hasVideo, pj_status_t *
 	if (pStatus) {
 		*pStatus = status;
 	}
+	bool hidden = false;
+	if (user_data) {
+		user_data->CS.Lock();
+		hidden = user_data->hidden;
+		user_data->CS.Unlock();
+	}
+	if (!hidden) {
+		if (status == PJ_SUCCESS) {
+			pjsua_call_info call_info;
+			if (pjsua_call_get_info(call_id, &call_info) == PJ_SUCCESS) {
+				MessagesContact* messagesContact = AddTab(number,
+					accountSettings.singleMode,
+					&call_info, user_data, true, false
+				);
+				if (messagesContact) {
+					mainDlg->pageCalls->Add(call_info.call_id, messagesContact->numberOriginal, messagesContact->name, MSIP_CALL_OUT);
+				}
+			}
+		}
+	}
 	return status == PJ_SUCCESS ? call_id : PJSUA_INVALID_ID;
 }
 
 void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 {
 	MessagesContact* messagesContact = GetMessageContact();
-	if (user_data) {
-		user_data->CS.Lock();
-		user_data->name = messagesContact->name;
-		user_data->CS.Unlock();
+	if (!user_data) {
+		user_data = new call_user_data(PJSUA_INVALID_ID);
 	}
+	user_data->name = messagesContact->name;
+	user_data->commands = messagesContact->commands.Mid(1);
+
 	pj_status_t status = PJSIP_EINVALIDREQURI;
 	pjsua_call_id call_id = PJSUA_INVALID_ID;
+
 	CString numberWithParams = messagesContact->number + messagesContact->numberParameters;
 	bool allow;
 	allow = true;
 	if (allow) {
 		call_id = CallMake(numberWithParams, hasVideo, &status, user_data);
 	}
-	accountSettings.lastCallNumber = numberWithParams;
+
+	SIPURI sipuri;
+	MSIP::ParseSIPURI(messagesContact->number, &sipuri);
+	if (!sipuri.user.IsEmpty()) {
+		accountSettings.lastCallNumber = sipuri.user;
+		if (sipuri.domain != get_account_domain() || !messagesContact->numberParameters.IsEmpty()) {
+			accountSettings.lastCallNumber.AppendFormat(_T("@%s"), sipuri.domain);
+		}
+	}
+	else {
+		accountSettings.lastCallNumber = sipuri.domain;
+	}
+	accountSettings.lastCallNumber.Append(messagesContact->numberParameters);
+	accountSettings.lastCallNumber.Append(messagesContact->commands);
 	accountSettings.lastCallHasVideo = hasVideo;
+
 	if (call_id != PJSUA_INVALID_ID) {
 		if (user_data) {
 			user_data->CS.Lock();
@@ -666,7 +707,7 @@ void MessagesDlg::CallStart(bool hasVideo, call_user_data *user_data)
 	}
 	else {
 		if (status != PJ_ERESOLVE) {
-			CString message = GetErrorMessage(status);
+			CString message = MSIP::GetErrorMessage(status);
 			AddMessage(messagesContact, message);
 			if (accountSettings.singleMode) {
 				AfxMessageBox(message);
@@ -684,23 +725,145 @@ void MessagesDlg::OnBnClickedCallEnd()
 	}
 }
 
-void MessagesDlg::OnEndCall(pjsua_call_info *call_info)
+void MessagesDlg::OnEndCall(pjsua_call_info *call_info, call_user_data *user_data)
 {
+	MessagesContact* messagesContact = NULL;
 	for (int i = 0; i < tab->GetItemCount(); i++)
 	{
-		MessagesContact* messagesContact = GetMessageContact(i);
+		messagesContact = GetMessageContact(i);
 		if (messagesContact->callId == call_info->id)
 		{
 			lastCall = messagesContact;
 			messagesContact->callId = -1;
-			if (tab->GetCurSel() == i)
-			{
-				UpdateCallButton(FALSE, call_info);
+			UpdateTabIcon(messagesContact);
+			if (tab->GetCurSel() == i) {
+				UpdateCallButton(FALSE, call_info, user_data);
 			}
 			break;
 		}
+		messagesContact = NULL;
 	}
-	OnGoToLastTab();
+	if (!messagesContact) {
+		return;
+	}
+	
+	msip_conference_leave(call_info, user_data);
+
+	if (user_data) {
+		user_data->CS.Lock();
+		msip_call_recording_stop(user_data);
+		/* Cancel duration timer, if any */
+		if (user_data->auto_hangup_timer.id != PJSUA_INVALID_ID) {
+			pjsua_cancel_timer(&user_data->auto_hangup_timer);
+			user_data->auto_hangup_timer.id = PJSUA_INVALID_ID;
+		}
+		user_data->CS.Unlock();
+	}
+	call_deinit_tonegen(call_info->id);
+
+	if (accountSettings.localDTMF) {
+		if (call_info->state != PJSIP_INV_STATE_DISCONNECTED || call_info->last_status == 200) {
+			mainDlg->onPlayerPlay(MSIP_SOUND_HANGUP, 0);
+		}
+	}
+	
+	CString info;
+	if (call_info->state != PJSIP_INV_STATE_DISCONNECTED || call_info->last_status == 200) {
+		info = Translate(_T("Call Ended"));
+	}
+	else {
+		if (call_info->last_status == 487) {
+			info = Translate(_T("Cancel"));
+		}
+		else {
+			CString rab = MSIP::PjToStr(&call_info->last_status_text);
+			if (rab.Find(_T("(PJ_ERESOLVE)")) != -1) {
+				rab = _T("Cannot get IP address of the called host.");
+			}
+			if (call_info->acc_id && call_info->last_status >= 500 && call_info->last_status < 600) {
+				info.Format(_T("Server Failure: %d %s"), call_info->last_status, Translate(rab.GetBuffer()));
+			}
+			else {
+				info = rab;
+			}
+		}
+	}
+	AddMessage(messagesContact, info, MSIP_MESSAGE_TYPE_SYSTEM);
+
+	if (accountSettings.singleMode) {
+		pjsua_call_id current_call_id = mainDlg->CurrentCallId();
+		if (current_call_id == call_info->id || current_call_id == -1) {
+			mainDlg->pageDialer->Clear(false);
+			mainDlg->pageDialer->UpdateCallButton(FALSE, 0);
+		}
+	}
+	else {
+		mainDlg->pageDialer->Clear();
+	}
+	mainDlg->pageDialer->SetName();
+
+	if (call_info->role == PJSIP_ROLE_UAS && call_info->connect_duration.sec == 0 && call_info->connect_duration.msec == 0 && call_info->last_status != 486) {
+		mainDlg->pageCalls->Add(call_info->call_id, _T(""), _T(""), MSIP_CALL_MISS);
+	}
+	mainDlg->pageCalls->SetDuration(call_info->call_id, msip_get_duration(&call_info->connect_duration));
+	mainDlg->pageCalls->SetInfo(call_info->call_id, info);
+	
+#ifdef _GLOBAL_VIDEO
+	if (mainDlg->previewWin && !GetCallsCount()) {
+		mainDlg->previewWin->PostMessage(WM_CLOSE, NULL, NULL);
+	}
+#endif
+	mainDlg->UpdateWindowText(_T("-"));
+
+	CString number = MSIP::PjToStr(&call_info->remote_info, TRUE);
+	SIPURI sipuri;
+	MSIP::ParseSIPURI(number, &sipuri);
+
+	CString numberLocal = sipuri.user;
+	if (numberLocal.IsEmpty()) {
+		numberLocal = sipuri.domain;
+	}
+
+	if (call_info->state == PJSIP_INV_STATE_DISCONNECTED && call_info->last_status != 200) {
+		if (accountSettings.singleMode) {
+			if (call_info->last_status == 487 || (call_info->role == PJSIP_ROLE_UAS && (call_info->last_status == 486 || call_info->last_status == 600 || call_info->last_status == 603))) {
+				//don't show
+			}
+			else {
+				CString name;
+				if (messagesContact) {
+					name = messagesContact->name;
+				}
+				else {
+					name = mainDlg->pageContacts->GetNameByNumber(number);
+				}
+				if (name.IsEmpty()) {
+					name = !sipuri.name.IsEmpty() ? sipuri.name : numberLocal;
+				}
+				mainDlg->BaloonPopup(info, name, NIIF_INFO);
+			}
+		}
+	}
+
+	if (call_info->state == PJSIP_INV_STATE_DISCONNECTED && (call_info->last_status == 486 || call_info->last_status == 600 || call_info->last_status == 603)) {
+		//--
+		if (!accountSettings.cmdCallBusy.IsEmpty()) {
+			CString params = numberLocal;
+			MSIP::RunCmd(accountSettings.cmdCallBusy, params);
+		}
+		//--
+	}
+	else {
+		//--
+		if (!accountSettings.cmdCallEnd.IsEmpty()) {
+			CString params = numberLocal;
+			MSIP::RunCmd(accountSettings.cmdCallEnd, params);
+		}
+		//--
+	}
+		if (accountSettings.singleMode) {
+			OnGoToLastTab();
+		}
 }
 
 void MessagesDlg::UpdateCallButton(BOOL active, pjsua_call_info *call_info, call_user_data *user_data)
@@ -815,7 +978,7 @@ void MessagesDlg::UpdateRecButton(call_user_data *user_data)
 
 bool MessagesDlg::CallCheck()
 {
-	if (!accountSettings.singleMode || !call_get_count_noincoming())
+	if (!accountSettings.singleMode || !GetCallsCount())
 	{
 		MessagesContact* messagesContact = GetMessageContact();
 		if (!messagesContact || messagesContact->callId == -1)
@@ -829,14 +992,11 @@ bool MessagesDlg::CallCheck()
 	return false;
 }
 
-void MessagesDlg::Call(BOOL hasVideo, CString commands)
+void MessagesDlg::Call(BOOL hasVideo)
 {
 	if (CallCheck()) {
-		if (mainDlg->missed) {
-			mainDlg->missed = false;
-		}
+		MessagesContact* messagesContact = GetMessageContact();
 		call_user_data *user_data = new call_user_data(PJSUA_INVALID_ID);
-		user_data->commands = commands;
 		CallStart(hasVideo, user_data);
 	}
 }
@@ -1016,7 +1176,7 @@ BOOL MessagesDlg::SendInstantMessage(MessagesContact* messagesContact, CString m
 		pj_str_t pj_uri;
 		pj_status_t status;
 		if (SelectSIPAccount(messagesContact ? messagesContact->number + messagesContact->numberParameters : number, acc_id, pj_uri)) {
-			pj_str_t pj_message = StrToPjStr(message);
+			pj_str_t pj_message = MSIP::StrToPjStr(message);
 			status = pjsua_im_send(acc_id, &pj_uri, NULL, &pj_message, NULL, NULL);
 		}
 		else {
@@ -1025,7 +1185,7 @@ BOOL MessagesDlg::SendInstantMessage(MessagesContact* messagesContact, CString m
 		}
 		if (status != PJ_SUCCESS) {
 			if (messagesContact) {
-				CString message = GetErrorMessage(status);
+				CString message = MSIP::GetErrorMessage(status);
 				AddMessage(messagesContact, message);
 			}
 		}
@@ -1127,18 +1287,6 @@ void MessagesDlg::CallAction(int action, CString number)
 	}
 	number.Trim();
 	if (!number.IsEmpty()) {
-		pj_str_t pj_uri;
-		SIPURI sipuri;
-		CString commands;
-		if (number.Find('<') != 1 && number.Find('>') != 1) {
-			CString numberFormated = FormatNumber(number, &commands);
-			pj_uri = StrToPjStr(numberFormated);
-			ParseSIPURI(numberFormated, &sipuri);
-			number = sipuri.user;
-		}
-		else {
-			pj_uri = StrToPjStr(GetSIPURI(number, true));
-		}
 		call_user_data *user_data;
 		user_data = (call_user_data *)pjsua_call_get_user_data(messagesContactSelected->callId);
 		if (action == MSIP_ACTION_TRANSFER) {
@@ -1151,32 +1299,38 @@ void MessagesDlg::CallAction(int action, CString number)
 			else {
 				xfer = true;
 			}
+			CString commands;
+			CString numberFormated = FormatNumber(number, &commands);
+			pj_str_t pj_uri = MSIP::StrToPjStr(numberFormated);
+			SIPURI sipuri;
+			MSIP::ParseSIPURI(numberFormated, &sipuri);
+			number = sipuri.user;
 			if (xfer) {
-
 				pjsua_call_xfer(messagesContactSelected->callId, &pj_uri, NULL);
 			}
 		}
 		if (action == MSIP_ACTION_INVITE) {
-			MessagesContact *messagesContact = mainDlg->messagesDlg->AddTab(FormatNumber(number), _T(""), TRUE, NULL, NULL, TRUE);
-			if (messagesContact->callId == -1) {
-				pjsua_call_info call_info;
-				pjsua_call_get_info(messagesContactSelected->callId, &call_info);
-				msip_call_unhold(&call_info);
-				if (!user_data) {
-					user_data = new call_user_data(messagesContactSelected->callId);
-					pjsua_call_set_user_data(messagesContactSelected->callId, user_data);
-				}
-				user_data->CS.Lock();
-				user_data->inConference = true;
-				user_data->CS.Unlock();
-				call_user_data *user_data_new = new call_user_data(PJSUA_INVALID_ID);
-				user_data_new->inConference = true;
-				mainDlg->messagesDlg->CallStart(false, user_data_new);
-				if (messagesContact->callId == -1) {
+			if (mainDlg->MessagesOpen(number, true)) {
+				MessagesContact* messagesContact = GetMessageContact();
+				if (messagesContact && messagesContact->callId == -1) {
+					pjsua_call_info call_info;
+					pjsua_call_get_info(messagesContactSelected->callId, &call_info);
+					msip_call_unhold(&call_info);
+					if (!user_data) {
+						user_data = new call_user_data(messagesContactSelected->callId);
+						pjsua_call_set_user_data(messagesContactSelected->callId, user_data);
+					}
 					user_data->CS.Lock();
-					user_data->inConference = false;
+					user_data->inConference = true;
 					user_data->CS.Unlock();
-					delete user_data_new;
+					call_user_data *user_data_new = new call_user_data(PJSUA_INVALID_ID);
+					user_data_new->inConference = true;
+					mainDlg->messagesDlg->CallStart(false, user_data_new);
+					if (messagesContact->callId == -1) {
+						user_data->CS.Lock();
+						user_data->inConference = false;
+						user_data->CS.Unlock();
+					}
 				}
 			}
 		}
@@ -1265,7 +1419,7 @@ void MessagesDlg::OnBnClickedActions(bool isConference)
 				//--attended transfer
 				if (call_info_curr.role == PJSIP_ROLE_UAS || call_info_curr.state == PJSIP_INV_STATE_CONFIRMED) {
 					SIPURI sipuri_curr;
-					ParseSIPURI(PjToStr(&call_info_curr.remote_info, TRUE), &sipuri_curr);
+					MSIP::ParseSIPURI(MSIP::PjToStr(&call_info_curr.remote_info, TRUE), &sipuri_curr);
 					str = !sipuri_curr.name.IsEmpty() ? sipuri_curr.name : (!sipuri_curr.user.IsEmpty() ? sipuri_curr.user : (sipuri_curr.domain));
 					if (!inConference && !inConferenceCurr) {
 						menuAttendedTransfer.InsertMenu(pos, MF_BYPOSITION, ID_ATTENDED_TRANSFER_RANGE + pos, str);
@@ -1476,12 +1630,6 @@ void MessagesDlg::OnGoToLastTab()
 		}
 		i++;
 	}
-	if (found) {
-		CButton* buttonHold = (CButton*)GetDlgItem(IDC_HOLD);
-		if (buttonHold->IsWindowVisible() && buttonHold->GetCheck()) {
-			OnBnClickedHold();
-		}
-	}
 	if (!found && lastCallIndex != -1) {
 		if (tab->GetCurSel() != lastCallIndex) {
 			LONG_PTR result;
@@ -1516,6 +1664,30 @@ int MessagesDlg::GetCallDuration(pjsua_call_id *call_id)
 		duration = count;
 	}
 	return duration;
+}
+
+int MessagesDlg::GetCallsCount(bool withIncoming)
+{
+	int count = 0;
+	int i = 0;
+	while (i < tab->GetItemCount()) {
+		MessagesContact* messagesContact = GetMessageContact(i);
+		if (messagesContact->callId != -1) {
+			if (withIncoming) {
+				count++;
+			}
+			else {
+				pjsua_call_info call_info;
+				if (pjsua_var.state == PJSUA_STATE_RUNNING && pjsua_call_get_info(messagesContact->callId, &call_info) == PJ_SUCCESS) {
+					if (call_info.role != PJSIP_ROLE_UAS || (call_info.state != PJSIP_INV_STATE_INCOMING && call_info.state != PJSIP_INV_STATE_EARLY)) {
+						count++;
+					}
+				}
+			}
+		}
+		i++;
+	}
+	return count;
 }
 
 void MessagesDlg::OnCopy()

@@ -23,6 +23,7 @@
 #include <afxwin.h>
 
 #include "define.h"
+#include "json.h"
 #include "addons.h"
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
@@ -81,18 +82,16 @@ public:
 	Dialer* pageDialer;
 	Contacts* pageContacts;
 	bool usersDirectoryLoaded;
+	bool shortcutsURLLoaded;
 	Calls* pageCalls;
 
 	BOOL notStopRinging;
 	CArray <RinginDlg*> ringinDlgs;
 	CString dialNumberDelayed;
-	pjsua_call_id autoAnswerCallId;
+	pjsua_call_id autoAnswerTimerCallId;
+	pjsua_call_id autoAnswerPlayCallId;
 	pjsua_acc_config acc_cfg;
 
-	pjsua_transport_id transport_udp_local;
-	pjsua_transport_id transport_udp;
-	pjsua_transport_id transport_tcp;
-	pjsua_transport_id transport_tls;
 	player_eof_data *player_eof_data;
 
 	int iconStatusbar;
@@ -110,11 +109,11 @@ public:
 	void ShowTrayIcon();
 	void OnCreated();
 	void PJCreate();
-	void PJDestroy();
+	void PJDestroy(bool exit = false);
 	void PJAccountAdd();
 	void PJAccountAddRaw();
 	void PJAccountAddLocal();
-	void PJAccountDelete(bool deep = false);
+	void PJAccountDelete(bool deep = false, bool exit = false, CStringA code = "");
 	void PJAccountDeleteLocal();
 	void PJAccountConfig(pjsua_acc_config *acc_cfg, Account *account);
 
@@ -122,17 +121,19 @@ public:
 	void TabFocusSet() override;
 	void UpdateWindowText(CString = CString(), int icon = IDI_DEFAULT, bool afterRegister = false);
 	void PublishStatus(bool online = true, bool init=false);
+	void TrayIconUpdateTip();
 	void BaloonPopup(CString title, CString message, DWORD flags = NIIF_WARNING);
+	void SwitchDND(int state = -1);
 	bool GotoTabLParam(LPARAM lParam);
 	bool GotoTab(int i, CTabCtrl* tab = NULL) override;
 	void DialNumberFromCommandLine(CString number);
 	void DialNumber(CString params);
-	bool MakeCall(CString number, bool hasVideo = false, bool fromCommandLine = false);
-	bool MessagesOpen(CString number, CString name=_T(""), CString *commands = NULL, bool forCall = false);
-	void AutoAnswer(pjsua_call_id call_id);
+	bool MakeCall(CString number, bool hasVideo = false, bool fromCommandLine = false, bool noTransform = false);
+	bool MessagesOpen(CString number, bool forCall = false, bool noTransform = false);
+	bool AutoAnswer(pjsua_call_id call_id, bool force = false);
 	pjsua_call_id CurrentCallId();
 	void ShortcutAction(Shortcut *shortcut);
-	void PlayerPlay(CString filename, bool noLoop = false, bool inCall = false);
+	void PlayerPlay(CString filename, bool noLoop = false, bool inCall = false, bool isAA = false);
 	BOOL CopyStringToClipboard( IN const CString & str );
 	void OnTimerProgress();
 	void OnTimerCall ();
@@ -140,6 +141,9 @@ public:
 	void UsersDirectoryLoad();
 	void OnTimerContactBlink();
 	afx_msg LRESULT onUsersDirectoryLoaded(WPARAM wParam,LPARAM lParam);
+	LRESULT onShortcutsURLLoaded(WPARAM wParam, LPARAM lParam);
+	void ShortcutsURLLoad();
+	afx_msg LRESULT onCustomLoaded(WPARAM wParam, LPARAM lParam);
 	void SetupJumpList();
 	void RemoveJumpList();
 	void MainPopupMenu(bool isMenuButton = false);
@@ -167,7 +171,6 @@ protected:
 	HICON iconMissed;
 	NOTIFYICONDATA tnd;
 	StatusBar m_bar;
-
 	CMMNotificationClient *mmNotificationClient;
 
 	unsigned char m_tabPrev;
@@ -190,6 +193,7 @@ protected:
 	afx_msg LRESULT onRefreshLevels(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT onRegState2(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT onCallState(WPARAM wParam,LPARAM lParam);
+	afx_msg LRESULT onIncomingCall(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT onMWIInfo(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT onCallMediaState(WPARAM, LPARAM);
 	afx_msg LRESULT onCallTransferStatus(WPARAM, LPARAM);
@@ -206,6 +210,7 @@ public:
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnBnClickedMenu();
 	afx_msg void OnClose();
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd *pWnd, UINT nCtlColor);
 	afx_msg void OnContextMenu(CWnd *pWnd, CPoint point );
 	afx_msg BOOL OnDeviceChange(UINT nEventType, DWORD_PTR dwData);
 	afx_msg void OnSessionChange(UINT nSessionState, UINT nId);
@@ -218,6 +223,7 @@ public:
 	afx_msg LRESULT onSetPaneText(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT onPlayerPlay(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT onPlayerStop(WPARAM wParam,LPARAM lParam);
+	afx_msg LRESULT onCommandLine(WPARAM wParam,LPARAM lParam);
 	afx_msg LRESULT OnAccount(WPARAM wParam,LPARAM lParam);
 	afx_msg void OnMenuAccountAdd();
 	afx_msg void OnMenuAccountChange(UINT nID);

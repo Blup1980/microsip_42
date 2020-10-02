@@ -60,9 +60,6 @@
     <ClCompile Include="jumplist.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="langpack.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="mainDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -120,9 +117,6 @@
     <ClCompile Include="lib\jsoncpp\json_writer.cpp">
       <Filter>Source Files\lib</Filter>
     </ClCompile>
-    <ClCompile Include="lib\XMLFile.cpp">
-      <Filter>Source Files\lib</Filter>
-    </ClCompile>
     <ClCompile Include="lib\utf.cpp">
       <Filter>Source Files\lib</Filter>
     </ClCompile>
@@ -136,6 +130,18 @@
       <Filter>Source Files\lib</Filter>
     </ClCompile>
     <ClCompile Include="lib\CListCtrl_ToolTip.cpp">
+      <Filter>Source Files\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\MSIP.cpp">
+      <Filter>Source Files\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\langpack.cpp">
+      <Filter>Source Files\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\MessageBoxX.cpp">
+      <Filter>Source Files\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\Hid.cpp">
       <Filter>Source Files\lib</Filter>
     </ClCompile>
   </ItemGroup>
@@ -186,9 +192,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="jumplist.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="langpack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="mainDlg.h">
@@ -251,9 +254,6 @@
     <ClInclude Include="lib\jsoncpp\json\json.h">
       <Filter>Header Files\lib</Filter>
     </ClInclude>
-    <ClInclude Include="lib\XMLFile.h">
-      <Filter>Header Files\lib</Filter>
-    </ClInclude>
     <ClInclude Include="lib\utf.h">
       <Filter>Header Files\lib</Filter>
     </ClInclude>
@@ -267,6 +267,30 @@
       <Filter>Header Files\lib</Filter>
     </ClInclude>
     <ClInclude Include="lib\TemplateSmartPtr.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\langpack.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\MSIP.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\CListCtrl_LabelTip.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\CListCtrl_ToolTip.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\ggets.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\MessageBoxX.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\Hid.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\hidapi.h">
       <Filter>Header Files\lib</Filter>
     </ClInclude>
   </ItemGroup>

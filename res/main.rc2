@@ -20,15 +20,21 @@ IDR_MAINFRAME           ICON                    _GLOBAL_ICON
 IDI_EXIT                ICON                    "res\\exit.ico"
 IDI_DEFAULT             ICON                    "res\\default.ico"
 IDI_UNKNOWN             ICON                    "res\\unknown.ico"
+IDI_YELLOW             ICON                    "res\\yellow.ico"
 IDI_OFFLINE             ICON                    "res\\offline.ico"
 IDI_BUSY                ICON                    "res\\busy.ico"
 IDI_AWAY                ICON                    "res\\away.ico"
 IDI_ON_THE_PHONE        ICON                    "res\\on-the-phone.ico"
 IDI_ONLINE              ICON                    "res\\online.ico"
 IDI_SECURE              ICON                    "res\\secure.ico"
-IDI_ACTIVE_SECURE              ICON                    "res\\active-secure.ico"
 IDI_CONFERENCE_SECURE              ICON                    "res\\conference-secure.ico"
 IDI_ACTIVE              ICON                    "res\\active.ico"
+IDI_ACTIVE_SECURE       ICON                    "res\\active-secure.ico"
+IDI_ACTIVE_YELLOW              ICON                    "res\\active-yellow.ico"
+IDI_ACTIVE_SECURE_YELLOW       ICON                    "res\\active-secure-yellow.ico"
+IDI_ACTIVE_RED              ICON                    "res\\active-red.ico"
+IDI_ACTIVE_SECURE_RED       ICON                    "res\\active-secure-red.ico"
+IDI_ACTIVE_BLUE              ICON                    "res\\active-blue.ico"
 IDI_BLANK               ICON                    "res\\blank.ico"
 IDI_CALL_OUT            ICON                    "res\\callout.ico"
 IDI_CALL_IN             ICON                    "res\\callin.ico"
@@ -54,9 +60,9 @@ IDI_MESSAGE				ICON                    "res\\message.ico"
 
 IDI_CLOSE               ICON                    "res\\close.ico"
 IDI_CLOSE_2             ICON                    "res\\close2.ico"
-	IDI_INACTIVE            ICON                    "res\\inactive.ico"
-
+	IDI_INACTIVE            ICON                    _GLOBAL_ICON_INACTIVE
 	IDI_MISSED            ICON                    "res\\missed.ico"
+IDI_CONTACT         ICON                    "res\\contact.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //

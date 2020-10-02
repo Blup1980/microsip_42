@@ -44,6 +44,7 @@ public:
 	// Navigate
 	bool SetDoc( LPCTSTR szDoc );
 	bool IsWellFormed();
+	bool FindAttrib(LPCTSTR szName = NULL);
 	bool FindElem( LPCTSTR szName=NULL );
 	bool FindChildElem( LPCTSTR szName=NULL );
 	bool IntoElem();

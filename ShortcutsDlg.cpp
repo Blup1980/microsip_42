@@ -47,6 +47,7 @@ static CString defaultActionValues[] = {
 	_T("Run Batch"),
 	_T("Call URL"),
 	_T("Pop URL"),
+
 };
 
 ShortcutsDlg::ShortcutsDlg(CWnd* pParent /*=NULL*/)
@@ -141,6 +142,7 @@ void ShortcutsDlg::OnBnClickedCancel()
 void ShortcutsDlg::OnBnClickedOk()
 {
 	this->ShowWindow(SW_HIDE);
+	int oldCount = shortcuts.GetCount();
 	shortcuts.RemoveAll();
 	for (int i=0; i<_GLOBAL_SHORTCUTS_QTY; i++) {
 		Shortcut shortcut;
@@ -153,19 +155,24 @@ void ShortcutsDlg::OnBnClickedOk()
 		}
 	}
 	ShortcutsSave();
-	mainDlg->pageDialer->RebuildShortcuts();
 
 	bool enabled = ((CButton*)GetDlgItem(IDC_SHORTCUTS_ENABLE))->GetCheck();
 	bool bottom = ((CButton*)GetDlgItem(IDC_SHORTCUTS_BOTTOM))->GetCheck();
 
-	if (mainDlg->shortcutsEnabled!=enabled 
-		|| 
-		mainDlg->shortcutsBottom!=bottom 
+	if (mainDlg->shortcutsEnabled != enabled
+		||
+		mainDlg->shortcutsBottom != bottom
+		||
+		(!bottom && oldCount <= 12 && shortcuts.GetCount() > 12)
+		|| (bottom && shortcuts.GetCount() > oldCount)
 		) {
 			AfxMessageBox(Translate(_T("You need to restart application for the changes to take effect.")));
 			accountSettings.enableShortcuts=enabled;
 			accountSettings.shortcutsBottom = bottom;
 			accountSettings.SettingsSave();
+	}
+	else {
+		mainDlg->pageDialer->RebuildShortcuts();
 	}
 	OnClose();
 }

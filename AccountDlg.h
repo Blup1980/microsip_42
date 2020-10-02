@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "define.h"
+
 #include "resource.h"
 #include "const.h"
 #include "settings.h"

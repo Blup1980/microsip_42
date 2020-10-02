@@ -43,7 +43,7 @@ void CBaseDialog::WinHelp(DWORD dwData, UINT nCmd)
 
 void CBaseDialog::OpenHelp()
 {
-	OpenURL(_T(_GLOBAL_MENU_HELP));
+	MSIP::OpenURL(_T(_GLOBAL_MENU_HELP));
 }
 
 BOOL CBaseDialog::PreTranslateMessage(MSG* pMsg)

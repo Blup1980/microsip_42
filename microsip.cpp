@@ -44,6 +44,31 @@ BEGIN_MESSAGE_MAP(CmicrosipApp, CWinAppEx)
 	ON_COMMAND(ID_HELP, &CWinAppEx::OnHelp)
 END_MESSAGE_MAP()
 
+void RecursiveDelete(CString path)
+{
+	if (!path.IsEmpty()) {
+		CFileFind ff;
+		if (path.Right(1) == _T("\\")) {
+			path = path.Mid(0, path.GetLength() - 1);
+		}
+		BOOL res = ff.FindFile(path);
+		while (res) {
+			res = ff.FindNextFile();
+			if (!ff.IsDots()) {
+				if (ff.IsDirectory()) {
+					path = ff.GetFilePath();
+					CString path1 = path;
+					path1.Append(_T("\\*.*"));
+					RecursiveDelete(path1);
+					RemoveDirectory(path);
+				}
+				else {
+					DeleteFile(ff.GetFilePath());
+				}
+			}
+		}
+	}
+}
 
 // CmicrosipApp construction
 
@@ -77,6 +102,7 @@ LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS *ExceptionInfo)
 	CTime tm = CTime::GetCurrentTime();
 	CString filename;
 	CFile file;
+	bool sent = false;
 	// mini dump
 	filename.Format(_T("%sdump%s.dmp"), accountSettings.pathLocal, tm.Format(_T("%Y%m%d%H%M%S")));
 	if (file.Open(filename, CFile::modeCreate | CFile::modeReadWrite)) {
@@ -103,7 +129,9 @@ LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS *ExceptionInfo)
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
 	else {
-		AfxMessageBox(_T("We are sorry but microsip crash happened.\r\nIf this problem is permanent and you know how to reproduce it, please contact us with details for fixing this error. Email: info@microsip.org"), MB_ICONERROR);
+		CString message;
+		message.Format(_T("Porbably something wrong with your PC or some files are broken. You can try to uninstall Microsip \"with configuration\", and install it again. Tracking info: %s%s"), tm.Format(_T("%Y%m%d%H%M%S")), sent ? _T("Y") : _T("N"));
+		AfxMessageBox(message, MB_ICONERROR);
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
 	return EXCEPTION_CONTINUE_SEARCH;
@@ -148,6 +176,8 @@ BOOL CALLBACK MsipEnumWindowsProc(HWND hWnd, LPARAM lParam)
 
 BOOL CmicrosipApp::InitInstance()
 {
+	accountSettings.Init();
+
 	SetUnhandledExceptionFilter(ExceptionFilter);
 	MsipEnumWindowsProcData data;
 	data.hInst = AfxGetInstanceHandle();
@@ -157,6 +187,9 @@ BOOL CmicrosipApp::InitInstance()
 	if (data.count) {
 		hWndRunning = data.hWnd;
 	}
+
+	//*((char*)NULL) = 0; //produce a crash
+
 	if (hWndRunning) {
 		if ( lstrcmp(theApp.m_lpCmdLine, _T("/exit"))==0) {
 			::SendMessage(hWndRunning, WM_CLOSE, NULL, NULL);
@@ -171,13 +204,19 @@ BOOL CmicrosipApp::InitInstance()
 				cd.cbData = sizeof(TCHAR) * (lstrlen(theApp.m_lpCmdLine) + 1);
 				activate = ::SendMessage(hWndRunning, WM_COPYDATA, NULL, (LPARAM)&cd);
 			}
-			if (activate && !accountSettings.hidden && !accountSettings.silent) {
+			if (activate && !MACRO_SILENT) {
 				::ShowWindow(hWndRunning, SW_SHOW);
 				::SetForegroundWindow(hWndRunning);
 			}
 		}
 		return FALSE;
 	} else {
+		if (lstrcmp(theApp.m_lpCmdLine, _T("/reset")) == 0) {
+			DeleteFile(accountSettings.iniFile);
+			RecursiveDelete(accountSettings.appDataRoaming);
+			RecursiveDelete(accountSettings.appDataLocal);
+			return false;
+		}
 		if ( lstrcmp(theApp.m_lpCmdLine, _T("/exit"))==0 
 			|| lstrcmp(theApp.m_lpCmdLine, _T("/answer")) == 0
 			|| lstrcmp(theApp.m_lpCmdLine, _T("/hangupall")) == 0
@@ -203,9 +242,21 @@ BOOL CmicrosipApp::InitInstance()
 
 	InitCommonControlsEx(&InitCtrls);
 
+	// Initialize OLE libraries (need this for Virtual Display)
+	if (!AfxOleInit())
+	{
+		AfxMessageBox(_T("OLE initialization failed.  Make sure that the OLE libraries are the correct version."));
+		return FALSE;
+	}
+
 	//AfxEnableControlContainer();
 
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	// disabled, conflict with AfxOleInit
+	//if (CoInitializeEx(NULL, COINIT_MULTITHREADED) != S_OK)
+	//{
+	//	AfxMessageBox(_T("COM initialization failed."));
+	//	return FALSE;
+	//}
 
 	AfxInitRichEdit2();
 

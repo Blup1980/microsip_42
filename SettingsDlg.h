@@ -63,6 +63,7 @@ public:
 	afx_msg void OnNMClickSyslinkDenyIncoming(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkDirectory(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkMediaButtons(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMClickSyslinkHeadsetSupport(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkLocalDTMF(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkEnableLog(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClickSyslinkBringToFrontOnIncoming(NMHDR *pNMHDR, LRESULT *pResult);

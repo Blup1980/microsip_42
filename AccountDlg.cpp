@@ -17,19 +17,33 @@
  */
 
 #include "StdAfx.h"
+#include "define.h"
+
 #include "AccountDlg.h"
 #include "mainDlg.h"
 #include "langpack.h"
+#include "utf.h"
 #include "atlrx.h"
-
 #include <ws2tcpip.h>
+
+static CString transportItems[] = {
+	_T("udp"),
+	_T("tcp"),
+	_T(""),
+	_T("tls"),
+};
+static CString transportValues[] = {
+	_T("UDP"),
+	_T("TCP"),
+	_T("UDP+TCP"),
+	_T("TLS"),
+};
 
 AccountDlg::AccountDlg(CWnd* pParent /*=NULL*/)
 : CDialog(AccountDlg::IDD, pParent)
 {
 	accountId = -1;
 	Create (IDD, pParent);
-
 }
 
 AccountDlg::~AccountDlg(void)
@@ -51,19 +65,18 @@ BOOL AccountDlg::OnInitDialog()
 	TranslateDialog(this->m_hWnd);
 
 	CString str;
-
 	str.Format(_T("<a>%s</a>"),Translate(_T("display password")));
 	GetDlgItem(IDC_SYSLINK_DISPLAY_PASSWORD)->SetWindowText(str);
 
 	CComboBox *combobox;
 
-	combobox= (CComboBox*)GetDlgItem(IDC_TRANSPORT);
-	str.Format(_T("%s (UDP & TCP)"), Translate(_T("Auto")));
-	combobox->AddString(str);
-	combobox->AddString(_T("UDP"));
-	combobox->AddString(_T("TCP"));
-	combobox->AddString(_T("TLS"));
+	combobox = (CComboBox*)GetDlgItem(IDC_TRANSPORT);
+	int n = sizeof(transportItems) / sizeof(transportItems[0]);
+	for (int i = 0; i < n; i++) {
+		combobox->AddString(Translate(transportValues[i].GetBuffer()));
+	}
 	combobox->SetCurSel(0);
+
 
 	combobox= (CComboBox*)GetDlgItem(IDC_SRTP);
 	combobox->AddString(Translate(_T("Disabled")));
@@ -166,6 +179,7 @@ void AccountDlg::Load(int id)
 	CEdit* edit;
 	CComboBox *combobox;
 	CString str;
+	int i;
 
 	int show = id ? SW_SHOW : SW_HIDE;
 	GetDlgItem(IDC_ACCOUNT_REQUIRED_USERNAME)->ShowWindow(show);
@@ -175,7 +189,6 @@ void AccountDlg::Load(int id)
 	GetDlgItem(IDC_ACCOUNT_REGISTER_REFRESH)->EnableWindow(id);
 	GetDlgItem(IDC_ACCOUNT_KEEP_ALIVE)->EnableWindow(id);
 	GetDlgItem(IDC_REWRITE)->EnableWindow(id);
-
 	accountId = id;
 	if (accountSettings.AccountLoad(id,&m_Account)) {
 		accountId = id;
@@ -200,7 +213,6 @@ void AccountDlg::Load(int id)
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_DOMAIN);
 	edit->SetWindowText(m_Account.domain);
 
-
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_AUTHID);
 	edit->SetWindowText(m_Account.authID);
 
@@ -224,20 +236,17 @@ void AccountDlg::Load(int id)
 	edit = (CEdit*)GetDlgItem(IDC_EDIT_VOICEMAIL);
 	edit->SetWindowText(m_Account.voicemailNumber);
 
-int i;
-
-	combobox= (CComboBox*)GetDlgItem(IDC_TRANSPORT);
-	if (m_Account.transport==_T("udp")) {
-		i=1;
-	} else if (m_Account.transport==_T("tcp")) {
-		i=2;
-	} else if (m_Account.transport==_T("tls")) {
-		i=3;
-	} else {
-		i=0;
+	combobox = (CComboBox*)GetDlgItem(IDC_TRANSPORT);
+	int n = sizeof(transportItems) / sizeof(transportItems[0]);
+	bool found = false;
+	for (int i = 0; i < n; i++) {
+		if (m_Account.transport == transportItems[i]) {
+			combobox->SetCurSel(i);
+			found = true;
+		}
 	}
-	if (i>0) {
-		combobox->SetCurSel(i);
+	if (!found) {
+		combobox->SetCurSel(0);
 	}
 
 	combobox= (CComboBox*)GetDlgItem(IDC_SRTP);
@@ -336,20 +345,7 @@ void AccountDlg::OnBnClickedOk()
 	m_Account.voicemailNumber=str.Trim();
 
 	combobox= (CComboBox*)GetDlgItem(IDC_TRANSPORT);
-	i = combobox->GetCurSel();
-	switch (i) {
-		case 1:
-			m_Account.transport=_T("udp");
-			break;
-		case 2:
-			m_Account.transport=_T("tcp");
-			break;
-		case 3:
-			m_Account.transport=_T("tls");
-			break;
-		default:
-			m_Account.transport=_T("");
-	}
+	m_Account.transport = transportItems[combobox->GetCurSel()];
 
 	m_Account.rememberPassword = 1;
 
@@ -408,7 +404,6 @@ void AccountDlg::OnBnClickedOk()
 		}
 	}
 
-
 	this->ShowWindow(SW_HIDE);
 	mainDlg->accountDlg = NULL;
 
@@ -438,6 +433,7 @@ void AccountDlg::OnBnClickedOk()
 			accountSettings.account.rememberPassword = false;
 		}
 		mainDlg->OnAccountChanged();
+		mainDlg->InitUI();
 		accountSettings.SettingsSave();
 		mainDlg->PJAccountAdd();
 	} else {

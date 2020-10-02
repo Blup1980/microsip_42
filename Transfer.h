@@ -38,6 +38,8 @@ public:
 	void SetAction(msip_action action);
 	void LoadFromContacts(Contact *selectedContact = NULL);
 protected:
+	CFont m_font;
+
 	void ClearDropdown();
 	afx_msg void OnDestroy();
 	virtual BOOL OnInitDialog();
@@ -46,6 +48,19 @@ protected:
 public:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnClose();
+	void Input(CString digits);
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnBnClickedOk();
+	afx_msg void OnBnClickedKey1();
+	afx_msg void OnBnClickedKey2();
+	afx_msg void OnBnClickedKey3();
+	afx_msg void OnBnClickedKey4();
+	afx_msg void OnBnClickedKey5();
+	afx_msg void OnBnClickedKey6();
+	afx_msg void OnBnClickedKey7();
+	afx_msg void OnBnClickedKey8();
+	afx_msg void OnBnClickedKey9();
+	afx_msg void OnBnClickedKeyStar();
+	afx_msg void OnBnClickedKey0();
+	afx_msg void OnBnClickedKeyGrate();
 };

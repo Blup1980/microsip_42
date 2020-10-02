@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "global.h"
+
 class AddDlg : public CDialog
 {
 
@@ -26,9 +28,15 @@ public:
 	virtual ~AddDlg();
 	enum { IDD = IDD_ADD };
 
-	int listIndex;
-
+	void Load(Contact* pContact);
+	
 protected:
+	CString number;
+	CString firstname;
+	CString lastname;
+	CString phone;
+	bool loading;
+	
 	virtual BOOL OnInitDialog();
 	virtual void PostNcDestroy();
 	DECLARE_MESSAGE_MAP()
@@ -37,4 +45,7 @@ public:
 	afx_msg void OnClose();
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnBnClickedCancel();
+	afx_msg void OnChangeFirstLastName();
+	afx_msg void OnChangePhoneNumber();
 };
+

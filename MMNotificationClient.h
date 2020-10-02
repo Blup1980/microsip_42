@@ -112,6 +112,7 @@ class CMMNotificationClient : public IMMNotificationClient
 		  EDataFlow flow, ERole role,
 		  LPCWSTR pwstrDeviceId)
 	  {
+		  OnDeviceStateChanged(pwstrDeviceId, 0);
 		  return S_OK;
 	  }
 

@@ -26,8 +26,6 @@
 #include <vector>
 #include <algorithm>
 
-using namespace MSIP;
-
 RinginDlg::RinginDlg(CWnd* pParent /*=NULL*/)
 	: CBaseDialog(RinginDlg::IDD, pParent)
 {
@@ -116,7 +114,7 @@ BOOL RinginDlg::OnInitDialog() {
 		} else {
 			if (accountSettings.ringinX || accountSettings.ringinY) {
 				CRect screenRect;
-				GetScreenRect(&screenRect);
+				MSIP::GetScreenRect(&screenRect);
 				CRect rect;
 				GetWindowRect(&rect);
 				int maxLeft = screenRect.right-rect.Width();
@@ -141,9 +139,9 @@ BOOL RinginDlg::OnInitDialog() {
 			}
 		}
 	}
-	SetWindowPos(NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+	SetWindowPos(accountSettings.bringToFrontOnIncoming ? &this->wndTopMost : &this->wndNoTopMost, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
 	if (accountSettings.bringToFrontOnIncoming) {
-		if (!accountSettings.silent) {
+		if (!MACRO_SILENT) {
 			if (mainDlg->IsWindowVisible()) {
 				if (mainDlg->IsIconic()) {
 					mainDlg->ShowWindow(SW_RESTORE);
@@ -244,7 +242,7 @@ void RinginDlg::OnBnClickedDecline()
 		pjsua_call_info call_info;
 		pjsua_call_get_info(call_id, &call_info);
 		msip_call_busy(call_id);
-		mainDlg->callIdIncomingIgnore = PjToStr(&call_info.call_id);
+		mainDlg->callIdIncomingIgnore = MSIP::PjToStr(&call_info.call_id);
 	}
 	Close();
 }

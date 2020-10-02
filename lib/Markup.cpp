@@ -91,6 +91,20 @@ bool CMarkup::IsWellFormed()
 	return false;
 }
 
+bool CMarkup::FindAttrib( LPCTSTR szAttrib )
+{
+	// Return the value of the attrib
+	TokenPos token( m_csDoc );
+	if ( m_iPos && m_nNodeType == MNT_ELEMENT )
+		token.nNext = m_aPos[m_iPos].nStartL + 1;
+	else
+		return false;
+
+	if ( szAttrib && x_FindAttrib( token, szAttrib ) )
+		return true;
+	return false;
+}
+
 bool CMarkup::FindElem( LPCTSTR szName )
 {
 	// Change current position only if found
