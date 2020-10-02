@@ -1651,20 +1651,18 @@ BOOL CmainDlg::OnInitDialog()
 	joyStickCaptured = false;
 	mainDlg->SetTimer(IDT_TIMER_JOYSTICK,1000, NULL);
 
-	if (!accountSettings.hidden) {
+	SetupJumpList();
+	m_hIcon = theApp.LoadIcon(IDR_MAINFRAME);
+	iconSmall = (HICON)LoadImage(
+		AfxGetInstanceHandle(),
+		MAKEINTRESOURCE(IDR_MAINFRAME),
+		IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED);
+	PostMessage(WM_SETICON, ICON_SMALL, (LPARAM)iconSmall);
 
-		SetupJumpList();
-		m_hIcon = theApp.LoadIcon(IDR_MAINFRAME);
-		iconSmall = (HICON)LoadImage(
-			AfxGetInstanceHandle(),
-			MAKEINTRESOURCE(IDR_MAINFRAME),
-			IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED);
-		PostMessage(WM_SETICON, ICON_SMALL, (LPARAM)iconSmall);
+	TranslateDialog(this->m_hWnd);
 
-		TranslateDialog(this->m_hWnd);
-
-		SetIcon(m_hIcon, TRUE);			// Set big icon
-		SetIcon(m_hIcon, FALSE);		// Set small icon
+	SetIcon(m_hIcon, TRUE);			// Set big icon
+	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// add tray icon or set tnd.hWnd = NULL;
 	ShowTrayIcon();
